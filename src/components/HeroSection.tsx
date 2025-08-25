@@ -11,17 +11,17 @@ const HeroSection = () => {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="text-center lg:text-left">
             <div className="flex items-center justify-center lg:justify-start mb-6">
-              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-                <TrendingUp className="h-8 w-8 text-white" />
+              <div className="bg-primary/20 backdrop-blur-sm rounded-full p-3 border border-primary/30">
+                <TrendingUp className="h-8 w-8 text-primary-foreground" />
               </div>
             </div>
             
-            <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6">
+            <h1 className="text-5xl lg:text-6xl font-bold text-primary-foreground mb-6">
               Descubra a Posição do Seu Site
               <span className="block text-accent-foreground">nos Resultados de Busca</span>
             </h1>
             
-            <p className="text-xl text-white/90 mb-8 max-w-2xl">
+            <p className="text-xl text-primary-foreground/90 mb-8 max-w-2xl">
               Digite seu site e palavras-chave para descobrir exatamente onde você está rankeando no Google. 
               Monitore sua posição e otimize sua estratégia de SEO.
             </p>
@@ -33,7 +33,7 @@ const HeroSection = () => {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               
-              <Button variant="outline" size="lg" className="border-white/30 text-white hover:bg-white/10">
+              <Button variant="outline" size="lg" className="border-primary/30 text-primary-foreground hover:bg-primary/10">
                 Como Funciona
               </Button>
             </div>
@@ -53,7 +53,7 @@ const HeroSection = () => {
       </div>
       
       {/* Decorative elements */}
-      <div className="absolute top-20 left-10 w-20 h-20 bg-white/10 rounded-full blur-xl"></div>
+      <div className="absolute top-20 left-10 w-20 h-20 bg-primary/10 rounded-full blur-xl"></div>
       <div className="absolute bottom-20 right-10 w-32 h-32 bg-accent/20 rounded-full blur-xl"></div>
     </section>
   );
