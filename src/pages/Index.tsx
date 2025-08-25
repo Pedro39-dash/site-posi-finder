@@ -2,6 +2,7 @@ import { useState } from "react";
 import HeroSection from "@/components/HeroSection";
 import SearchForm from "@/components/SearchForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
+import SimulationNotice from "@/components/SimulationNotice";
 
 interface SearchResult {
   keyword: string;
@@ -13,17 +14,52 @@ const Index = () => {
   const [searchResults, setSearchResults] = useState<{ website: string; results: SearchResult[] } | null>(null);
   const [showDashboard, setShowDashboard] = useState(false);
 
-  // Mock function to simulate API call for position checking
-  const generateMockResults = (keywords: string[]): SearchResult[] => {
-    return keywords.map(keyword => ({
-      keyword,
-      position: Math.random() > 0.2 ? Math.floor(Math.random() * 100) + 1 : null,
-      previousPosition: Math.random() > 0.5 ? Math.floor(Math.random() * 100) + 1 : undefined,
-    }));
+  // Enhanced mock function with realistic position distribution and caching
+  const generateMockResults = (website: string, keywords: string[]): SearchResult[] => {
+    const cacheKey = `seo_results_${website}_${keywords.join('_')}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const results = keywords.map(keyword => {
+      // More realistic position distribution
+      const rand = Math.random();
+      let position: number | null = null;
+      
+      // 15% not found, 10% in top 3, 25% in top 10, 50% beyond position 10
+      if (rand > 0.15) {
+        if (rand > 0.85) {
+          position = Math.floor(Math.random() * 3) + 1; // Top 3
+        } else if (rand > 0.60) {
+          position = Math.floor(Math.random() * 7) + 4; // 4-10
+        } else {
+          position = Math.floor(Math.random() * 90) + 11; // 11-100
+        }
+      }
+
+      // Generate previous position for trend calculation
+      const previousPosition = position && Math.random() > 0.3 
+        ? Math.max(1, position + (Math.floor(Math.random() * 20) - 10))
+        : undefined;
+
+      return {
+        keyword,
+        position,
+        previousPosition,
+      };
+    });
+
+    // Cache results for 5 minutes
+    localStorage.setItem(cacheKey, JSON.stringify(results));
+    setTimeout(() => localStorage.removeItem(cacheKey), 5 * 60 * 1000);
+    
+    return results;
   };
 
   const handleSearch = (data: { website: string; keywords: string[] }) => {
-    const results = generateMockResults(data.keywords);
+    const results = generateMockResults(data.website, data.keywords);
     setSearchResults({ website: data.website, results });
     setShowDashboard(true);
   };
@@ -71,6 +107,7 @@ const Index = () => {
           
           <div className="py-16">
             <div className="container mx-auto px-4">
+              <SimulationNotice />
               {searchResults && (
                 <ResultsDisplay 
                   website={searchResults.website} 
