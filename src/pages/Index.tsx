@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
+import { ArrowLeft } from "lucide-react";
 import HeroSection from "@/components/HeroSection";
 import SearchForm from "@/components/SearchForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
@@ -70,55 +72,67 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen">
-      {!showDashboard ? (
-        <>
-          <HeroSection />
-          
-          <section className="py-16 bg-background">
-            <div className="container mx-auto px-4">
-              <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold mb-4">Comece Agora</h2>
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  Digite o URL do seu site e as palavras-chave que você quer rastrear para descobrir sua posição atual no Google.
-                </p>
+    <>
+      <Helmet>
+        <title>SEO Dashboard - Verificar Posições no Google</title>
+        <meta 
+          name="description" 
+          content="Descubra exatamente onde seu site está posicionado no Google. Analise palavras-chave, monitore posições e otimize sua estratégia de SEO." 
+        />
+        <meta name="keywords" content="seo, posições google, ranking, palavras-chave, otimização, busca" />
+        <link rel="canonical" href="/" />
+      </Helmet>
+
+      <div className="min-h-screen bg-background lg:pl-80">
+        <div className="pt-16 lg:pt-0">
+          {!showDashboard ? (
+            <>
+              <HeroSection />
+              
+              <section className="py-16 bg-secondary/50">
+                <div className="container mx-auto px-4">
+                  <div className="text-center mb-12">
+                    <h2 className="text-3xl font-bold text-foreground mb-4">
+                      Descubra Sua Posição Atual
+                    </h2>
+                    <p className="text-muted-foreground max-w-2xl mx-auto">
+                      Digite o URL do seu site e as palavras-chave que deseja monitorar. 
+                      Nossa ferramenta irá verificar sua posição atual nos resultados do Google.
+                    </p>
+                  </div>
+                  
+                  <SearchForm onSearch={handleSearch} />
+                </div>
+              </section>
+            </>
+          ) : (
+            <main className="pt-8">
+              <div className="container mx-auto px-4 mb-8">
+                <button
+                  onClick={handleNewSearch}
+                  className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Nova Pesquisa
+                </button>
               </div>
               
-              <SearchForm onSearch={handleSearch} />
-            </div>
-          </section>
-        </>
-      ) : (
-        <div className="min-h-screen bg-background">
-          <div className="bg-gradient-hero text-white py-16">
-            <div className="container mx-auto px-4 text-center">
-              <h1 className="text-4xl font-bold mb-4">Resultados da Análise SEO</h1>
-              <p className="text-xl opacity-90 mb-6">
-                Posições encontradas para suas palavras-chave
-              </p>
-              <button 
-                onClick={handleNewSearch}
-                className="bg-white/20 hover:bg-white/30 px-6 py-3 rounded-lg backdrop-blur-sm transition-all"
-              >
-                Nova Pesquisa
-              </button>
-            </div>
-          </div>
-          
-          <div className="py-16">
-            <div className="container mx-auto px-4">
-              <SimulationNotice />
-              {searchResults && (
-                <ResultsDisplay 
-                  website={searchResults.website} 
-                  results={searchResults.results} 
-                />
-              )}
-            </div>
-          </div>
+              <div className="py-16">
+                <div className="container mx-auto px-4">
+                  <SimulationNotice />
+                  {searchResults && (
+                    <ResultsDisplay 
+                      website={searchResults.website} 
+                      results={searchResults.results} 
+                    />
+                  )}
+                </div>
+              </div>
+            </main>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 };
 
