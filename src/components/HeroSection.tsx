@@ -33,7 +33,16 @@ const HeroSection = () => {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               
-              <Button variant="outline" size="lg" className="border-primary/30 text-primary-foreground hover:bg-primary/10">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="border-white/30 text-white hover:bg-white/10 backdrop-blur-sm"
+                onClick={() => {
+                  document.getElementById('how-it-works')?.scrollIntoView({ 
+                    behavior: 'smooth' 
+                  });
+                }}
+              >
                 Como Funciona
               </Button>
             </div>

@@ -5,6 +5,7 @@ import HeroSection from "@/components/HeroSection";
 import SearchForm from "@/components/SearchForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
 import SimulationNotice from "@/components/SimulationNotice";
+import HowItWorks from "@/components/HowItWorks";
 
 interface SearchResult {
   keyword: string;
@@ -88,6 +89,7 @@ const Index = () => {
           {!showDashboard ? (
             <>
               <HeroSection />
+              <HowItWorks />
               
               <section className="py-16 bg-secondary/50">
                 <div className="container mx-auto px-4">
