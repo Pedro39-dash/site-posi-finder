@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { BarChart3, Search, GitCompare, Monitor, Menu, X } from "lucide-react";
+import { BarChart3, Search, GitCompare, Monitor, Menu, X, LogOut, User } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { title: "Análise Individual", path: "/", icon: Search },
@@ -50,13 +52,33 @@ const Navigation = () => {
         </ul>
       </nav>
       
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-4 border-t border-border space-y-4">
+        {user && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/50">
+            <User className="h-4 w-4" />
+            <span className="text-sm font-medium">{user.username}</span>
+          </div>
+        )}
+        
+        <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
             <p className="font-medium mb-1">Ferramentas SEO</p>
             <p>Analise, compare e monitore posições</p>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {user && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
