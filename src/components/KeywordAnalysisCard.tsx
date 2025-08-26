@@ -16,8 +16,12 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
 
   // Extract relevant keywords from audit results
   const extractKeywords = () => {
-    if (!results) return [];
+    if (!results) {
+      console.log('🔍 No results provided to extractKeywords');
+      return [];
+    }
 
+    console.log('🔍 Extracting keywords from results:', results);
     let keywords: string[] = [];
     
     // Find the AI search optimization category specifically
@@ -25,21 +29,56 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       category.category === 'ai_search_optimization'
     );
     
+    console.log('🔍 AI optimization category found:', aiOptimizationCategory);
+    
     if (aiOptimizationCategory?.issues) {
-      aiOptimizationCategory.issues.forEach((issue: any) => {
-        if (issue.metadata?.keywords) {
-          keywords.push(...issue.metadata.keywords);
-        }
+      // Sort issues by created_at desc to get the most recent first
+      const sortedIssues = [...aiOptimizationCategory.issues].sort((a: any, b: any) => {
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
+        return dateB - dateA;
       });
+      
+      console.log('🔍 Sorted issues by date:', sortedIssues.length);
+      
+      // Look for the most recent issue with valid metadata and keywords
+      for (const issue of sortedIssues) {
+        console.log('🔍 Checking issue metadata:', issue.metadata);
+        
+        if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+          // Filter out HTML entities and corrupted data
+          const validKeywords = issue.metadata.keywords.filter((keyword: string) => 
+            keyword && 
+            typeof keyword === 'string' && 
+            !keyword.includes('&') && // No HTML entities
+            keyword.length > 1 &&
+            keyword.length < 50 // Reasonable length
+          );
+          
+          if (validKeywords.length > 5) { // Only use if we have enough valid keywords
+            console.log('🔍 Found valid keywords:', validKeywords.length, 'keywords');
+            keywords.push(...validKeywords);
+            break; // Use the first (most recent) valid set
+          }
+        }
+      }
     }
     
-    // If no keywords found in AI optimization, try other categories
+    // If no keywords found in AI optimization, try other categories as fallback
     if (keywords.length === 0) {
+      console.log('🔍 No keywords in AI category, trying other categories');
       results.forEach(category => {
         if (category.issues) {
           category.issues.forEach((issue: any) => {
-            if (issue.metadata?.keywords) {
-              keywords.push(...issue.metadata.keywords);
+            if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+              const validKeywords = issue.metadata.keywords.filter((keyword: string) => 
+                keyword && 
+                typeof keyword === 'string' && 
+                !keyword.includes('&') && 
+                keyword.length > 1 &&
+                keyword.length < 50
+              );
+              keywords.push(...validKeywords);
             }
           });
         }
@@ -56,6 +95,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       keyword && keyword.length > 2 && !stopWords.has(keyword.toLowerCase())
     );
 
+    console.log('🔍 Final extracted keywords:', uniqueKeywords.length, uniqueKeywords);
     return uniqueKeywords.slice(0, 15); // Top 15 keywords
   };
 
@@ -64,16 +104,41 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     const domain = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
     const keywords = extractKeywords();
     
+    console.log('🤖 Generating AI prompts for domain:', domain);
+    console.log('🤖 Available keywords:', keywords);
+    
     // Try to get prompts from the audit results first
     const aiOptimizationCategory = results?.find(category => 
       category.category === 'ai_search_optimization'
     );
     
-    const existingPrompts = aiOptimizationCategory?.issues
-      .find((issue: any) => issue.metadata?.prompts)?.metadata?.prompts || [];
+    console.log('🤖 AI optimization category for prompts:', aiOptimizationCategory);
     
-    if (existingPrompts.length > 0) {
-      return existingPrompts.slice(0, 8);
+    if (aiOptimizationCategory?.issues) {
+      // Sort issues by created_at desc to get the most recent first
+      const sortedIssues = [...aiOptimizationCategory.issues].sort((a: any, b: any) => {
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+      
+      // Look for the most recent issue with valid prompts
+      for (const issue of sortedIssues) {
+        if (issue.metadata?.prompts && Array.isArray(issue.metadata.prompts)) {
+          const validPrompts = issue.metadata.prompts.filter((prompt: string) => 
+            prompt && 
+            typeof prompt === 'string' && 
+            !prompt.includes('&') && // No HTML entities
+            prompt.length > 10 &&
+            prompt.length < 200
+          );
+          
+          if (validPrompts.length > 3) {
+            console.log('🤖 Found valid prompts:', validPrompts.length, 'prompts');
+            return validPrompts.slice(0, 8);
+          }
+        }
+      }
     }
     
     // Fallback: generate prompts based on keywords and domain
