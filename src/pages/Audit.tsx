@@ -37,6 +37,8 @@ const Audit = () => {
   const [currentAuditId, setCurrentAuditId] = useState<string | null>(null);
   const [previousAudits, setPreviousAudits] = useState<AuditReport[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [urlError, setUrlError] = useState<string>("");
+  const [auditError, setAuditError] = useState<string>("");
 
   // Load previous audits on component mount
   useEffect(() => {
@@ -50,19 +52,71 @@ const Audit = () => {
     }
   };
 
+  // Validate and normalize URL
+  const validateAndNormalizeUrl = (inputUrl: string): { isValid: boolean; normalizedUrl: string; error: string } => {
+    if (!inputUrl.trim()) {
+      return { isValid: false, normalizedUrl: '', error: 'URL é obrigatória' };
+    }
+
+    let normalizedUrl = inputUrl.trim();
+    
+    // Add protocol if missing
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
+    
+    try {
+      const urlObj = new URL(normalizedUrl);
+      
+      // Basic validation
+      if (!urlObj.hostname || urlObj.hostname.length < 3) {
+        return { isValid: false, normalizedUrl, error: 'URL inválida' };
+      }
+      
+      // Check for valid domain pattern
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/.test(urlObj.hostname)) {
+        return { isValid: false, normalizedUrl, error: 'Domínio inválido' };
+      }
+      
+      return { isValid: true, normalizedUrl, error: '' };
+    } catch {
+      return { isValid: false, normalizedUrl, error: 'Formato de URL inválido' };
+    }
+  };
+
+  const handleUrlChange = (value: string) => {
+    setUrl(value);
+    setUrlError('');
+    setAuditError('');
+    
+    if (value.trim()) {
+      const validation = validateAndNormalizeUrl(value);
+      if (!validation.isValid) {
+        setUrlError(validation.error);
+      }
+    }
+  };
+
   const handleAudit = async () => {
-    if (!url.trim()) return;
+    const validation = validateAndNormalizeUrl(url);
+    
+    if (!validation.isValid) {
+      setUrlError(validation.error);
+      return;
+    }
     
     setIsScanning(true);
     setResults(null);
     setOverallScore(0);
     setCurrentAuditId(null);
+    setAuditError('');
     
     try {
-      const result = await AuditService.startAudit(url.trim(), focusKeyword.trim() || undefined);
+      const result = await AuditService.startAudit(validation.normalizedUrl, focusKeyword.trim() || undefined);
       
       if (result.success && result.auditId) {
         setCurrentAuditId(result.auditId);
+        setUrl(validation.normalizedUrl); // Update with normalized URL
         toast({
           title: "Auditoria iniciada",
           description: "Analisando seu site... isso pode levar alguns minutos.",
@@ -75,9 +129,10 @@ const Audit = () => {
       }
     } catch (error) {
       console.error('Error starting audit:', error);
+      setAuditError(error.message || 'Falha ao iniciar auditoria');
       toast({
         title: "Erro",
-        description: "Falha ao iniciar auditoria. Tente novamente.",
+        description: "Falha ao iniciar auditoria. Verifique a URL e tente novamente.",
         variant: "destructive",
       });
       setIsScanning(false);
@@ -101,6 +156,7 @@ const Audit = () => {
             setResults(report.categories);
             setOverallScore(report.overall_score);
             setIsScanning(false);
+            setAuditError('');
             loadPreviousAudits(); // Refresh the history
             
             toast({
@@ -109,12 +165,20 @@ const Audit = () => {
             });
             return;
           } else if (report.status === 'failed') {
-            throw new Error('Audit failed');
+            const errorMsg = report.metadata?.error || 'Falha na auditoria';
+            setAuditError(errorMsg);
+            setIsScanning(false);
+            toast({
+              title: "Auditoria falhou",
+              description: errorMsg,
+              variant: "destructive",
+            });
+            return; // Stop polling
           } else if (attempts < maxAttempts) {
             // Continue polling
             setTimeout(poll, 5000); // Poll every 5 seconds
           } else {
-            throw new Error('Audit timeout');
+            throw new Error('Auditoria expirou - tempo limite excedido');
           }
         } else {
           throw new Error(result.error || 'Failed to get audit status');
@@ -292,16 +356,26 @@ const Audit = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex gap-4">
-                  <Input
-                    placeholder="Digite a URL do site (ex: https://seusite.com)"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    disabled={isScanning}
-                    className="flex-1"
-                  />
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Digite a URL do site (ex: https://seusite.com)"
+                      value={url}
+                      onChange={(e) => handleUrlChange(e.target.value)}
+                      disabled={isScanning}
+                      className={`${urlError ? 'border-red-500' : ''}`}
+                    />
+                    {urlError && (
+                      <p className="text-sm text-red-500 mt-1">{urlError}</p>
+                    )}
+                    {url && !urlError && validateAndNormalizeUrl(url).normalizedUrl !== url && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        URL será normalizada para: {validateAndNormalizeUrl(url).normalizedUrl}
+                      </p>
+                    )}
+                  </div>
                   <Button 
                     onClick={handleAudit}
-                    disabled={isScanning || !url.trim()}
+                    disabled={isScanning || !url.trim() || !!urlError}
                     className="min-w-[120px]"
                   >
                     {isScanning ? "Analisando..." : "Auditar"}
@@ -383,6 +457,38 @@ const Audit = () => {
             </Card>
           )}
 
+          {/* Error State */}
+          {auditError && !isScanning && (
+            <Card className="mb-8 border-red-200">
+              <CardContent className="py-6">
+                <div className="text-center">
+                  <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-red-700 mb-2">Erro na Auditoria</h3>
+                  <p className="text-red-600 mb-4">{auditError}</p>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <p>Possíveis causas:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>URL inacessível ou site fora do ar</li>
+                      <li>Bloqueio por robots.txt ou firewall</li>
+                      <li>Formato de URL inválido</li>
+                      <li>Timeout de conexão</li>
+                    </ul>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setAuditError('');
+                      setUrl('');
+                    }}
+                    variant="outline"
+                    className="mt-4"
+                  >
+                    Tentar Nova URL
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Loading State */}
           {isScanning && (
             <Card className="mb-8">
@@ -397,6 +503,11 @@ const Audit = () => {
                       Este processo pode levar alguns minutos para uma análise completa
                     </p>
                     <Progress value={33} className="max-w-md mx-auto" />
+                    {currentAuditId && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        ID da auditoria: {currentAuditId}
+                      </p>
+                    )}
                   </div>
               </CardContent>
             </Card>

@@ -21,6 +21,7 @@ export interface AuditReport {
   created_at: string;
   completed_at?: string;
   categories?: AuditResult[];
+  metadata?: { error?: string; technical_error?: string; [key: string]: any };
 }
 
 export class AuditService {
@@ -103,6 +104,7 @@ export class AuditService {
           report: {
             ...report,
             status: report.status as 'pending' | 'analyzing' | 'completed' | 'failed',
+            metadata: report.metadata as { error?: string; technical_error?: string; [key: string]: any } | undefined,
             categories: formattedCategories
           }
         };
@@ -112,7 +114,8 @@ export class AuditService {
         success: true, 
         report: {
           ...report,
-          status: report.status as 'pending' | 'analyzing' | 'completed' | 'failed'
+          status: report.status as 'pending' | 'analyzing' | 'completed' | 'failed',
+          metadata: report.metadata as { error?: string; technical_error?: string; [key: string]: any } | undefined
         }
       };
     } catch (error) {
@@ -145,7 +148,8 @@ export class AuditService {
         success: true, 
         audits: (audits || []).map(audit => ({
           ...audit,
-          status: audit.status as 'pending' | 'analyzing' | 'completed' | 'failed'
+          status: audit.status as 'pending' | 'analyzing' | 'completed' | 'failed',
+          metadata: audit.metadata as { error?: string; technical_error?: string; [key: string]: any } | undefined
         }))
       };
     } catch (error) {

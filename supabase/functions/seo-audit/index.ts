@@ -5,6 +5,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Validate and normalize URL
+function validateAndNormalizeUrl(inputUrl: string): { isValid: boolean; normalizedUrl: string; error: string } {
+  if (!inputUrl?.trim()) {
+    return { isValid: false, normalizedUrl: '', error: 'URL is required' };
+  }
+
+  let normalizedUrl = inputUrl.trim();
+  
+  // Add protocol if missing
+  if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+    normalizedUrl = 'https://' + normalizedUrl;
+  }
+  
+  try {
+    const urlObj = new URL(normalizedUrl);
+    
+    // Basic validation
+    if (!urlObj.hostname || urlObj.hostname.length < 3) {
+      return { isValid: false, normalizedUrl, error: 'Invalid hostname' };
+    }
+    
+    // Check for valid domain pattern
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/.test(urlObj.hostname)) {
+      return { isValid: false, normalizedUrl, error: 'Invalid domain format' };
+    }
+    
+    return { isValid: true, normalizedUrl, error: '' };
+  } catch (error) {
+    return { isValid: false, normalizedUrl, error: `Invalid URL format: ${error.message}` };
+  }
+}
+
 interface AuditCategory {
   category: string;
   score: number;
@@ -99,30 +131,29 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
   console.log(`🚀 Starting SEO audit for: ${url}, Audit ID: ${auditId}`);
   
   try {
-    // Update status to analyzing
+    // Validate URL before proceeding
+    const validation = validateAndNormalizeUrl(url);
+    if (!validation.isValid) {
+      throw new Error(`Invalid URL: ${validation.error}`);
+    }
+    
+    // Update status to analyzing and store normalized URL
     await supabase
       .from('audit_reports')
       .update({ 
         status: 'analyzing',
-        updated_at: new Date().toISOString()
+        url: validation.normalizedUrl // Store normalized URL
       })
       .eq('id', auditId);
 
-    console.log(`🚀 Starting SEO audit for: ${url}, Audit ID: ${auditId}`);
+    // Fetch webpage content
+    const html = await fetchWebpageContent(validation.normalizedUrl);
 
-    // Fetch the webpage content
-    console.log(`🌐 Fetching webpage content from: ${url}`);
-    const htmlContent = await fetchWebpageContent(url);
-    console.log(`✅ Webpage content fetched successfully, length: ${htmlContent.length} characters`);
-    
     // Analyze HTML content
-    console.log(`🔍 Starting HTML analysis...`);
-    const htmlAnalysis = analyzeHTML(htmlContent, url, focusKeyword);
-    console.log(`✅ HTML analysis completed, ${htmlAnalysis.length} categories analyzed`);
-    
+    const htmlAnalysis = analyzeHTML(html, validation.normalizedUrl, focusKeyword);
+
     // Get PageSpeed Insights data
-    console.log(`⚡ Fetching PageSpeed Insights data...`);
-    const pageSpeedData = await getPageSpeedInsights(url);
+    const pageSpeedData = await getPageSpeedInsights(validation.normalizedUrl);
     
     if (pageSpeedData) {
       console.log(`✅ PageSpeed Insights data received successfully`);
@@ -190,41 +221,139 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
 
   } catch (error) {
     console.error(`❌ Error performing SEO audit for ${url}:`, error);
-    console.error(`🔍 Error details:`, {
+    console.log('🔍 Error details:', JSON.stringify({
       message: error.message,
       stack: error.stack,
-      url: url,
-      auditId: auditId
-    });
+      url,
+      auditId
+    }, null, 2));
     
-    // Update audit report with failed status
+    // Provide more specific error messages
+    let userFriendlyError = error.message;
+    
+    if (error.message.includes('Invalid URL')) {
+      userFriendlyError = 'URL inválida. Verifique o formato da URL.';
+    } else if (error.message.includes('Failed to fetch')) {
+      userFriendlyError = 'Não foi possível acessar o site. Verifique se o site está online e acessível.';
+    } else if (error.message.includes('HTTP 403')) {
+      userFriendlyError = 'Acesso negado pelo site. O site pode estar bloqueando auditorias automatizadas.';
+    } else if (error.message.includes('HTTP 404')) {
+      userFriendlyError = 'Página não encontrada. Verifique se a URL está correta.';
+    } else if (error.message.includes('HTTP 500')) {
+      userFriendlyError = 'Erro interno do servidor do site. Tente novamente mais tarde.';
+    } else if (error.message.includes('timeout') || error.message.includes('TIMEOUT')) {
+      userFriendlyError = 'Tempo limite excedido. O site demorou muito para responder.';
+    }
+    
+    // Update audit report with error status
     await supabase
       .from('audit_reports')
-      .update({
+      .update({ 
         status: 'failed',
-        metadata: { error: error.message }
+        metadata: { 
+          error: userFriendlyError,
+          technical_error: error.message
+        }
       })
       .eq('id', auditId);
   }
 }
 
-async function fetchWebpageContent(url: string): Promise<string> {
+// Validate and normalize URL
+function validateAndNormalizeUrl(inputUrl: string): { isValid: boolean; normalizedUrl: string; error: string } {
+  if (!inputUrl?.trim()) {
+    return { isValid: false, normalizedUrl: '', error: 'URL is required' };
+  }
+
+  let normalizedUrl = inputUrl.trim();
+  
+  // Add protocol if missing
+  if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+    normalizedUrl = 'https://' + normalizedUrl;
+  }
+  
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; SEO-Audit-Bot/1.0)'
-      }
-    });
+    const urlObj = new URL(normalizedUrl);
     
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    // Basic validation
+    if (!urlObj.hostname || urlObj.hostname.length < 3) {
+      return { isValid: false, normalizedUrl, error: 'Invalid hostname' };
     }
     
-    return await response.text();
+    // Check for valid domain pattern
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/.test(urlObj.hostname)) {
+      return { isValid: false, normalizedUrl, error: 'Invalid domain format' };
+    }
+    
+    return { isValid: true, normalizedUrl, error: '' };
   } catch (error) {
-    console.error('Error fetching webpage:', error);
-    throw new Error(`Failed to fetch webpage: ${error.message}`);
+    return { isValid: false, normalizedUrl, error: `Invalid URL format: ${error.message}` };
   }
+}
+
+async function fetchWebpageContent(url: string): Promise<string> {
+  console.log(`🌐 Fetching webpage content from: ${url}`);
+  
+  // Validate and normalize URL first
+  const validation = validateAndNormalizeUrl(url);
+  if (!validation.isValid) {
+    throw new Error(`Invalid URL: ${validation.error}`);
+  }
+  
+  const normalizedUrl = validation.normalizedUrl;
+  
+  // Try HTTPS first, then HTTP as fallback
+  const urlsToTry = [
+    normalizedUrl,
+    normalizedUrl.replace('https://', 'http://')
+  ];
+  
+  for (const tryUrl of urlsToTry) {
+    try {
+      console.log(`🔄 Attempting to fetch: ${tryUrl}`);
+      
+      const response = await fetch(tryUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; SEO-Audit-Bot/1.0; +https://seo-audit.com/bot)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'DNT': '1',
+          'Connection': 'keep-alive'
+        },
+        method: 'GET',
+        redirect: 'follow'
+      });
+      
+      if (!response.ok) {
+        console.log(`❌ HTTP ${response.status} for ${tryUrl}: ${response.statusText}`);
+        if (tryUrl === urlsToTry[urlsToTry.length - 1]) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        continue; // Try next URL
+      }
+      
+      const html = await response.text();
+      console.log(`✅ Successfully fetched content from: ${tryUrl} (${html.length} characters)`);
+      
+      if (html.length < 100) {
+        throw new Error('Retrieved content is too short (likely an error page)');
+      }
+      
+      return html;
+      
+    } catch (error) {
+      console.error(`❌ Error fetching ${tryUrl}:`, error.message);
+      
+      if (tryUrl === urlsToTry[urlsToTry.length - 1]) {
+        // Last attempt failed
+        throw new Error(`Failed to fetch webpage: ${error.message}`);
+      }
+      // Continue to next URL
+    }
+  }
+  
+  throw new Error('All fetch attempts failed');
 }
 
 function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCategory[] {
