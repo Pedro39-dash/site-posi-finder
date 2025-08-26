@@ -126,6 +126,203 @@ export type Database = {
         }
         Relationships: []
       }
+      competitor_analyses: {
+        Row: {
+          audit_report_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          overall_competitiveness_score: number | null
+          status: string
+          target_domain: string
+          total_competitors: number | null
+          total_keywords: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audit_report_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          overall_competitiveness_score?: number | null
+          status?: string
+          target_domain: string
+          total_competitors?: number | null
+          total_keywords?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audit_report_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          overall_competitiveness_score?: number | null
+          status?: string
+          target_domain?: string
+          total_competitors?: number | null
+          total_keywords?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_analyses_audit_report_id_fkey"
+            columns: ["audit_report_id"]
+            isOneToOne: false
+            referencedRelation: "audit_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_domains: {
+        Row: {
+          analysis_id: string
+          average_position: number | null
+          created_at: string
+          detected_automatically: boolean | null
+          domain: string
+          id: string
+          metadata: Json | null
+          relevance_score: number | null
+          share_of_voice: number | null
+          total_keywords_found: number | null
+        }
+        Insert: {
+          analysis_id: string
+          average_position?: number | null
+          created_at?: string
+          detected_automatically?: boolean | null
+          domain: string
+          id?: string
+          metadata?: Json | null
+          relevance_score?: number | null
+          share_of_voice?: number | null
+          total_keywords_found?: number | null
+        }
+        Update: {
+          analysis_id?: string
+          average_position?: number | null
+          created_at?: string
+          detected_automatically?: boolean | null
+          domain?: string
+          id?: string
+          metadata?: Json | null
+          relevance_score?: number | null
+          share_of_voice?: number | null
+          total_keywords_found?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_domains_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_keywords: {
+        Row: {
+          analysis_id: string
+          competition_level: string | null
+          competitor_positions: Json | null
+          created_at: string
+          id: string
+          keyword: string
+          metadata: Json | null
+          search_volume: number | null
+          target_domain_position: number | null
+        }
+        Insert: {
+          analysis_id: string
+          competition_level?: string | null
+          competitor_positions?: Json | null
+          created_at?: string
+          id?: string
+          keyword: string
+          metadata?: Json | null
+          search_volume?: number | null
+          target_domain_position?: number | null
+        }
+        Update: {
+          analysis_id?: string
+          competition_level?: string | null
+          competitor_positions?: Json | null
+          created_at?: string
+          id?: string
+          keyword?: string
+          metadata?: Json | null
+          search_volume?: number | null
+          target_domain_position?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_keywords_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      keyword_opportunities: {
+        Row: {
+          analysis_id: string
+          best_competitor_domain: string | null
+          best_competitor_position: number | null
+          created_at: string
+          gap_size: number | null
+          id: string
+          keyword: string
+          metadata: Json | null
+          opportunity_type: string
+          priority_score: number | null
+          recommended_action: string | null
+          target_position: number | null
+        }
+        Insert: {
+          analysis_id: string
+          best_competitor_domain?: string | null
+          best_competitor_position?: number | null
+          created_at?: string
+          gap_size?: number | null
+          id?: string
+          keyword: string
+          metadata?: Json | null
+          opportunity_type: string
+          priority_score?: number | null
+          recommended_action?: string | null
+          target_position?: number | null
+        }
+        Update: {
+          analysis_id?: string
+          best_competitor_domain?: string | null
+          best_competitor_position?: number | null
+          created_at?: string
+          gap_size?: number | null
+          id?: string
+          keyword?: string
+          metadata?: Json | null
+          opportunity_type?: string
+          priority_score?: number | null
+          recommended_action?: string | null
+          target_position?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_opportunities_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
