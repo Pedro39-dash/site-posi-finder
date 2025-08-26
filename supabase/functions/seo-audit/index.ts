@@ -1612,7 +1612,7 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
     message: `${prompts.length} prompts de IA gerados com base no conteúdo`,
     priority: 'low' as const,
     recommendation: `Revise os termos e prompts identificados nos cards separados`,
-    metadata: { keywords: keywords.slice(0, 15), prompts: prompts }
+    metadata: { keywords: keywords.slice(0, 60), prompts: prompts } // Increased from 15 to 60
   });
   
   return {
@@ -1629,79 +1629,143 @@ function extractKeywords(textContent: string, title: string, metaDesc: string): 
   const decodedText = decodeHtmlEntities(rawCombinedText);
   const combinedText = decodedText.toLowerCase();
   
-  console.log('🔍 Extracting keywords from text sample:', combinedText.substring(0, 200) + '...');
+  console.log('🔍 Advanced keyword extraction starting with text length:', combinedText.length);
   
-  // Enhanced Portuguese stop words
+  // Reduced Portuguese stop words (more selective)
   const stopWords = new Set([
     'a', 'e', 'o', 'de', 'da', 'do', 'para', 'com', 'em', 'na', 'no', 'por', 'que', 'se', 'um', 'uma',
-    'os', 'as', 'dos', 'das', 'nos', 'nas', 'pelo', 'pela', 'pelos', 'pelas', 'ao', 'aos', 'à', 'às',
-    'este', 'esta', 'estes', 'estas', 'esse', 'essa', 'esses', 'essas', 'aquele', 'aquela', 'aqueles', 'aquelas',
-    'seu', 'sua', 'seus', 'suas', 'nosso', 'nossa', 'nossos', 'nossas', 'meu', 'minha', 'meus', 'minhas',
-    'ele', 'ela', 'eles', 'elas', 'você', 'vocês', 'nós', 'eu', 'tu', 'mas', 'mais', 'muito', 'bem', 'já',
-    'ainda', 'onde', 'como', 'quando', 'porque', 'então', 'assim', 'também', 'só', 'até', 'depois', 'antes',
-    'são', 'foi', 'ser', 'ter', 'tem', 'tinha', 'está', 'estar', 'essa', 'isso', 'aqui', 'ali', 'lá',
-    'pode', 'podem', 'deve', 'devem', 'vai', 'vão', 'fazer', 'feito', 'todo', 'toda', 'todos', 'todas',
-    'outro', 'outra', 'outros', 'outras', 'mesmo', 'mesma', 'mesmos', 'mesmas', 'algum', 'alguma', 'alguns',
-    'algumas', 'nenhum', 'nenhuma', 'qualquer', 'cada', 'primeiro', 'primeira', 'segundo', 'segunda',
-    'último', 'última', 'melhor', 'maior', 'menor', 'grande', 'pequeno', 'pequena', 'novo', 'nova',
-    'velho', 'velha', 'bom', 'boa', 'mau', 'má', 'ruim', 'difícil', 'fácil', 'importante', 'possível',
-    'impossível', 'necessário', 'necessária', 'certo', 'certa', 'errado', 'errada', 'verdade', 'verdadeiro',
-    'falso', 'falsa', 'real', 'sobre', 'entre', 'sem', 'contra', 'através', 'durante', 'desde', 'até',
-    'dentro', 'fora', 'perto', 'longe', 'acima', 'abaixo', 'frente', 'atrás', 'lado', 'direita', 'esquerda',
-    'centro', 'meio', 'fim', 'início', 'começo', 'final', 'hora', 'tempo', 'dia', 'noite', 'manhã', 'tarde',
-    'hoje', 'ontem', 'amanhã', 'sempre', 'nunca', 'às', 'vezes', 'agora', 'logo', 'depois', 'antes',
-    'primeiro', 'segundo', 'terceiro', 'quarto', 'quinto', 'ano', 'anos', 'vez', 'vezes', 'forma', 'caso',
-    'parte', 'lugar', 'lado', 'nome', 'tipo', 'grupo', 'sistema', 'processo', 'exemplo', 'modelo', 'resultado'
+    'os', 'as', 'dos', 'das', 'nos', 'nas', 'pelo', 'pela', 'ao', 'aos', 'à', 'às', 'este', 'esta',
+    'esse', 'essa', 'ele', 'ela', 'eles', 'elas', 'você', 'mas', 'mais', 'muito', 'bem', 'já', 'ainda',
+    'onde', 'como', 'quando', 'porque', 'então', 'assim', 'também', 'só', 'até', 'depois', 'antes',
+    'são', 'foi', 'ser', 'ter', 'tem', 'está', 'estar', 'essa', 'isso', 'aqui', 'pode', 'vai', 'fazer',
+    'todo', 'toda', 'todos', 'outras', 'mesmo', 'cada', 'sobre', 'entre', 'sem', 'através', 'durante'
   ]);
+  
+  // Commercial context indicators (get priority scoring)
+  const commercialIndicators = [
+    'preço', 'preços', 'orçamento', 'cotação', 'valor', 'custo', 'investimento', 'comprar', 'venda', 'vendas',
+    'produto', 'produtos', 'serviço', 'serviços', 'solução', 'soluções', 'empresa', 'empresas', 'negócio',
+    'comercial', 'industrial', 'profissional', 'especializado', 'especializada', 'técnico', 'técnica',
+    'implemento', 'implementos', 'equipamento', 'equipamentos', 'máquina', 'máquinas', 'sistema', 'sistemas'
+  ];
   
   // Extract words with improved regex for Portuguese
   const words = combinedText
     .replace(/[^\p{L}\s]/gu, ' ') // Keep only letters and spaces (Unicode aware)
     .split(/\s+/)
-    .filter(word => word.length >= 3 && !stopWords.has(word))
+    .filter(word => word.length >= 2 && !stopWords.has(word)) // Reduced minimum length
     .filter(word => !/^\d+$/.test(word)) // Remove pure numbers
-    .filter(word => word.length <= 25); // Remove unusually long words (likely errors)
+    .filter(word => word.length <= 30); // Allow longer technical terms
   
   console.log('📝 Found words after filtering:', words.length);
   
-  // Enhanced frequency counting with compound word detection
-  const wordCount = new Map<string, number>();
-  const compoundWords = new Map<string, number>();
+  // Enhanced scoring system with commercial context
+  const termScores = new Map<string, number>();
   
-  // Count individual words
+  // Score individual words with commercial bonus
+  const wordCount = new Map<string, number>();
   words.forEach(word => {
     wordCount.set(word, (wordCount.get(word) || 0) + 1);
   });
   
-  // Detect compound terms (2-word phrases that appear frequently)
+  // Add scored individual words
+  wordCount.forEach((count, word) => {
+    let score = count * 2; // Base frequency score
+    
+    // Commercial context bonus
+    if (commercialIndicators.some(indicator => word.includes(indicator) || indicator.includes(word))) {
+      score += 15;
+    }
+    
+    // Length bonus for substantial words
+    if (word.length >= 6) {
+      score += 5;
+    }
+    
+    termScores.set(word, score);
+  });
+  
+  // Enhanced compound detection (2, 3, and 4-word phrases)
+  const compoundScores = new Map<string, number>();
+  
+  // 2-word compounds
   for (let i = 0; i < words.length - 1; i++) {
     const compound = `${words[i]} ${words[i + 1]}`;
-    if (compound.length <= 30) { // Reasonable compound length
-      compoundWords.set(compound, (compoundWords.get(compound) || 0) + 1);
+    if (compound.length >= 6 && compound.length <= 50) {
+      compoundScores.set(compound, (compoundScores.get(compound) || 0) + 3);
     }
   }
   
-  // Get top individual words
-  const topWords = Array.from(wordCount.entries())
+  // 3-word compounds (like "implementos hidráulicos industriais")
+  for (let i = 0; i < words.length - 2; i++) {
+    const compound = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
+    if (compound.length >= 10 && compound.length <= 60) {
+      compoundScores.set(compound, (compoundScores.get(compound) || 0) + 5);
+    }
+  }
+  
+  // 4-word compounds for complex terms
+  for (let i = 0; i < words.length - 3; i++) {
+    const compound = `${words[i]} ${words[i + 1]} ${words[i + 2]} ${words[i + 3]}`;
+    if (compound.length >= 15 && compound.length <= 70) {
+      compoundScores.set(compound, (compoundScores.get(compound) || 0) + 7);
+    }
+  }
+  
+  // Add commercial bonuses to compounds
+  compoundScores.forEach((count, compound) => {
+    let score = count;
+    
+    // High priority for business-specific compound terms
+    const businessPatterns = [
+      /\w+\s+hidráulicos?/i,
+      /\w+\s+elétricos?/i,
+      /\w+\s+mecânicos?/i,
+      /soluções?\s+para\s+\w+/i,
+      /implementos?\s+\w+/i,
+      /equipamentos?\s+\w+/i,
+      /sistemas?\s+\w+/i,
+      /serviços?\s+de\s+\w+/i,
+      /consultoria\s+em\s+\w+/i,
+      /\w+\s+industriais?/i,
+      /\w+\s+comerciais?/i,
+      /construção\s+civil/i,
+      /\w+\s+pesada/i,
+      /indústria\s+\w+/i,
+      /máquinas\s+\w+/i
+    ];
+    
+    if (businessPatterns.some(pattern => pattern.test(compound))) {
+      score += 20; // High commercial relevance bonus
+    }
+    
+    // Bonus for appearing in title or meta description
+    if (title.toLowerCase().includes(compound) || metaDesc.toLowerCase().includes(compound)) {
+      score += 10;
+    }
+    
+    termScores.set(compound, score);
+  });
+  
+  // Get top scored terms (significantly increased limit)
+  const topTerms = Array.from(termScores.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
-    .map(([word]) => word);
+    .slice(0, 100) // Increased from 20 to 100 terms
+    .map(([term]) => term);
   
-  // Get top compound words (appearing at least 2 times)
-  const topCompounds = Array.from(compoundWords.entries())
-    .filter(([_, count]) => count >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
-    .map(([compound]) => compound);
+  // Remove duplicates and short unimportant terms
+  const finalKeywords = topTerms
+    .filter((keyword, index, arr) => arr.indexOf(keyword) === index)
+    .filter(keyword => {
+      // Keep if it's a meaningful single word (>= 4 chars) or any compound
+      return keyword.includes(' ') || keyword.length >= 4;
+    })
+    .slice(0, 80); // Final limit of 80 keywords
   
-  // Combine results, prioritizing compounds
-  const allKeywords = [...topCompounds, ...topWords]
-    .filter((keyword, index, arr) => arr.indexOf(keyword) === index) // Remove duplicates
-    .slice(0, 20);
+  console.log('🎯 Advanced extraction complete:', finalKeywords.length, 'keywords');
+  console.log('🔝 Top 20 scored keywords:', finalKeywords.slice(0, 20));
   
-  console.log('🎯 Extracted keywords:', allKeywords);
-  
-  return allKeywords;
+  return finalKeywords;
 }
 
 function generateAIPrompts(keywords: string[], textContent: string, url: string): string[] {
