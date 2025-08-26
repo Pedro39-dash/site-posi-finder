@@ -23,13 +23,13 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => (
-  <SidebarProvider>
+  <SidebarProvider defaultOpen={false}>
     <div className="min-h-screen flex w-full">
       <AppSidebar />
       <div className="flex-1 flex flex-col">
         <header className="h-12 flex items-center border-b bg-background px-4 sticky top-0 z-40">
-          <SidebarTrigger />
-          <div className="flex items-center gap-2 ml-4">
+          <SidebarTrigger className="mr-3 hover:bg-accent" />
+          <div className="flex items-center gap-2">
             <span className="font-semibold text-foreground">SEO Dashboard</span>
           </div>
         </header>
