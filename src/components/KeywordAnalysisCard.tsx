@@ -14,159 +14,60 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const { toast } = useToast();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  // Advanced keyword extraction with commercial context analysis
+  // Extract keywords - First try to use existing processed keywords, then fallback
   const extractKeywords = () => {
     if (!results) {
       console.log('🔍 No results provided to extractKeywords');
       return [];
     }
 
-    console.log('🔍 Advanced keyword extraction starting...');
-    let allContent: string = '';
-    let structuredData: any[] = [];
+    console.log('🔍 Keyword extraction starting...');
     
-    // Collect all text content from audit results
+    // Phase 1: Try to get keywords from existing audit metadata
+    const aiOptimizationCategory = results.find(category => 
+      category.category === 'ai_search_optimization'
+    );
+    
+    if (aiOptimizationCategory?.issues) {
+      // Look for the most recent issue with keywords
+      for (const issue of aiOptimizationCategory.issues) {
+        if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+          const existingKeywords = issue.metadata.keywords
+            .filter((keyword: string) => keyword && typeof keyword === 'string' && keyword.length > 2)
+            .slice(0, 100); // Get up to 100 keywords
+          
+          if (existingKeywords.length > 5) {
+            console.log('✅ Found existing keywords:', existingKeywords.length, 'keywords');
+            return existingKeywords;
+          }
+        }
+      }
+    }
+
+    // Phase 2: Look for keywords in other categories 
+    let allKeywords: string[] = [];
     results.forEach(category => {
       if (category.issues) {
         category.issues.forEach((issue: any) => {
-          if (issue.metadata) {
-            // Collect HTML content for analysis
-            if (issue.metadata.html_content) {
-              allContent += ' ' + issue.metadata.html_content;
-            }
-            // Collect text content 
-            if (issue.metadata.text_content) {
-              allContent += ' ' + issue.metadata.text_content;
-            }
-            // Collect structured data
-            if (issue.metadata.structured_data) {
-              structuredData.push(issue.metadata.structured_data);
-            }
+          if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+            allKeywords.push(...issue.metadata.keywords);
           }
         });
       }
     });
 
-    console.log('🔍 Content length:', allContent.length, 'characters');
-    
-    // Enhanced keyword extraction with commercial context
-    const keywordScores = new Map<string, number>();
-    
-    // Phase 1: Commercial Context Patterns
-    const commercialPatterns = [
-      // Product/Service indicators with prices
-      /(\w+(?:\s+\w+){0,3})\s*(?:por|a partir de|desde|custando|preço|valor|orçamento|cotação|R\$)/gi,
-      // Services patterns
-      /(?:serviços?|soluções?|consultoria|assistência|suporte)\s+(?:de|em|para)\s+(\w+(?:\s+\w+){0,3})/gi,
-      // Implementation patterns
-      /(?:implementos?|equipamentos?|sistemas?)\s+(\w+(?:\s+\w+){0,3})/gi,
-      // Solutions patterns
-      /(?:soluções?|alternativas?)\s+para\s+(\w+(?:\s+\w+){0,3})/gi,
-      // Product categories
-      /(\w+(?:\s+\w+){0,3})\s*(?:hidráulicos?|elétricos?|mecânicos?|industriais?|comerciais?)/gi,
-    ];
-
-    // Phase 2: Header and Title Extraction
-    const headerPatterns = [
-      /<h[1-6][^>]*>([^<]+)<\/h[1-6]>/gi,
-      /<title[^>]*>([^<]+)<\/title>/gi,
-      /<meta[^>]*name="description"[^>]*content="([^"]+)"/gi,
-    ];
-
-    // Phase 3: Structured Lists and Navigation
-    const listPatterns = [
-      /<li[^>]*>([^<]+(?:<[^>]+>[^<]*<\/[^>]+>[^<]*)*)<\/li>/gi,
-      /<nav[^>]*>([^<]+(?:<[^>]+>[^<]*<\/[^>]+>[^<]*)*)<\/nav>/gi,
-      /<menu[^>]*>([^<]+(?:<[^>]+>[^<]*<\/[^>]+>[^<]*)*)<\/menu>/gi,
-    ];
-
-    // Extract keywords using commercial patterns
-    commercialPatterns.forEach(pattern => {
-      let match;
-      while ((match = pattern.exec(allContent)) !== null) {
-        const term = match[1]?.trim().toLowerCase();
-        if (term && term.length > 2) {
-          const normalizedTerm = normalizeKeyword(term);
-          if (normalizedTerm) {
-            keywordScores.set(normalizedTerm, (keywordScores.get(normalizedTerm) || 0) + 15); // High commercial score
-          }
-        }
-      }
-    });
-
-    // Extract from headers (high priority)
-    headerPatterns.forEach(pattern => {
-      let match;
-      while ((match = pattern.exec(allContent)) !== null) {
-        const headerText = match[1]?.trim();
-        if (headerText) {
-          const terms = extractMultiWordTerms(headerText);
-          terms.forEach(term => {
-            const normalizedTerm = normalizeKeyword(term);
-            if (normalizedTerm) {
-              keywordScores.set(normalizedTerm, (keywordScores.get(normalizedTerm) || 0) + 10); // Header score
-            }
-          });
-        }
-      }
-    });
-
-    // Extract from structured lists
-    listPatterns.forEach(pattern => {
-      let match;
-      while ((match = pattern.exec(allContent)) !== null) {
-        const listText = match[1]?.trim();
-        if (listText) {
-          const terms = extractMultiWordTerms(listText);
-          terms.forEach(term => {
-            const normalizedTerm = normalizeKeyword(term);
-            if (normalizedTerm) {
-              keywordScores.set(normalizedTerm, (keywordScores.get(normalizedTerm) || 0) + 8); // List score
-            }
-          });
-        }
-      }
-    });
-
-    // Phase 4: Frequency analysis with business context
-    const businessTerms = extractMultiWordTerms(allContent);
-    const termFrequency = new Map<string, number>();
-    
-    businessTerms.forEach(term => {
-      const normalized = normalizeKeyword(term);
-      if (normalized) {
-        termFrequency.set(normalized, (termFrequency.get(normalized) || 0) + 1);
-      }
-    });
-
-    // Add frequency-based scores with business context bonus
-    termFrequency.forEach((frequency, term) => {
-      let score = Math.min(frequency * 2, 20); // Max frequency score of 20
+    if (allKeywords.length > 0) {
+      // Remove duplicates and filter
+      const uniqueKeywords = [...new Set(allKeywords)]
+        .filter(keyword => keyword && typeof keyword === 'string' && keyword.length > 2)
+        .slice(0, 100);
       
-      // Business context bonuses
-      if (hasBusinessContext(term)) {
-        score += 10;
-      }
-      if (isCompoundBusinessTerm(term)) {
-        score += 15;
-      }
-      if (hasTechnicalContext(term)) {
-        score += 8;
-      }
-      
-      keywordScores.set(term, (keywordScores.get(term) || 0) + score);
-    });
+      console.log('✅ Found keywords from categories:', uniqueKeywords.length, 'keywords');
+      return uniqueKeywords;
+    }
 
-    // Sort by score and return top keywords
-    const sortedKeywords = Array.from(keywordScores.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([keyword]) => keyword)
-      .slice(0, 30); // Return top 30 scored terms
-
-    console.log('🔍 Advanced extraction complete:', sortedKeywords.length, 'keywords');
-    console.log('🔍 Top scored keywords:', sortedKeywords.slice(0, 10));
-    
-    return sortedKeywords;
+    console.log('⚠️ No processed keywords found, using fallback message');
+    return [];
   };
 
   // Helper function to extract multi-word terms (2-4 words)
