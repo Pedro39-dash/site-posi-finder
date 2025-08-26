@@ -14,7 +14,115 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_categories: {
+        Row: {
+          audit_report_id: string
+          category: string
+          created_at: string
+          id: string
+          score: number
+          status: string
+        }
+        Insert: {
+          audit_report_id: string
+          category: string
+          created_at?: string
+          id?: string
+          score?: number
+          status: string
+        }
+        Update: {
+          audit_report_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          score?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_categories_audit_report_id_fkey"
+            columns: ["audit_report_id"]
+            isOneToOne: false
+            referencedRelation: "audit_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_issues: {
+        Row: {
+          audit_category_id: string
+          created_at: string
+          id: string
+          message: string
+          priority: string
+          recommendation: string | null
+          type: string
+        }
+        Insert: {
+          audit_category_id: string
+          created_at?: string
+          id?: string
+          message: string
+          priority: string
+          recommendation?: string | null
+          type: string
+        }
+        Update: {
+          audit_category_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          priority?: string
+          recommendation?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_issues_audit_category_id_fkey"
+            columns: ["audit_category_id"]
+            isOneToOne: false
+            referencedRelation: "audit_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_reports: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          overall_score: number
+          status: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          overall_score?: number
+          status?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          overall_score?: number
+          status?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
