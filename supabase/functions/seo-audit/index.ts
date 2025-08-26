@@ -331,25 +331,36 @@ async function fetchWebpageContent(url: string): Promise<string> {
 function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCategory[] {
   const categories: AuditCategory[] = [];
 
-  // Parse HTML
-  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-  const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i);
-  const h1Matches = html.match(/<h1[^>]*>([^<]*)<\/h1>/gi) || [];
-  const h2Matches = html.match(/<h2[^>]*>([^<]*)<\/h2>/gi) || [];
-  const h3Matches = html.match(/<h3[^>]*>([^<]*)<\/h3>/gi) || [];
-  const imgMatches = html.match(/<img[^>]*>/gi) || [];
-  const linkMatches = html.match(/<a[^>]*href=["']([^"']*)["'][^>]*>/gi) || [];
-  const internalLinks = linkMatches.filter(link => link.includes(new URL(url).hostname) || link.includes('href="/')).length;
-  const externalLinks = linkMatches.length - internalLinks;
+  // Use DOMParser for better HTML parsing
+  const doc = new DOMParser().parseFromString(html, 'text/html');
   
-  // Extract text content for analysis
+  // Extract basic information
+  const title = doc.querySelector('title')?.textContent?.trim() || '';
+  const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
+  const h1Tags = Array.from(doc.querySelectorAll('h1'));
+  const h2Tags = Array.from(doc.querySelectorAll('h2'));
+  const h3Tags = Array.from(doc.querySelectorAll('h3'));
+  const h4Tags = Array.from(doc.querySelectorAll('h4'));
+  const h5Tags = Array.from(doc.querySelectorAll('h5'));
+  const h6Tags = Array.from(doc.querySelectorAll('h6'));
+  const images = Array.from(doc.querySelectorAll('img'));
+  const links = Array.from(doc.querySelectorAll('a'));
+  
   const textContent = extractTextContent(html);
+  const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
 
-  // Meta Tags Analysis
+  // Calculate link statistics
+  const hostname = new URL(url).hostname;
+  const internalLinks = links.filter(link => {
+    const href = link.getAttribute('href') || '';
+    return href.includes(hostname) || href.startsWith('/') || href.startsWith('#');
+  }).length;
+  const externalLinks = links.length - internalLinks;
+
+  // Meta Tags Analysis - 4 validation points
   const metaIssues = [];
-  const title = titleMatch ? titleMatch[1].trim() : '';
-  const metaDesc = metaDescMatch ? metaDescMatch[1].trim() : '';
-
+  let metaScore = 100;
+  
   if (!title) {
     metaIssues.push({
       type: 'error' as const,
@@ -357,44 +368,99 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
       priority: 'high' as const,
       recommendation: 'Adicione uma tag de título descritiva à sua página'
     });
+    metaScore -= 30;
   } else if (title.length > 60) {
     metaIssues.push({
       type: 'warning' as const,
-      message: 'Título muito longo (mais de 60 caracteres)',
+      message: `Título muito longo (${title.length} caracteres, recomendado: até 60)`,
       priority: 'medium' as const,
       recommendation: 'Mantenha o título abaixo de 60 caracteres para melhor exibição nos buscadores'
     });
+    metaScore -= 15;
+  } else if (title.length < 30) {
+    metaIssues.push({
+      type: 'warning' as const,
+      message: `Título muito curto (${title.length} caracteres, recomendado: 30-60)`,
+      priority: 'medium' as const,
+      recommendation: 'Títulos entre 30-60 caracteres são mais efetivos'
+    });
+    metaScore -= 10;
   } else {
     metaIssues.push({
       type: 'success' as const,
-      message: 'Tag de título presente e com tamanho adequado',
+      message: `Título adequado (${title.length} caracteres)`,
       priority: 'low' as const
     });
   }
 
-  if (!metaDesc) {
+  if (!metaDescription) {
     metaIssues.push({
       type: 'error' as const,
       message: 'Meta description ausente',
       priority: 'high' as const,
-      recommendation: 'Adicione uma meta description entre 150-160 caracteres'
+      recommendation: 'Adicione uma meta description entre 120-160 caracteres'
     });
-  } else if (metaDesc.length > 160) {
+    metaScore -= 30;
+  } else if (metaDescription.length > 160) {
     metaIssues.push({
       type: 'warning' as const,
-      message: 'Meta description muito longa (mais de 160 caracteres)',
+      message: `Meta description muito longa (${metaDescription.length} caracteres, recomendado: até 160)`,
       priority: 'medium' as const,
       recommendation: 'Mantenha a meta description abaixo de 160 caracteres'
     });
+    metaScore -= 15;
+  } else if (metaDescription.length < 120) {
+    metaIssues.push({
+      type: 'warning' as const,
+      message: `Meta description muito curta (${metaDescription.length} caracteres, recomendado: 120-160)`,
+      priority: 'medium' as const,
+      recommendation: 'Meta descriptions entre 120-160 caracteres são mais efetivas'
+    });
+    metaScore -= 10;
   } else {
     metaIssues.push({
       type: 'success' as const,
-      message: 'Meta description presente e com tamanho adequado',
+      message: `Meta description adequada (${metaDescription.length} caracteres)`,
       priority: 'low' as const
     });
   }
 
-  const metaScore = metaIssues.filter(issue => issue.type === 'success').length / 2 * 100;
+  // Check for focus keyword in title and meta description if provided
+  if (focusKeyword) {
+    const keywordLower = focusKeyword.toLowerCase();
+    if (title.toLowerCase().includes(keywordLower)) {
+      metaIssues.push({
+        type: 'success' as const,
+        message: `Palavra-chave "${focusKeyword}" encontrada no título`,
+        priority: 'low' as const
+      });
+    } else {
+      metaIssues.push({
+        type: 'warning' as const,
+        message: `Palavra-chave "${focusKeyword}" não encontrada no título`,
+        priority: 'medium' as const,
+        recommendation: `Inclua "${focusKeyword}" no título para melhor otimização`
+      });
+      metaScore -= 20;
+    }
+
+    if (metaDescription.toLowerCase().includes(keywordLower)) {
+      metaIssues.push({
+        type: 'success' as const,
+        message: `Palavra-chave "${focusKeyword}" encontrada na meta description`,
+        priority: 'low' as const
+      });
+    } else {
+      metaIssues.push({
+        type: 'warning' as const,
+        message: `Palavra-chave "${focusKeyword}" não encontrada na meta description`,
+        priority: 'medium' as const,
+        recommendation: `Inclua "${focusKeyword}" na meta description`
+      });
+      metaScore -= 20;
+    }
+  }
+
   categories.push({
     category: 'meta_tags',
     score: Math.max(0, metaScore),
@@ -402,83 +468,208 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
     issues: metaIssues
   });
 
-  // HTML Structure Analysis
-  const structureIssues = [];
+  // HTML Structure Analysis - Complete heading hierarchy with 5+ validation points
+  const htmlStructureIssues = [];
+  let htmlStructureScore = 100;
+  let headingHierarchy = [];
   
-  if (h1Matches.length === 0) {
-    structureIssues.push({
+  // Check DOCTYPE
+  if (!html.toLowerCase().includes('<!doctype html>')) {
+    htmlStructureIssues.push({
+      type: 'warning' as const,
+      message: 'DOCTYPE HTML5 não declarado',
+      priority: 'medium' as const,
+      recommendation: 'Adicione <!DOCTYPE html> no início do documento'
+    });
+    htmlStructureScore -= 15;
+  }
+  
+  // Check lang attribute
+  const htmlTag = doc.querySelector('html');
+  if (!htmlTag?.getAttribute('lang')) {
+    htmlStructureIssues.push({
+      type: 'warning' as const,
+      message: 'Atributo lang não definido na tag HTML',
+      priority: 'medium' as const,
+      recommendation: 'Adicione lang="pt-BR" na tag HTML'
+    });
+    htmlStructureScore -= 15;
+  }
+  
+  // H1 validation
+  if (h1Tags.length === 0) {
+    htmlStructureIssues.push({
       type: 'error' as const,
       message: 'Nenhuma tag H1 encontrada',
       priority: 'high' as const,
       recommendation: 'Adicione exatamente uma tag H1 à sua página'
     });
-  } else if (h1Matches.length > 1) {
-    structureIssues.push({
+    htmlStructureScore -= 30;
+  } else if (h1Tags.length > 1) {
+    htmlStructureIssues.push({
       type: 'warning' as const,
-      message: `Múltiplas tags H1 encontradas (${h1Matches.length})`,
+      message: `Múltiplas tags H1 encontradas (${h1Tags.length})`,
       priority: 'medium' as const,
       recommendation: 'Use apenas uma tag H1 por página'
     });
+    htmlStructureScore -= 20;
   } else {
-    structureIssues.push({
+    const h1Text = h1Tags[0].textContent?.trim() || 'Vazio';
+    headingHierarchy.push(`H1: "${h1Text}"`);
+    htmlStructureIssues.push({
       type: 'success' as const,
-      message: 'Tag H1 única encontrada',
+      message: `H1 único encontrado: "${h1Text}"`,
+      priority: 'low' as const
+    });
+  }
+  
+  // Display heading structure
+  if (h2Tags.length > 0) {
+    h2Tags.slice(0, 5).forEach((h2, index) => {
+      if (index < 3) {
+        headingHierarchy.push(`H2: "${h2.textContent?.trim() || 'Vazio'}"`);
+      }
+    });
+    htmlStructureIssues.push({
+      type: 'success' as const,
+      message: `${h2Tags.length} subtítulos H2 encontrados`,
+      priority: 'low' as const
+    });
+  } else if (wordCount > 300) {
+    htmlStructureIssues.push({
+      type: 'warning' as const,
+      message: 'Nenhuma tag H2 encontrada para estruturar o conteúdo',
+      priority: 'medium' as const,
+      recommendation: 'Adicione subtítulos H2 para melhor estrutura'
+    });
+    htmlStructureScore -= 20;
+  }
+  
+  if (h3Tags.length > 0) {
+    htmlStructureIssues.push({
+      type: 'success' as const,
+      message: `${h3Tags.length} subtítulos H3 encontrados`,
+      priority: 'low' as const
+    });
+  }
+  
+  // Display other headings summary
+  const otherHeadings = h4Tags.length + h5Tags.length + h6Tags.length;
+  if (otherHeadings > 0) {
+    htmlStructureIssues.push({
+      type: 'success' as const,
+      message: `Outros headings: H4(${h4Tags.length}), H5(${h5Tags.length}), H6(${h6Tags.length})`,
+      priority: 'low' as const
+    });
+  }
+  
+  // Check semantic HTML
+  const semanticTags = ['main', 'article', 'section', 'header', 'footer', 'nav', 'aside'];
+  const foundSemanticTags = semanticTags.filter(tag => doc.querySelector(tag));
+  if (foundSemanticTags.length < 3) {
+    htmlStructureIssues.push({
+      type: 'warning' as const,
+      message: `Poucas tags semânticas (${foundSemanticTags.length}/7): ${foundSemanticTags.join(', ')}`,
+      priority: 'medium' as const,
+      recommendation: 'Use mais tags semânticas como main, article, section, header, footer'
+    });
+    htmlStructureScore -= 10;
+  } else {
+    htmlStructureIssues.push({
+      type: 'success' as const,
+      message: `Tags semânticas encontradas: ${foundSemanticTags.join(', ')}`,
+      priority: 'low' as const
+    });
+  }
+  
+  // Add heading hierarchy to first issue if structure is good
+  if (headingHierarchy.length > 0 && htmlStructureScore >= 80) {
+    htmlStructureIssues.unshift({
+      type: 'success' as const,
+      message: `Hierarquia: ${headingHierarchy.slice(0, 4).join('; ')}${headingHierarchy.length > 4 ? '...' : ''}`,
       priority: 'low' as const
     });
   }
 
-  const structureScore = structureIssues.filter(issue => issue.type === 'success').length / 1 * 100;
   categories.push({
     category: 'html_structure',
-    score: Math.max(0, structureScore),
-    status: structureScore >= 90 ? 'excellent' : structureScore >= 70 ? 'good' : structureScore >= 50 ? 'needs_improvement' : 'critical',
-    issues: structureIssues
+    score: Math.max(0, htmlStructureScore),
+    status: htmlStructureScore >= 90 ? 'excellent' : htmlStructureScore >= 70 ? 'good' : htmlStructureScore >= 50 ? 'needs_improvement' : 'critical',
+    issues: htmlStructureIssues
   });
 
-  // Images Analysis
+  // Images Analysis - 3+ validation points
   const imageIssues = [];
-  const imagesWithoutAltTags = imgMatches.filter(img => !img.includes('alt=') || img.includes('alt=""') || img.includes("alt=''"));
+  let imageScore = 100;
   
-  if (imgMatches.length > 0) {
-    if (imagesWithoutAltTags.length === 0) {
-      imageIssues.push({
-        type: 'success' as const,
-        message: 'Todas as imagens possuem atributos alt',
-        priority: 'low' as const
-      });
-    } else {
-      // Extract image filenames from src attributes
-      const imageFilenames = imagesWithoutAltTags
+  if (images.length === 0) {
+    imageIssues.push({
+      type: 'warning' as const,
+      message: 'Nenhuma imagem encontrada na página',
+      priority: 'medium' as const,
+      recommendation: 'Considere adicionar imagens relevantes para melhorar o engajamento'
+    });
+    imageScore = 70; // Not completely bad, just missing opportunity
+  } else {
+    const imagesWithoutAlt = images.filter(img => !img.getAttribute('alt') || img.getAttribute('alt').trim() === '');
+    
+    if (imagesWithoutAlt.length > 0) {
+      const fileNames = imagesWithoutAlt
         .map(img => {
-          const srcMatch = img.match(/src=["']([^"']*?)["']/i);
-          if (srcMatch) {
-            const src = srcMatch[1];
-            const filename = src.split('/').pop() || src;
-            return filename;
-          }
-          return null;
+          const src = img.getAttribute('src') || '';
+          const fileName = src.split('/').pop() || src;
+          return fileName;
         })
-        .filter(Boolean)
-        .slice(0, 8); // Limit to 8 filenames to avoid very long messages
-      
-      const filenameList = imageFilenames.length > 0 ? ` (${imageFilenames.join(', ')})` : '';
+        .slice(0, 5) // Limit to 5 files
+        .join(', ');
       
       imageIssues.push({
         type: 'error' as const,
-        message: `${imagesWithoutAltTags.length} imagens sem atributo alt${filenameList}`,
+        message: `${imagesWithoutAlt.length} imagens sem atributo alt: ${fileNames}${imagesWithoutAlt.length > 5 ? '...' : ''}`,
         priority: 'high' as const,
         recommendation: 'Adicione atributos alt descritivos a todas as imagens para acessibilidade e SEO'
       });
+      imageScore -= Math.min(60, imagesWithoutAlt.length * 15);
     }
-  } else {
-    imageIssues.push({
-      type: 'success' as const,
-      message: 'Nenhuma imagem para analisar',
-      priority: 'low' as const
+    
+    // Check for images with good alt attributes
+    const imagesWithGoodAlt = images.filter(img => {
+      const alt = img.getAttribute('alt') || '';
+      return alt.trim().length > 5 && alt.trim().length < 125;
     });
+    
+    if (imagesWithGoodAlt.length > 0) {
+      imageIssues.push({
+        type: 'success' as const,
+        message: `${imagesWithGoodAlt.length} imagens com bons atributos alt`,
+        priority: 'low' as const
+      });
+    }
+    
+    // Check for large images that might need optimization
+    const largeImages = images.filter(img => {
+      const src = img.getAttribute('src') || '';
+      return src.includes('.jpg') || src.includes('.jpeg') || src.includes('.png');
+    });
+    
+    if (largeImages.length > 0) {
+      imageIssues.push({
+        type: 'success' as const,
+        message: `${largeImages.length} imagens bitmap encontradas - verifique otimização`,
+        priority: 'low' as const,
+        recommendation: 'Certifique-se de que imagens estão otimizadas para web'
+      });
+    }
+    
+    if (imagesWithoutAlt.length === 0) {
+      imageIssues.push({
+        type: 'success' as const,
+        message: `Todas as ${images.length} imagens possuem atributos alt adequados`,
+        priority: 'low' as const
+      });
+    }
   }
 
-  const imageScore = imgMatches.length > 0 ? (imgMatches.length - imagesWithoutAltTags.length) / imgMatches.length * 100 : 100;
   categories.push({
     category: 'images',
     score: Math.max(0, imageScore),
@@ -486,18 +677,18 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
     issues: imageIssues
   });
 
-  // Keyword Analysis
+  // Keyword Analysis (if focus keyword provided)
   if (focusKeyword) {
-    const keywordAnalysis = analyzeKeywordOptimization(textContent, title, metaDesc, url, focusKeyword);
+    const keywordAnalysis = analyzeKeywordOptimization(textContent, title, metaDescription, url, focusKeyword);
     categories.push(keywordAnalysis);
   }
 
-  // Content Structure Analysis
-  const contentStructure = analyzeContentStructure(textContent, h1Matches, h2Matches, h3Matches);
+  // Content Structure Analysis - focusing only on content organization
+  const contentStructure = analyzeContentStructure(textContent, wordCount);
   categories.push(contentStructure);
 
-  // Links Analysis
-  const linksAnalysis = analyzeLinks(internalLinks, externalLinks, linkMatches, url);
+  // Links Analysis 
+  const linksAnalysis = analyzeLinks(internalLinks, externalLinks, links, url);
   categories.push(linksAnalysis);
 
   // Technical SEO Analysis
@@ -509,7 +700,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
   categories.push(readabilityAnalysis);
 
   // AI Search Optimization Analysis
-  const aiSearchAnalysis = analyzeAISearchOptimization(textContent, title, metaDesc, url);
+  const aiSearchAnalysis = analyzeAISearchOptimization(textContent, title, metaDescription, url);
   categories.push(aiSearchAnalysis);
 
   return categories;
@@ -724,21 +915,20 @@ function analyzeKeywordOptimization(textContent: string, title: string, metaDesc
   };
 }
 
-function analyzeContentStructure(textContent: string, h1Matches: string[], h2Matches: string[], h3Matches: string[]): AuditCategory {
+function analyzeContentStructure(textContent: string, wordCount: number): AuditCategory {
   const issues = [];
   let score = 0;
-  const wordCount = textContent.split(/\s+/).length;
 
   // Check content length
   if (wordCount >= 600) {
-    score += 50;
+    score += 40;
     issues.push({
       type: 'success' as const,
-      message: `Conteúdo com ${wordCount} palavras (excelente)`,
+      message: `Conteúdo com ${wordCount} palavras (excelente para SEO)`,
       priority: 'low' as const
     });
   } else if (wordCount >= 300) {
-    score += 30;
+    score += 25;
     issues.push({
       type: 'success' as const,
       message: `Conteúdo com ${wordCount} palavras (adequado)`,
@@ -760,36 +950,10 @@ function analyzeContentStructure(textContent: string, h1Matches: string[], h2Mat
     });
   }
 
-  // Check heading hierarchy
-  if (h2Matches.length > 0) {
-    score += 25;
-    issues.push({
-      type: 'success' as const,
-      message: `${h2Matches.length} subtítulos H2 encontrados`,
-      priority: 'low' as const
-    });
-  } else {
-    issues.push({
-      type: 'warning' as const,
-      message: 'Nenhum subtítulo H2 encontrado',
-      priority: 'medium' as const,
-      recommendation: 'Adicione subtítulos H2 para melhor estrutura'
-    });
-  }
-
-  if (h3Matches.length > 0) {
-    score += 15;
-    issues.push({
-      type: 'success' as const,
-      message: `${h3Matches.length} subtítulos H3 encontrados`,
-      priority: 'low' as const
-    });
-  }
-
   // Check for lists and structured content
-  const hasLists = textContent.includes('•') || textContent.includes('1.') || textContent.includes('-');
-  if (hasLists) {
-    score += 10;
+  const lists = textContent.match(/<ul|<ol|•|\d+\./g);
+  if (lists && lists.length > 0) {
+    score += 20;
     issues.push({
       type: 'success' as const,
       message: 'Conteúdo estruturado com listas encontrado',
@@ -800,7 +964,59 @@ function analyzeContentStructure(textContent: string, h1Matches: string[], h2Mat
       type: 'warning' as const,
       message: 'Nenhuma lista ou conteúdo estruturado encontrado',
       priority: 'medium' as const,
-      recommendation: 'Adicione listas e estruture melhor o conteúdo'
+      recommendation: 'Adicione listas numeradas ou com marcadores para organizar melhor o conteúdo'
+    });
+  }
+
+  // Check paragraph structure - fixed implementation
+  const paragraphs = textContent.split(/\n\n+/).filter(p => p.trim().length > 0);
+  const paragraphWordCounts = paragraphs.map(p => p.split(/\s+/).filter(w => w.length > 0).length);
+  const longParagraphs = paragraphWordCounts.filter(count => count > 100);
+  
+  if (longParagraphs.length === 0 && paragraphs.length > 0) {
+    score += 30;
+    const avgWords = Math.round(paragraphWordCounts.reduce((sum, count) => sum + count, 0) / paragraphWordCounts.length);
+    issues.push({
+      type: 'success' as const,
+      message: `Parágrafos bem organizados (média: ${avgWords} palavras por parágrafo)`,
+      priority: 'low' as const
+    });
+  } else if (longParagraphs.length > 0) {
+    issues.push({
+      type: 'warning' as const,
+      message: `${longParagraphs.length} parágrafos muito longos encontrados`,
+      priority: 'medium' as const,
+      recommendation: `Divida parágrafos longos em parágrafos menores (recomendado: até 100 palavras por parágrafo)`
+    });
+  } else {
+    score += 10;
+    issues.push({
+      type: 'warning' as const,
+      message: 'Estrutura de parágrafos pode ser melhorada',
+      priority: 'medium' as const,
+      recommendation: 'Organize o conteúdo em parágrafos bem definidos e balanceados'
+    });
+  }
+
+  // Check for call-to-action elements
+  const hasCallToAction = textContent.toLowerCase().includes('entre em contato') || 
+                         textContent.toLowerCase().includes('solicite') ||
+                         textContent.toLowerCase().includes('contrate') ||
+                         textContent.toLowerCase().includes('saiba mais');
+  
+  if (hasCallToAction) {
+    score += 10;
+    issues.push({
+      type: 'success' as const,
+      message: 'Call-to-action identificado no conteúdo',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Nenhum call-to-action claro identificado',
+      priority: 'medium' as const,
+      recommendation: 'Adicione chamadas para ação para guiar os visitantes'
     });
   }
 
@@ -812,7 +1028,7 @@ function analyzeContentStructure(textContent: string, h1Matches: string[], h2Mat
   };
 }
 
-function analyzeLinks(internalLinks: number, externalLinks: number, linkMatches: string[], url: string): AuditCategory {
+function analyzeLinks(internalLinks: number, externalLinks: number, linkElements: Element[], url: string): AuditCategory {
   const issues = [];
   let score = 0;
   const totalLinks = internalLinks + externalLinks;
@@ -822,11 +1038,11 @@ function analyzeLinks(internalLinks: number, externalLinks: number, linkMatches:
     score += 40;
     issues.push({
       type: 'success' as const,
-      message: `${internalLinks} links internos encontrados`,
+      message: `${internalLinks} links internos encontrados (boa navegação interna)`,
       priority: 'low' as const
     });
   } else if (internalLinks > 0) {
-    score += 20;
+    score += 25;
     issues.push({
       type: 'warning' as const,
       message: `Apenas ${internalLinks} links internos encontrados`,
@@ -847,16 +1063,16 @@ function analyzeLinks(internalLinks: number, externalLinks: number, linkMatches:
     score += 30;
     issues.push({
       type: 'success' as const,
-      message: `${externalLinks} links externos encontrados`,
+      message: `${externalLinks} links externos encontrados (quantidade adequada)`,
       priority: 'low' as const
     });
   } else if (externalLinks > 5) {
-    score += 15;
+    score += 20;
     issues.push({
       type: 'warning' as const,
       message: `Muitos links externos (${externalLinks})`,
       priority: 'medium' as const,
-      recommendation: 'Considere reduzir o número de links externos'
+      recommendation: 'Considere reduzir o número de links externos ou verifique sua relevância'
     });
   } else {
     issues.push({
@@ -868,9 +1084,11 @@ function analyzeLinks(internalLinks: number, externalLinks: number, linkMatches:
   }
 
   // Check for anchor text analysis
-  const hasDescriptiveAnchors = linkMatches.some(link => 
-    !link.includes('clique aqui') && !link.includes('saiba mais') && !link.includes('leia mais')
-  );
+  const genericAnchors = ['clique aqui', 'saiba mais', 'leia mais', 'veja mais', 'aqui'];
+  const hasDescriptiveAnchors = linkElements.some(link => {
+    const anchorText = link.textContent?.toLowerCase() || '';
+    return anchorText.length > 5 && !genericAnchors.some(generic => anchorText.includes(generic));
+  });
   
   if (hasDescriptiveAnchors || totalLinks === 0) {
     score += 30;
@@ -888,6 +1106,36 @@ function analyzeLinks(internalLinks: number, externalLinks: number, linkMatches:
       priority: 'medium' as const,
       recommendation: 'Use textos descritivos em vez de "clique aqui" ou "saiba mais"'
     });
+  }
+
+  // Check for links with target="_blank" having rel="noopener"
+  const externalLinksWithBlank = linkElements.filter(link => {
+    const href = link.getAttribute('href') || '';
+    const target = link.getAttribute('target');
+    return target === '_blank' && (href.startsWith('http') && !href.includes(new URL(url).hostname));
+  });
+
+  if (externalLinksWithBlank.length > 0) {
+    const hasNoopener = externalLinksWithBlank.some(link => {
+      const rel = link.getAttribute('rel') || '';
+      return rel.includes('noopener') || rel.includes('noreferrer');
+    });
+    
+    if (hasNoopener) {
+      issues.push({
+        type: 'success' as const,
+        message: 'Links externos com target="_blank" possuem rel="noopener"',
+        priority: 'low' as const
+      });
+    } else {
+      issues.push({
+        type: 'warning' as const,
+        message: 'Links externos com target="_blank" sem rel="noopener"', 
+        priority: 'medium' as const,
+        recommendation: 'Adicione rel="noopener noreferrer" aos links externos para segurança'
+      });
+      score -= 10;
+    }
   }
 
   return {
@@ -1106,7 +1354,7 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
   const issues = [];
   let score = 0;
   
-  // Extract keywords from content
+  // Extract keywords and prompts
   const keywords = extractKeywords(textContent, title, metaDesc);
   const prompts = generateAIPrompts(keywords, textContent, url);
   
@@ -1120,7 +1368,7 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
     score += 25;
     issues.push({
       type: 'success' as const,
-      message: `${keywords.length} termos-chave identificados`,
+      message: `${keywords.length} termos-chave identificados para otimização de IA`,
       priority: 'low' as const
     });
   } else {
@@ -1136,13 +1384,13 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
     score += 25;
     issues.push({
       type: 'success' as const,
-      message: 'Conteúdo bem estruturado para IAs',
+      message: 'Conteúdo bem estruturado para busca por IA',
       priority: 'low' as const
     });
   } else {
     issues.push({
       type: 'warning' as const,
-      message: 'Conteúdo pouco estruturado',
+      message: 'Conteúdo pouco estruturado para IAs',
       priority: 'medium' as const,
       recommendation: 'Use listas, subtítulos e parágrafos bem organizados'
     });
@@ -1152,7 +1400,7 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
     score += 25;
     issues.push({
       type: 'success' as const,
-      message: 'Seção FAQ identificada',
+      message: 'Seção FAQ identificada (ótimo para IAs)',
       priority: 'low' as const
     });
   } else {
@@ -1174,24 +1422,19 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
   } else {
     issues.push({
       type: 'warning' as const,
-      message: 'Pouco conteúdo acionável',
+      message: 'Pouco conteúdo acionável encontrado',
       priority: 'medium' as const,
       recommendation: 'Adicione mais instruções, guias e soluções práticas'
     });
   }
   
-  // Store prompts and keywords as metadata for separate display
-  const metadata = {
-    prompts: prompts,
-    keywords: keywords.slice(0, 15)
-  };
-  
+  // Add summary of keywords and prompts
   issues.push({
     type: 'success' as const,
-    message: `Análise de termos e prompts concluída`,
+    message: `${prompts.length} prompts de IA gerados com base no conteúdo`,
     priority: 'low' as const,
-    recommendation: `${keywords.length} termos identificados, ${prompts.length} prompts gerados`,
-    metadata: metadata
+    recommendation: `Revise os termos e prompts identificados nos cards separados`,
+    metadata: { keywords: keywords.slice(0, 15), prompts: prompts }
   });
   
   return {
