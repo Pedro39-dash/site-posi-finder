@@ -10,6 +10,7 @@ export interface AuditResult {
     message: string;
     priority: 'high' | 'medium' | 'low';
     recommendation?: string;
+    metadata?: any;
   }>;
 }
 
@@ -95,7 +96,8 @@ export class AuditService {
             type: issue.type as 'success' | 'warning' | 'error',
             message: issue.message,
             priority: issue.priority as 'high' | 'medium' | 'low',
-            recommendation: issue.recommendation
+            recommendation: issue.recommendation,
+            metadata: issue.metadata
           }))
         })) || [];
 
