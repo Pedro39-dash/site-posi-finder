@@ -92,7 +92,7 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-2">
-                Bem-vindo, {user?.username}! 👋
+                Bem-vindo, {user?.email}! 👋
               </h1>
               <p className="text-muted-foreground">
                 Selecione um projeto para ver as métricas de SEO específicas.

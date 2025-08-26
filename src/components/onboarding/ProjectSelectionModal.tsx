@@ -133,7 +133,7 @@ const ProjectSelectionModal = ({ onComplete }: ProjectSelectionModalProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-6 w-6 text-primary" />
-            Bem-vindo, {user?.username}!
+            Bem-vindo, {user?.email}!
           </CardTitle>
           <p className="text-muted-foreground">
             Para começar, selecione ou crie um projeto para monitorarmos o SEO do seu domínio.

@@ -19,7 +19,7 @@ const WelcomeOnboarding = ({ onComplete }: WelcomeOnboardingProps) => {
       content: (
         <div className="text-center space-y-4">
           <p className="text-muted-foreground">
-            Olá <strong>{user?.username}</strong>! Esta é sua ferramenta exclusiva de monitoramento SEO. 
+            Olá <strong>{user?.email}</strong>! Esta é sua ferramenta exclusiva de monitoramento SEO. 
             Criamos esta plataforma especialmente para nossos clientes acompanharem os resultados 
             dos nossos serviços de consultoria em SEO.
           </p>

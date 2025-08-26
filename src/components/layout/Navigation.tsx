@@ -57,7 +57,7 @@ const Navigation = () => {
         {user && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/50">
             <User className="h-4 w-4" />
-            <span className="text-sm font-medium">{user.username}</span>
+            <span className="text-sm font-medium">{user.email}</span>
           </div>
         )}
         

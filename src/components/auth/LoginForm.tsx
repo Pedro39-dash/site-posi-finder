@@ -1,131 +1,151 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Eye, EyeOff, LogIn } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
 
-const loginSchema = z.object({
-  username: z.string().min(1, 'Usuário é obrigatório'),
-  password: z.string().min(1, 'Senha é obrigatória'),
+const authSchema = z.object({
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type AuthFormData = z.infer<typeof authSchema>;
 
 interface LoginFormProps {
   onSuccess?: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
+export const LoginForm = ({ onSuccess }: LoginFormProps) => {
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading } = useAuth();
-  
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const { login, signUp, isLoading } = useAuth();
+
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setError,
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+    reset,
+  } = useForm<AuthFormData>({
+    resolver: zodResolver(authSchema),
   });
 
-  const onSubmit = async (data: LoginFormData) => {
-    const success = await login(data.username, data.password);
-    if (success) {
+  const onSubmit = async (data: AuthFormData) => {
+    const result = mode === 'login' 
+      ? await login(data.email, data.password)
+      : await signUp(data.email, data.password);
+
+    if (!result.error) {
       onSuccess?.();
-    } else {
-      setError('root', {
-        message: 'Credenciais inválidas'
-      });
     }
   };
 
+  const switchMode = () => {
+    setMode(mode === 'login' ? 'signup' : 'login');
+    reset();
+  };
+
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold text-center">
-          Fazer Login
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="text-2xl text-center">
+          {mode === 'login' ? 'Fazer Login' : 'Criar Conta'}
         </CardTitle>
-        <CardDescription className="text-center">
-          Entre com suas credenciais para acessar o dashboard
-        </CardDescription>
+        <p className="text-center text-muted-foreground">
+          {mode === 'login' 
+            ? 'Entre com seu email e senha' 
+            : 'Crie sua conta para começar'
+          }
+        </p>
       </CardHeader>
+      
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Usuário</Label>
+            <Label htmlFor="email" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Email
+            </Label>
             <Input
-              id="username"
-              placeholder="Digite seu usuário"
-              {...register('username')}
-              className={errors.username ? 'border-destructive' : ''}
+              id="email"
+              type="email"
+              placeholder="seu.email@exemplo.com"
+              {...register("email")}
+              disabled={isLoading}
             />
-            {errors.username && (
-              <p className="text-sm text-destructive">{errors.username.message}</p>
+            {errors.email && (
+              <p className="text-sm text-destructive">{errors.email.message}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
+            <Label htmlFor="password" className="flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              Senha
+            </Label>
             <div className="relative">
               <Input
                 id="password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="Digite sua senha"
-                {...register('password')}
-                className={`pr-10 ${errors.password ? 'border-destructive' : ''}`}
+                {...register("password")}
+                disabled={isLoading}
               />
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isLoading}
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
                 ) : (
                   <Eye className="h-4 w-4" />
                 )}
-              </Button>
+              </button>
             </div>
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password.message}</p>
             )}
           </div>
 
-          {errors.root && (
-            <p className="text-sm text-destructive text-center">{errors.root.message}</p>
-          )}
-
-          <Button 
-            type="submit" 
-            className="w-full" 
-            disabled={isLoading}
-          >
+          <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <div className="flex items-center gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
-                Entrando...
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-r-transparent" />
+                {mode === 'login' ? 'Entrando...' : 'Criando conta...'}
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <LogIn className="h-4 w-4" />
-                Entrar
-              </div>
+              mode === 'login' ? 'Entrar' : 'Criar Conta'
             )}
           </Button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">
-            Use: <strong>adm</strong> / <strong>adm</strong>
+            {mode === 'login' ? 'Não tem uma conta?' : 'Já tem uma conta?'}
           </p>
+          <Button 
+            variant="link" 
+            onClick={switchMode}
+            disabled={isLoading}
+            className="mt-1"
+          >
+            {mode === 'login' ? 'Criar nova conta' : 'Fazer login'}
+          </Button>
         </div>
+
+        {mode === 'signup' && (
+          <div className="mt-4 p-3 bg-muted rounded-lg">
+            <p className="text-xs text-muted-foreground text-center">
+              Ao criar uma conta, você receberá um email de confirmação. Verifique sua caixa de entrada.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

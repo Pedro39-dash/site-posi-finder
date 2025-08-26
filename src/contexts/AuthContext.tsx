@@ -1,17 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-interface User {
-  id: string;
-  username: string;
-  role: string;
-}
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string) => Promise<{ error?: string }>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -31,58 +29,88 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('seo-dashboard-user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        localStorage.removeItem('seo-dashboard-user');
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock authentication - only accept "adm" / "adm"
-    if (username === 'adm' && password === 'adm') {
-      const mockUser: User = {
-        id: '1',
-        username: 'adm',
-        role: 'admin'
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('seo-dashboard-user', JSON.stringify(mockUser));
-      
-      toast.success('Login realizado com sucesso!');
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      toast.error('Erro no login: ' + error.message);
       setIsLoading(false);
-      return true;
-    } else {
-      toast.error('Credenciais inválidas. Use: adm / adm');
-      setIsLoading(false);
-      return false;
+      return { error: error.message };
     }
+
+    toast.success('Login realizado com sucesso!');
+    setIsLoading(false);
+    return {};
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('seo-dashboard-user');
-    toast.success('Logout realizado com sucesso!');
+  const signUp = async (email: string, password: string) => {
+    setIsLoading(true);
+    
+    const redirectUrl = `${window.location.origin}/`;
+    
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl
+      }
+    });
+
+    if (error) {
+      toast.error('Erro no cadastro: ' + error.message);
+      setIsLoading(false);
+      return { error: error.message };
+    }
+
+    toast.success('Cadastro realizado! Verifique seu email.');
+    setIsLoading(false);
+    return {};
+  };
+
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      toast.error('Erro no logout: ' + error.message);
+    } else {
+      toast.success('Logout realizado com sucesso!');
+    }
   };
 
   const value = {
     user,
+    session,
     isLoading,
     login,
+    signUp,
     logout,
     isAuthenticated: !!user
   };
