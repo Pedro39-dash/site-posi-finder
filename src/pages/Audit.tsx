@@ -23,6 +23,9 @@ import {
   Brain
 } from "lucide-react";
 import { AuditService, type AuditResult, type AuditReport } from "@/services/auditService";
+import { AuditTestPanel } from "@/components/AuditTestPanel";
+import { EdgeFunctionMonitor } from "@/components/EdgeFunctionMonitor";
+import { SystemStatusPanel } from "@/components/SystemStatusPanel";
 
 const Audit = () => {
   const { toast } = useToast();
@@ -256,15 +259,25 @@ const Audit = () => {
                   <Search className="h-5 w-5" />
                   Iniciar Auditoria
                 </div>
-                {previousAudits.length > 0 && (
+                <div className="flex items-center gap-2">
                   <Button
-                    variant="outline"
-                    onClick={() => setShowHistory(!showHistory)}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setUrl('https://example.com')}
+                    disabled={isScanning}
                   >
-                    <History className="h-4 w-4 mr-2" />
-                    Histórico ({previousAudits.length})
+                    🧪 Site Teste
                   </Button>
-                )}
+                  {previousAudits.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowHistory(!showHistory)}
+                    >
+                      <History className="h-4 w-4 mr-2" />
+                      Histórico ({previousAudits.length})
+                    </Button>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -286,6 +299,15 @@ const Audit = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Status do Sistema */}
+          <SystemStatusPanel />
+
+          {/* Painel de Testes */}
+          <AuditTestPanel />
+
+          {/* Monitor da Edge Function */}
+          <EdgeFunctionMonitor />
 
           {/* Histórico de Auditorias */}
           {showHistory && previousAudits.length > 0 && (

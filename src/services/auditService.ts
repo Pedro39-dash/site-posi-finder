@@ -26,13 +26,16 @@ export interface AuditReport {
 export class AuditService {
   static async startAudit(url: string): Promise<{ success: boolean; auditId?: string; error?: string }> {
     try {
+      console.log(`🚀 Starting audit for: ${url}`);
+      
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
+        console.error('❌ User not authenticated');
         return { success: false, error: 'User not authenticated' };
       }
 
-      console.log('Starting SEO audit for:', url);
+      console.log(`👤 User authenticated: ${user.id}`);
 
       const { data, error } = await supabase.functions.invoke('seo-audit', {
         body: {
@@ -42,13 +45,14 @@ export class AuditService {
       });
 
       if (error) {
-        console.error('Error starting audit:', error);
+        console.error('❌ Error invoking seo-audit function:', error);
         return { success: false, error: error.message };
       }
 
+      console.log('✅ Audit started successfully:', data);
       return { success: true, auditId: data.auditId };
     } catch (error) {
-      console.error('Error in startAudit:', error);
+      console.error('❌ Unexpected error in startAudit:', error);
       return { success: false, error: 'Failed to start audit' };
     }
   }

@@ -96,25 +96,51 @@ Deno.serve(async (req) => {
 });
 
 async function performSEOAudit(url: string, auditId: string, supabase: any) {
+  console.log(`🚀 Starting SEO audit for: ${url}, Audit ID: ${auditId}`);
+  
   try {
-    console.log(`Performing SEO audit for: ${url}`);
+    // Update status to analyzing
+    await supabase
+      .from('audit_reports')
+      .update({ 
+        status: 'analyzing',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', auditId);
+
+    console.log(`🚀 Starting SEO audit for: ${url}, Audit ID: ${auditId}`);
 
     // Fetch the webpage content
+    console.log(`🌐 Fetching webpage content from: ${url}`);
     const htmlContent = await fetchWebpageContent(url);
+    console.log(`✅ Webpage content fetched successfully, length: ${htmlContent.length} characters`);
     
     // Analyze HTML content
+    console.log(`🔍 Starting HTML analysis...`);
     const htmlAnalysis = analyzeHTML(htmlContent, url);
+    console.log(`✅ HTML analysis completed, ${htmlAnalysis.length} categories analyzed`);
     
     // Get PageSpeed Insights data
+    console.log(`⚡ Fetching PageSpeed Insights data...`);
     const pageSpeedData = await getPageSpeedInsights(url);
     
+    if (pageSpeedData) {
+      console.log(`✅ PageSpeed Insights data received successfully`);
+    } else {
+      console.log(`⚠️  PageSpeed Insights data not available, continuing with HTML analysis only`);
+    }
+    
     // Combine all analyses
+    console.log(`🔄 Combining analyses...`);
     const categories = combineAnalyses(htmlAnalysis, pageSpeedData);
     
     // Calculate overall score
     const overallScore = Math.round(
       categories.reduce((sum, category) => sum + category.score, 0) / categories.length
     );
+
+    console.log(`📊 Overall audit score calculated: ${overallScore}% from ${categories.length} categories`);
+    console.log(`💾 Saving ${categories.length} categories and their issues to database...`);
 
     // Save categories and issues to database
     for (const category of categories) {
@@ -158,10 +184,18 @@ async function performSEOAudit(url: string, auditId: string, supabase: any) {
       })
       .eq('id', auditId);
 
-    console.log(`SEO audit completed for ${url} with overall score: ${overallScore}`);
+    console.log(`✅ SEO audit completed successfully for ${url}`);
+    console.log(`📊 Final Results: ${overallScore}% overall score from ${categories.length} categories`);
+    console.log(`🎯 Categories analyzed: ${categories.map(c => c.category).join(', ')}`);
 
   } catch (error) {
-    console.error('Error performing SEO audit:', error);
+    console.error(`❌ Error performing SEO audit for ${url}:`, error);
+    console.error(`🔍 Error details:`, {
+      message: error.message,
+      stack: error.stack,
+      url: url,
+      auditId: auditId
+    });
     
     // Update audit report with failed status
     await supabase
