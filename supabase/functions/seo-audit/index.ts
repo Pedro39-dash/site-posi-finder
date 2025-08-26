@@ -156,10 +156,10 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
     // Analyze HTML content
     const htmlAnalysis = analyzeHTML(html, validation.normalizedUrl, focusKeyword);
 
-    // Get PageSpeed Insights data
+    // Get PageSpeed Insights data (desktop and mobile)
     const pageSpeedData = await getPageSpeedInsights(validation.normalizedUrl);
     
-    if (pageSpeedData) {
+    if (pageSpeedData.desktop || pageSpeedData.mobile) {
       console.log(`✅ PageSpeed Insights data received successfully`);
     } else {
       console.log(`⚠️  PageSpeed Insights data not available, continuing with HTML analysis only`);
@@ -707,83 +707,166 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
   return categories;
 }
 
-async function getPageSpeedInsights(url: string): Promise<PageSpeedInsightsResponse | null> {
+async function getPageSpeedInsights(url: string): Promise<{ desktop: PageSpeedInsightsResponse | null; mobile: PageSpeedInsightsResponse | null }> {
   try {
     const apiKey = Deno.env.get('GOOGLE_PAGESPEED_API_KEY');
     if (!apiKey) {
       console.log('PageSpeed API key not found, skipping PageSpeed analysis');
-      return null;
+      return { desktop: null, mobile: null };
     }
 
-    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=desktop&category=performance&category=accessibility&category=best-practices&category=seo`;
+    // Desktop analysis
+    const desktopUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=desktop&category=performance&category=accessibility&category=best-practices&category=seo`;
     
-    console.log('Calling PageSpeed Insights API...');
-    const response = await fetch(apiUrl);
+    // Mobile analysis
+    const mobileUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=mobile&category=performance&category=accessibility&category=best-practices&category=seo`;
     
-    if (!response.ok) {
-      throw new Error(`PageSpeed API error: ${response.status}`);
+    console.log('Calling PageSpeed Insights API for desktop and mobile...');
+    
+    const [desktopResponse, mobileResponse] = await Promise.all([
+      fetch(desktopUrl),
+      fetch(mobileUrl)
+    ]);
+    
+    let desktopData = null;
+    let mobileData = null;
+    
+    if (desktopResponse.ok) {
+      desktopData = await desktopResponse.json();
+      console.log('Desktop PageSpeed data received successfully');
+    } else {
+      console.error(`Desktop PageSpeed API error: ${desktopResponse.status}`);
     }
     
-    const data = await response.json();
-    console.log('PageSpeed Insights data received successfully');
-    return data;
+    if (mobileResponse.ok) {
+      mobileData = await mobileResponse.json();
+      console.log('Mobile PageSpeed data received successfully');
+    } else {
+      console.error(`Mobile PageSpeed API error: ${mobileResponse.status}`);
+    }
+    
+    return { desktop: desktopData, mobile: mobileData };
   } catch (error) {
     console.error('Error calling PageSpeed Insights:', error);
-    return null;
+    return { desktop: null, mobile: null };
   }
 }
 
-function combineAnalyses(htmlAnalysis: AuditCategory[], pageSpeedData: PageSpeedInsightsResponse | null): AuditCategory[] {
+function combineAnalyses(htmlAnalysis: AuditCategory[], pageSpeedData: { desktop: PageSpeedInsightsResponse | null; mobile: PageSpeedInsightsResponse | null }): AuditCategory[] {
   let categories = [...htmlAnalysis];
 
-  if (pageSpeedData?.lighthouseResult) {
-    const lighthouse = pageSpeedData.lighthouseResult;
+  // Add Performance category (prioritizing desktop data, fallback to mobile)
+  const performanceData = pageSpeedData.desktop || pageSpeedData.mobile;
+  if (performanceData?.lighthouseResult?.categories?.performance) {
+    const lighthouse = performanceData.lighthouseResult;
+    const performanceScore = Math.round(lighthouse.categories.performance.score * 100);
     
-    // Add Performance category
-    if (lighthouse.categories.performance) {
-      const performanceScore = Math.round(lighthouse.categories.performance.score * 100);
-      categories.push({
-        category: 'performance',
-        score: performanceScore,
-        status: performanceScore >= 90 ? 'excellent' : performanceScore >= 70 ? 'good' : performanceScore >= 50 ? 'needs_improvement' : 'critical',
-        issues: [{
-          type: performanceScore >= 70 ? 'success' : performanceScore >= 50 ? 'warning' : 'error',
-          message: `Performance score: ${performanceScore}/100`,
-          priority: performanceScore >= 70 ? 'low' : performanceScore >= 50 ? 'medium' : 'high',
-          recommendation: performanceScore < 70 ? 'Optimize images, reduce JavaScript, and improve server response times' : undefined
-        }]
-      });
+    // Extract Core Web Vitals metrics
+    const audits = lighthouse.audits || {};
+    const metrics = [];
+    
+    if (audits['largest-contentful-paint']) {
+      const lcp = audits['largest-contentful-paint'].displayValue;
+      metrics.push(`LCP: ${lcp}`);
     }
-
-    // Add Mobile-Friendly category (using accessibility as proxy)
-    if (lighthouse.categories.accessibility) {
-      const accessibilityScore = Math.round(lighthouse.categories.accessibility.score * 100);
-      categories.push({
-        category: 'mobile_friendly',
-        score: accessibilityScore,
-        status: accessibilityScore >= 90 ? 'excellent' : accessibilityScore >= 70 ? 'good' : accessibilityScore >= 50 ? 'needs_improvement' : 'critical',
-        issues: [{
-          type: accessibilityScore >= 70 ? 'success' : accessibilityScore >= 50 ? 'warning' : 'error',
-          message: `Accessibility score: ${accessibilityScore}/100`,
-          priority: accessibilityScore >= 70 ? 'low' : accessibilityScore >= 50 ? 'medium' : 'high',
-          recommendation: accessibilityScore < 70 ? 'Improve color contrast, add ARIA labels, and ensure keyboard navigation' : undefined
-        }]
-      });
+    
+    if (audits['first-input-delay']) {
+      const fid = audits['first-input-delay'].displayValue;
+      metrics.push(`FID: ${fid}`);
     }
-  } else {
-    // Add placeholder categories if PageSpeed data is not available
+    
+    if (audits['cumulative-layout-shift']) {
+      const cls = audits['cumulative-layout-shift'].displayValue;
+      metrics.push(`CLS: ${cls}`);
+    }
+    
+    const performanceIssues = [{
+      type: performanceScore >= 90 ? 'success' : performanceScore >= 50 ? 'warning' : 'error',
+      message: `Performance score: ${performanceScore}/100` + (metrics.length > 0 ? ` (${metrics.join(', ')})` : ''),
+      priority: performanceScore >= 90 ? 'medium' : 'high', // Performance always medium/high priority
+      recommendation: performanceScore < 90 ? 'Performance is critical for SEO and user experience. Optimize images, reduce JavaScript, improve server response times, and address Core Web Vitals.' : 'Good performance! Monitor Core Web Vitals regularly.'
+    }];
+    
     categories.push({
       category: 'performance',
-      score: 0,
-      status: 'critical',
-      issues: [{
-        type: 'error',
-        message: 'Unable to analyze performance',
-        priority: 'high',
-        recommendation: 'Check if the URL is accessible and try again'
-      }]
+      score: performanceScore,
+      status: performanceScore >= 90 ? 'excellent' : performanceScore >= 70 ? 'good' : performanceScore >= 50 ? 'needs_improvement' : 'critical',
+      issues: performanceIssues
     });
+  }
 
+  // Add Mobile-Friendly category (using mobile data)
+  if (pageSpeedData.mobile?.lighthouseResult) {
+    const mobileLighthouse = pageSpeedData.mobile.lighthouseResult;
+    let mobileScore = 0;
+    let mobileIssues = [];
+    
+    // Calculate mobile score based on multiple factors
+    const factors = [];
+    
+    if (mobileLighthouse.categories.performance) {
+      const mobilePerf = Math.round(mobileLighthouse.categories.performance.score * 100);
+      factors.push(mobilePerf);
+    }
+    
+    if (mobileLighthouse.categories.accessibility) {
+      const mobileAccess = Math.round(mobileLighthouse.categories.accessibility.score * 100);
+      factors.push(mobileAccess);
+    }
+    
+    if (mobileLighthouse.categories['best-practices']) {
+      const mobileBP = Math.round(mobileLighthouse.categories['best-practices'].score * 100);
+      factors.push(mobileBP);
+    }
+    
+    // Average of available factors
+    if (factors.length > 0) {
+      mobileScore = Math.round(factors.reduce((a, b) => a + b, 0) / factors.length);
+    }
+    
+    // Check for mobile-specific issues
+    const audits = mobileLighthouse.audits || {};
+    if (audits['viewport']) {
+      const viewportPassed = audits['viewport'].score === 1;
+      if (!viewportPassed) {
+        mobileIssues.push({
+          type: 'error',
+          message: 'Missing or incorrect viewport meta tag',
+          priority: 'high',
+          recommendation: 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> to your HTML head'
+        });
+      }
+    }
+    
+    if (audits['tap-targets']) {
+      const tapTargetsPassed = audits['tap-targets'].score === 1;
+      if (!tapTargetsPassed) {
+        mobileIssues.push({
+          type: 'warning',
+          message: 'Touch targets are too small or too close together',
+          priority: 'high',
+          recommendation: 'Ensure tap targets are at least 48px and have sufficient spacing'
+        });
+      }
+    }
+    
+    if (mobileIssues.length === 0) {
+      mobileIssues.push({
+        type: mobileScore >= 95 ? 'success' : mobileScore >= 80 ? 'warning' : 'error',
+        message: `Mobile experience score: ${mobileScore}/100`,
+        priority: mobileScore >= 95 ? 'medium' : 'high', // Mobile always medium/high priority
+        recommendation: mobileScore < 95 ? 'Mobile-first indexing makes mobile optimization critical for SEO. Improve mobile performance, touch targets, and viewport configuration.' : 'Excellent mobile experience!'
+      });
+    }
+    
+    categories.push({
+      category: 'mobile_friendly',
+      score: mobileScore,
+      status: mobileScore >= 95 ? 'excellent' : mobileScore >= 80 ? 'good' : mobileScore >= 60 ? 'needs_improvement' : 'critical',
+      issues: mobileIssues
+    });
+  } else {
+    // Fallback when no mobile data is available
     categories.push({
       category: 'mobile_friendly',
       score: 0,
@@ -792,7 +875,22 @@ function combineAnalyses(htmlAnalysis: AuditCategory[], pageSpeedData: PageSpeed
         type: 'error',
         message: 'Unable to analyze mobile-friendliness',
         priority: 'high',
-        recommendation: 'Check if the URL is accessible and try again'
+        recommendation: 'Mobile optimization is critical for SEO due to mobile-first indexing. Check if the URL is accessible and try again'
+      }]
+    });
+  }
+
+  // Add placeholder performance category if no data available
+  if (!pageSpeedData.desktop && !pageSpeedData.mobile) {
+    categories.push({
+      category: 'performance',
+      score: 0,
+      status: 'critical',
+      issues: [{
+        type: 'error',
+        message: 'Unable to analyze performance',
+        priority: 'high',
+        recommendation: 'Performance is critical for SEO rankings and user experience. Check if the URL is accessible and try again'
       }]
     });
   }
