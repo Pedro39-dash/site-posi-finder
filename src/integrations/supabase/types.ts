@@ -55,6 +55,7 @@ export type Database = {
           created_at: string
           id: string
           message: string
+          metadata: Json | null
           priority: string
           recommendation: string | null
           type: string
@@ -64,6 +65,7 @@ export type Database = {
           created_at?: string
           id?: string
           message: string
+          metadata?: Json | null
           priority: string
           recommendation?: string | null
           type: string
@@ -73,6 +75,7 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string
+          metadata?: Json | null
           priority?: string
           recommendation?: string | null
           type?: string

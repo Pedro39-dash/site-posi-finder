@@ -204,7 +204,8 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
             type: issue.type,
             message: issue.message,
             priority: issue.priority,
-            recommendation: issue.recommendation
+            recommendation: issue.recommendation,
+            metadata: issue.metadata || {}
           });
       }
     }
