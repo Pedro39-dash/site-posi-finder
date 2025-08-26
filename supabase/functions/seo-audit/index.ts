@@ -259,37 +259,6 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
   }
 }
 
-// Validate and normalize URL
-function validateAndNormalizeUrl(inputUrl: string): { isValid: boolean; normalizedUrl: string; error: string } {
-  if (!inputUrl?.trim()) {
-    return { isValid: false, normalizedUrl: '', error: 'URL is required' };
-  }
-
-  let normalizedUrl = inputUrl.trim();
-  
-  // Add protocol if missing
-  if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-    normalizedUrl = 'https://' + normalizedUrl;
-  }
-  
-  try {
-    const urlObj = new URL(normalizedUrl);
-    
-    // Basic validation
-    if (!urlObj.hostname || urlObj.hostname.length < 3) {
-      return { isValid: false, normalizedUrl, error: 'Invalid hostname' };
-    }
-    
-    // Check for valid domain pattern
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/.test(urlObj.hostname)) {
-      return { isValid: false, normalizedUrl, error: 'Invalid domain format' };
-    }
-    
-    return { isValid: true, normalizedUrl, error: '' };
-  } catch (error) {
-    return { isValid: false, normalizedUrl, error: `Invalid URL format: ${error.message}` };
-  }
-}
 
 async function fetchWebpageContent(url: string): Promise<string> {
   console.log(`🌐 Fetching webpage content from: ${url}`);
