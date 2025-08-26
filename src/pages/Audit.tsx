@@ -52,7 +52,7 @@ const Audit = () => {
     }
   };
 
-  // Validate and normalize URL with flexible validation
+  // Validate and normalize URL with simplified validation
   const validateAndNormalizeUrl = (inputUrl: string): { isValid: boolean; normalizedUrl: string; error: string } => {
     if (!inputUrl.trim()) {
       return { isValid: false, normalizedUrl: '', error: 'URL é obrigatória' };
@@ -71,28 +71,48 @@ const Audit = () => {
       
       // Basic validation - hostname should exist and have reasonable length
       if (!urlObj.hostname || urlObj.hostname.length < 4) {
-        return { isValid: false, normalizedUrl, error: 'URL inválida' };
+        return { isValid: false, normalizedUrl, error: 'URL muito curta' };
       }
       
-      // More flexible domain pattern that accepts:
-      // - Subdomains (www, blog, api, etc.)
-      // - Multiple levels (example.com.br, subdomain.example.com)
-      // - Hyphens and numbers in domain names
-      // - International domains
-      const domainPattern = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+      // Simplified domain validation - just check basic structure
+      // Accept domains like: example.com, itxcompany.com.br, blog.example.com
+      const hostname = urlObj.hostname;
       
-      if (!domainPattern.test(urlObj.hostname)) {
+      // Check if has at least one dot
+      if (!hostname.includes('.')) {
+        return { isValid: false, normalizedUrl, error: 'Domínio deve ter pelo menos um ponto' };
+      }
+      
+      // Split by dots and validate each part
+      const parts = hostname.split('.');
+      if (parts.length < 2) {
         return { isValid: false, normalizedUrl, error: 'Formato de domínio inválido' };
       }
       
-      // Check if domain has at least one dot and valid TLD
-      const parts = urlObj.hostname.split('.');
-      if (parts.length < 2 || parts[parts.length - 1].length < 2) {
-        return { isValid: false, normalizedUrl, error: 'Domínio deve ter uma extensão válida' };
+      // Check if all parts are valid (no empty parts, reasonable characters)
+      for (const part of parts) {
+        if (!part || part.length === 0) {
+          return { isValid: false, normalizedUrl, error: 'Formato de domínio inválido' };
+        }
+        // Allow letters, numbers, hyphens (but not at start/end)
+        if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(part) && part.length > 1) {
+          return { isValid: false, normalizedUrl, error: 'Caracteres inválidos no domínio' };
+        }
+        if (/^[a-z0-9]$/.test(part) && parts.indexOf(part) === parts.length - 1 && part.length < 2) {
+          return { isValid: false, normalizedUrl, error: 'Extensão do domínio muito curta' };
+        }
       }
       
+      // Check TLD (last part) has at least 2 characters
+      const tld = parts[parts.length - 1];
+      if (tld.length < 2) {
+        return { isValid: false, normalizedUrl, error: 'Extensão do domínio inválida' };
+      }
+      
+      console.log(`✅ URL validation passed for: ${hostname}`);
       return { isValid: true, normalizedUrl, error: '' };
-    } catch {
+    } catch (error) {
+      console.log(`❌ URL validation failed for: ${inputUrl}`, error);
       return { isValid: false, normalizedUrl, error: 'Formato de URL inválido' };
     }
   };
@@ -102,18 +122,12 @@ const Audit = () => {
     setUrlError('');
     setAuditError('');
     
-    // Only validate if user has typed something substantial and paused
+    // Real-time validation for negative feedback only
     if (value.trim() && value.length > 3) {
-      // Use a timeout to avoid validating while user is still typing
-      const timeoutId = setTimeout(() => {
-        const validation = validateAndNormalizeUrl(value);
-        if (!validation.isValid && value.length > 5) {
-          setUrlError(validation.error);
-        }
-      }, 1000);
-      
-      // Clear timeout if component unmounts or value changes quickly
-      return () => clearTimeout(timeoutId);
+      const validation = validateAndNormalizeUrl(value);
+      if (!validation.isValid) {
+        setUrlError(validation.error);
+      }
     }
   };
 
@@ -378,23 +392,26 @@ const Audit = () => {
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <Input
-                      placeholder="Digite a URL do site (ex: example.com, www.seusite.com.br)"
+                      placeholder="Digite a URL do site (ex: itxcompany.com.br, example.com)"
                       value={url}
                       onChange={(e) => handleUrlChange(e.target.value)}
                       disabled={isScanning}
-                      className={`${urlError ? 'border-red-500' : url.length > 5 ? 'border-green-500' : ''}`}
+                      className={urlError ? 'border-red-500' : ''}
                     />
-                    {urlError && url.length > 5 && (
+                    {urlError && (
                       <p className="text-sm text-red-500 mt-1">{urlError}</p>
                     )}
                     {url && !urlError && url.length > 3 && (() => {
                       const validation = validateAndNormalizeUrl(url);
-                      return validation.isValid && validation.normalizedUrl !== url ? (
-                        <p className="text-sm text-green-600 mt-1">
-                          ✓ URL será normalizada para: {validation.normalizedUrl}
-                        </p>
-                      ) : validation.isValid ? (
-                        <p className="text-sm text-green-600 mt-1">✓ URL válida</p>
+                      return validation.isValid ? (
+                        <div>
+                          <p className="text-sm text-green-600 mt-1">✓ URL válida</p>
+                          {validation.normalizedUrl !== url && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Será normalizada para: {validation.normalizedUrl}
+                            </p>
+                          )}
+                        </div>
                       ) : null;
                     })()}
                   </div>
