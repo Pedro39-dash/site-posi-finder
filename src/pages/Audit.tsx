@@ -52,30 +52,43 @@ const Audit = () => {
     }
   };
 
-  // Validate and normalize URL
+  // Validate and normalize URL with flexible validation
   const validateAndNormalizeUrl = (inputUrl: string): { isValid: boolean; normalizedUrl: string; error: string } => {
     if (!inputUrl.trim()) {
       return { isValid: false, normalizedUrl: '', error: 'URL é obrigatória' };
     }
 
-    let normalizedUrl = inputUrl.trim();
+    let normalizedUrl = inputUrl.trim().toLowerCase();
     
-    // Add protocol if missing
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-      normalizedUrl = 'https://' + normalizedUrl;
-    }
+    // Remove common prefixes that users might add
+    normalizedUrl = normalizedUrl.replace(/^(https?:\/\/)?(www\.)?/, '');
+    
+    // Add https:// and www. for better compatibility
+    normalizedUrl = 'https://www.' + normalizedUrl;
     
     try {
       const urlObj = new URL(normalizedUrl);
       
-      // Basic validation
-      if (!urlObj.hostname || urlObj.hostname.length < 3) {
+      // Basic validation - hostname should exist and have reasonable length
+      if (!urlObj.hostname || urlObj.hostname.length < 4) {
         return { isValid: false, normalizedUrl, error: 'URL inválida' };
       }
       
-      // Check for valid domain pattern
-      if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/.test(urlObj.hostname)) {
-        return { isValid: false, normalizedUrl, error: 'Domínio inválido' };
+      // More flexible domain pattern that accepts:
+      // - Subdomains (www, blog, api, etc.)
+      // - Multiple levels (example.com.br, subdomain.example.com)
+      // - Hyphens and numbers in domain names
+      // - International domains
+      const domainPattern = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+      
+      if (!domainPattern.test(urlObj.hostname)) {
+        return { isValid: false, normalizedUrl, error: 'Formato de domínio inválido' };
+      }
+      
+      // Check if domain has at least one dot and valid TLD
+      const parts = urlObj.hostname.split('.');
+      if (parts.length < 2 || parts[parts.length - 1].length < 2) {
+        return { isValid: false, normalizedUrl, error: 'Domínio deve ter uma extensão válida' };
       }
       
       return { isValid: true, normalizedUrl, error: '' };
@@ -89,11 +102,18 @@ const Audit = () => {
     setUrlError('');
     setAuditError('');
     
-    if (value.trim()) {
-      const validation = validateAndNormalizeUrl(value);
-      if (!validation.isValid) {
-        setUrlError(validation.error);
-      }
+    // Only validate if user has typed something substantial and paused
+    if (value.trim() && value.length > 3) {
+      // Use a timeout to avoid validating while user is still typing
+      const timeoutId = setTimeout(() => {
+        const validation = validateAndNormalizeUrl(value);
+        if (!validation.isValid && value.length > 5) {
+          setUrlError(validation.error);
+        }
+      }, 1000);
+      
+      // Clear timeout if component unmounts or value changes quickly
+      return () => clearTimeout(timeoutId);
     }
   };
 
@@ -358,20 +378,25 @@ const Audit = () => {
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <Input
-                      placeholder="Digite a URL do site (ex: https://seusite.com)"
+                      placeholder="Digite a URL do site (ex: example.com, www.seusite.com.br)"
                       value={url}
                       onChange={(e) => handleUrlChange(e.target.value)}
                       disabled={isScanning}
-                      className={`${urlError ? 'border-red-500' : ''}`}
+                      className={`${urlError ? 'border-red-500' : url.length > 5 ? 'border-green-500' : ''}`}
                     />
-                    {urlError && (
+                    {urlError && url.length > 5 && (
                       <p className="text-sm text-red-500 mt-1">{urlError}</p>
                     )}
-                    {url && !urlError && validateAndNormalizeUrl(url).normalizedUrl !== url && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        URL será normalizada para: {validateAndNormalizeUrl(url).normalizedUrl}
-                      </p>
-                    )}
+                    {url && !urlError && url.length > 3 && (() => {
+                      const validation = validateAndNormalizeUrl(url);
+                      return validation.isValid && validation.normalizedUrl !== url ? (
+                        <p className="text-sm text-green-600 mt-1">
+                          ✓ URL será normalizada para: {validation.normalizedUrl}
+                        </p>
+                      ) : validation.isValid ? (
+                        <p className="text-sm text-green-600 mt-1">✓ URL válida</p>
+                      ) : null;
+                    })()}
                   </div>
                   <Button 
                     onClick={handleAudit}
