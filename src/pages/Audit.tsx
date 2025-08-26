@@ -19,7 +19,8 @@ import {
   FileText,
   Eye,
   History,
-  Trash2
+  Trash2,
+  Brain
 } from "lucide-react";
 import { AuditService, type AuditResult, type AuditReport } from "@/services/auditService";
 
@@ -208,6 +209,7 @@ const Audit = () => {
       case 'links': return <Link className="h-5 w-5" />;
       case 'mobile_friendly': return <Smartphone className="h-5 w-5" />;
       case 'images': return <Eye className="h-5 w-5" />;
+      case 'ai_search_optimization': return <Brain className="h-5 w-5" />;
       default: return <Eye className="h-5 w-5" />;
     }
   };
@@ -220,6 +222,7 @@ const Audit = () => {
       case 'links': return 'Links';
       case 'mobile_friendly': return 'Mobile-Friendly';
       case 'images': return 'Imagens';
+      case 'ai_search_optimization': return 'Otimização para IAs';
       default: return category;
     }
   };
@@ -241,7 +244,7 @@ const Audit = () => {
               Auditoria SEO
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Análise técnica completa do seu site para identificar oportunidades de otimização para mecanismos de busca
+              Análise técnica completa do seu site para identificar oportunidades de otimização para mecanismos de busca e IAs
             </p>
           </div>
 
@@ -343,7 +346,7 @@ const Audit = () => {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                     <h3 className="text-lg font-semibold mb-2">Analisando seu site...</h3>
                     <p className="text-muted-foreground mb-4">
-                      Verificando meta tags, estrutura, performance e muito mais
+                      Verificando meta tags, estrutura, performance, otimização para IAs e muito mais
                     </p>
                     <p className="text-sm text-muted-foreground mb-4">
                       Este processo pode levar alguns minutos para uma análise completa

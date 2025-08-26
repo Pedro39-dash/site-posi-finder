@@ -202,6 +202,9 @@ function analyzeHTML(html: string, url: string): AuditCategory[] {
   const h1Matches = html.match(/<h1[^>]*>([^<]*)<\/h1>/gi) || [];
   const imgMatches = html.match(/<img[^>]*>/gi) || [];
   const linkMatches = html.match(/<a[^>]*href=["']([^"']*)["'][^>]*>/gi) || [];
+  
+  // Extract text content for AI analysis
+  const textContent = extractTextContent(html);
 
   // Meta Tags Analysis
   const metaIssues = [];
@@ -328,6 +331,10 @@ function analyzeHTML(html: string, url: string): AuditCategory[] {
     issues: imageIssues
   });
 
+  // AI Search Optimization Analysis
+  const aiSearchAnalysis = analyzeAISearchOptimization(textContent, title, metaDesc, url);
+  categories.push(aiSearchAnalysis);
+
   return categories;
 }
 
@@ -422,4 +429,206 @@ function combineAnalyses(htmlAnalysis: AuditCategory[], pageSpeedData: PageSpeed
   }
 
   return categories;
+}
+
+function extractTextContent(html: string): string {
+  // Remove script and style elements
+  let cleanHtml = html.replace(/<script[^>]*>.*?<\/script>/gis, '');
+  cleanHtml = cleanHtml.replace(/<style[^>]*>.*?<\/style>/gis, '');
+  
+  // Remove HTML tags but keep the text
+  cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
+  
+  // Clean up whitespace
+  cleanHtml = cleanHtml.replace(/\s+/g, ' ').trim();
+  
+  return cleanHtml;
+}
+
+function analyzeAISearchOptimization(textContent: string, title: string, metaDesc: string, url: string): AuditCategory {
+  const issues = [];
+  let score = 0;
+  
+  // Extract keywords from content
+  const keywords = extractKeywords(textContent, title, metaDesc);
+  const prompts = generateAIPrompts(keywords, textContent, url);
+  
+  // Analyze content structure for AI optimization
+  const hasStructuredContent = checkStructuredContent(textContent);
+  const hasFAQ = textContent.toLowerCase().includes('pergunta') || textContent.toLowerCase().includes('faq') || textContent.toLowerCase().includes('dúvida');
+  const hasActionableContent = checkActionableContent(textContent);
+  
+  // Scoring based on AI-friendliness
+  if (keywords.length >= 10) {
+    score += 25;
+    issues.push({
+      type: 'success' as const,
+      message: `${keywords.length} termos-chave identificados`,
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: `Apenas ${keywords.length} termos-chave identificados`,
+      priority: 'medium' as const,
+      recommendation: 'Adicione mais conteúdo relevante com termos-chave específicos'
+    });
+  }
+  
+  if (hasStructuredContent) {
+    score += 25;
+    issues.push({
+      type: 'success' as const,
+      message: 'Conteúdo bem estruturado para IAs',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Conteúdo pouco estruturado',
+      priority: 'medium' as const,
+      recommendation: 'Use listas, subtítulos e parágrafos bem organizados'
+    });
+  }
+  
+  if (hasFAQ) {
+    score += 25;
+    issues.push({
+      type: 'success' as const,
+      message: 'Seção FAQ identificada',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Sem seção FAQ identificada',
+      priority: 'medium' as const,
+      recommendation: 'Adicione uma seção FAQ para melhorar a descoberta por IAs'
+    });
+  }
+  
+  if (hasActionableContent) {
+    score += 25;
+    issues.push({
+      type: 'success' as const,
+      message: 'Conteúdo acionável identificado',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Pouco conteúdo acionável',
+      priority: 'medium' as const,
+      recommendation: 'Adicione mais instruções, guias e soluções práticas'
+    });
+  }
+  
+  // Add AI prompts and keywords as metadata
+  issues.push({
+    type: 'success' as const,
+    message: `Prompts sugeridos: ${prompts.slice(0, 3).join('; ')}`,
+    priority: 'low' as const,
+    recommendation: `Termos identificados: ${keywords.slice(0, 10).join(', ')}`
+  });
+  
+  return {
+    category: 'ai_search_optimization',
+    score: Math.max(0, score),
+    status: score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs_improvement' : 'critical',
+    issues
+  };
+}
+
+function extractKeywords(textContent: string, title: string, metaDesc: string): string[] {
+  const combinedText = `${title} ${metaDesc} ${textContent}`.toLowerCase();
+  
+  // Common Portuguese stop words
+  const stopWords = new Set([
+    'a', 'e', 'o', 'de', 'da', 'do', 'para', 'com', 'em', 'na', 'no', 'por', 'que', 'se', 'um', 'uma',
+    'os', 'as', 'dos', 'das', 'nos', 'nas', 'pelo', 'pela', 'pelos', 'pelas', 'ao', 'aos', 'à', 'às',
+    'este', 'esta', 'estes', 'estas', 'esse', 'essa', 'esses', 'essas', 'aquele', 'aquela', 'aqueles', 'aquelas',
+    'seu', 'sua', 'seus', 'suas', 'nosso', 'nossa', 'nossos', 'nossas', 'meu', 'minha', 'meus', 'minhas',
+    'ele', 'ela', 'eles', 'elas', 'você', 'vocês', 'nós', 'eu', 'tu', 'mas', 'mais', 'muito', 'bem', 'já',
+    'ainda', 'onde', 'como', 'quando', 'porque', 'então', 'assim', 'também', 'só', 'até', 'depois', 'antes'
+  ]);
+  
+  // Extract words and clean them
+  const words = combinedText
+    .replace(/[^a-záàâãéêíóôõúç\s]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length >= 3 && !stopWords.has(word))
+    .filter(word => !/^\d+$/.test(word)); // Remove pure numbers
+  
+  // Count frequency
+  const wordCount = new Map<string, number>();
+  words.forEach(word => {
+    wordCount.set(word, (wordCount.get(word) || 0) + 1);
+  });
+  
+  // Return top keywords sorted by frequency
+  return Array.from(wordCount.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .map(([word]) => word);
+}
+
+function generateAIPrompts(keywords: string[], textContent: string, url: string): string[] {
+  const domain = url.replace(/https?:\/\//, '').split('/')[0];
+  const prompts = [];
+  
+  // Generate different types of prompts
+  if (keywords.length > 0) {
+    const topKeywords = keywords.slice(0, 5);
+    
+    // Problem-solution prompts
+    prompts.push(`Onde encontrar ${topKeywords[0]} profissional?`);
+    prompts.push(`Como escolher ${topKeywords[0]} de qualidade?`);
+    prompts.push(`Melhor empresa de ${topKeywords[0]}`);
+    
+    // Service-based prompts
+    if (textContent.toLowerCase().includes('serviço') || textContent.toLowerCase().includes('consultoria')) {
+      prompts.push(`Serviços de ${topKeywords[0]} confiáveis`);
+      prompts.push(`Consultoria especializada em ${topKeywords[0]}`);
+    }
+    
+    // Location-based prompts (if location detected)
+    const locationWords = ['brasil', 'são paulo', 'rio', 'belo horizonte', 'brasília'];
+    const hasLocation = locationWords.some(loc => textContent.toLowerCase().includes(loc));
+    if (hasLocation) {
+      prompts.push(`${topKeywords[0]} no Brasil`);
+    }
+    
+    // Comparison prompts
+    prompts.push(`Comparar empresas de ${topKeywords[0]}`);
+    prompts.push(`${topKeywords[0]}: qual a melhor opção?`);
+    
+    // Educational prompts
+    prompts.push(`Guia completo sobre ${topKeywords[0]}`);
+    prompts.push(`Como funciona ${topKeywords[0]}?`);
+  }
+  
+  return prompts.slice(0, 8);
+}
+
+function checkStructuredContent(textContent: string): boolean {
+  const indicators = [
+    /\d+\.\s/, // Numbered lists
+    /•\s/, // Bullet points
+    /\n\s*-\s/, // Dashed lists
+    /:\s*\n/, // Colons followed by newlines
+    /(como|passo|etapa|fase)/i // Step indicators
+  ];
+  
+  return indicators.some(pattern => pattern.test(textContent));
+}
+
+function checkActionableContent(textContent: string): boolean {
+  const actionWords = [
+    'como', 'faça', 'siga', 'implemente', 'aplique', 'execute', 'realize', 'configure',
+    'instale', 'baixe', 'acesse', 'clique', 'selecione', 'escolha', 'defina', 'ajuste',
+    'passo', 'etapa', 'guia', 'tutorial', 'instruções', 'procedimento'
+  ];
+  
+  const lowerText = textContent.toLowerCase();
+  return actionWords.some(word => lowerText.includes(word));
 }
