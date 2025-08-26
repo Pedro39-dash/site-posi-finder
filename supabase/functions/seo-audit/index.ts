@@ -1769,186 +1769,276 @@ function extractKeywords(textContent: string, title: string, metaDesc: string): 
 }
 
 function generateAIPrompts(keywords: string[], textContent: string, url: string): string[] {
+  console.log('🎯 Generating enhanced AI prompts for keywords:', keywords.slice(0, 10));
+  
+  const prompts: string[] = [];
   const domain = url.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
-  const prompts = [];
+  const lowerContent = decodeHtmlEntities(textContent).toLowerCase();
   
-  console.log('🤖 Generating AI prompts from keywords:', keywords.slice(0, 5));
+  // FASE 1: Expandir Quantidade e Variedade - usar top 10 keywords
+  const topKeywords = keywords.slice(0, 10);
+  const mainKeyword = topKeywords[0];
+  const secondaryKeyword = topKeywords[1];
+  const tertiaryKeyword = topKeywords[2];
   
-  // Decode HTML entities in text content
-  const decodedContent = decodeHtmlEntities(textContent);
-  const lowerContent = decodedContent.toLowerCase();
-  
-  // Enhanced business type detection with more specific patterns
-  const businessPatterns = {
-    ecommerce: ['comprar', 'preço', 'produto', 'loja', 'venda', 'carrinho', 'checkout', 'pagamento', 'desconto', 'promoção', 'oferta'],
-    service: ['serviço', 'consultoria', 'atendimento', 'contrato', 'orçamento', 'projeto', 'solução', 'especialista', 'profissional'],
-    manufacturing: ['fabricação', 'indústria', 'equipamento', 'máquina', 'produção', 'industrial', 'técnico', 'especificação'],
-    construction: ['construção', 'obra', 'engenharia', 'arquitetura', 'projeto', 'construir', 'reforma', 'material'],
-    technology: ['software', 'sistema', 'tecnologia', 'desenvolvimento', 'digital', 'aplicativo', 'plataforma', 'automação'],
-    education: ['curso', 'treinamento', 'educação', 'aprender', 'ensino', 'certificação', 'escola', 'universidade'],
-    health: ['saúde', 'médico', 'clínica', 'hospital', 'tratamento', 'diagnóstico', 'terapia', 'medicina'],
-    finance: ['financeiro', 'banco', 'investimento', 'crédito', 'empréstimo', 'seguro', 'economia', 'consultoria financeira'],
-    blog: ['artigo', 'post', 'blog', 'dicas', 'tutorial', 'guia', 'notícia', 'informação', 'conteúdo']
-  };
-  
-  // Detect business types with scoring
-  const businessScores = {};
-  for (const [type, patterns] of Object.entries(businessPatterns)) {
-    businessScores[type] = patterns.reduce((score, pattern) => {
-      const matches = (lowerContent.match(new RegExp(pattern, 'g')) || []).length;
-      return score + matches;
-    }, 0);
-  }
-  
-  // Get the primary business type
-  const primaryType = Object.entries(businessScores)
-    .sort(([, a], [, b]) => b - a)[0]?.[0] || 'generic';
-  
-  console.log('🏢 Detected business type:', primaryType, 'with scores:', businessScores);
-  
-  // Generate context-aware prompts based on keywords
-  if (keywords.length > 0) {
-    const topKeywords = keywords.slice(0, 5);
-    const mainKeyword = topKeywords[0];
-    const secondaryKeyword = topKeywords[1];
-    
-    // Detect if main keyword is a compound phrase
-    const isCompoundKeyword = mainKeyword.includes(' ');
-    
-    console.log('🎯 Main keyword:', mainKeyword, '| Secondary:', secondaryKeyword);
-    
-    switch (primaryType) {
-      case 'ecommerce':
-        prompts.push(`Onde comprar ${mainKeyword} com melhor preço?`);
-        prompts.push(`${mainKeyword} barato online`);
-        prompts.push(`Loja confiável de ${mainKeyword}`);
-        prompts.push(`${mainKeyword} com frete grátis`);
-        prompts.push(`Comparar preços ${mainKeyword}`);
-        if (secondaryKeyword) prompts.push(`${mainKeyword} vs ${secondaryKeyword}: qual comprar?`);
-        break;
-        
-      case 'manufacturing':
-      case 'construction':
-        prompts.push(`Fornecedor de ${mainKeyword} confiável`);
-        prompts.push(`${mainKeyword} industrial: especificações`);
-        prompts.push(`Como escolher ${mainKeyword} adequado?`);
-        prompts.push(`${mainKeyword}: catálogo e preços`);
-        prompts.push(`Distribuidor autorizado ${mainKeyword}`);
-        if (secondaryKeyword) prompts.push(`${mainKeyword} para ${secondaryKeyword}`);
-        break;
-        
-      case 'service':
-        prompts.push(`Melhor empresa de ${mainKeyword}`);
-        prompts.push(`${mainKeyword} profissional especializado`);
-        prompts.push(`Como contratar ${mainKeyword} confiável?`);
-        prompts.push(`${mainKeyword}: orçamento sem compromisso`);
-        prompts.push(`Consultoria em ${mainKeyword}`);
-        break;
-        
-      case 'technology':
-        prompts.push(`Como implementar ${mainKeyword}?`);
-        prompts.push(`${mainKeyword}: guia completo`);
-        prompts.push(`Melhor solução de ${mainKeyword}`);
-        prompts.push(`${mainKeyword}: vantagens e desvantagens`);
-        prompts.push(`Integração com ${mainKeyword}`);
-        break;
-        
-      case 'education':
-        prompts.push(`Curso de ${mainKeyword} online`);
-        prompts.push(`Como aprender ${mainKeyword}?`);
-        prompts.push(`Certificação em ${mainKeyword}`);
-        prompts.push(`${mainKeyword} para iniciantes`);
-        prompts.push(`Melhor treinamento ${mainKeyword}`);
-        break;
-        
-      case 'health':
-        prompts.push(`${mainKeyword}: sintomas e tratamento`);
-        prompts.push(`Especialista em ${mainKeyword}`);
-        prompts.push(`Como tratar ${mainKeyword}?`);
-        prompts.push(`${mainKeyword}: prevenção e cuidados`);
-        prompts.push(`Clínica especializada ${mainKeyword}`);
-        break;
-        
-      case 'finance':
-        prompts.push(`${mainKeyword}: como funciona?`);
-        prompts.push(`Melhor ${mainKeyword} do mercado`);
-        prompts.push(`${mainKeyword}: taxas e condições`);
-        prompts.push(`Como solicitar ${mainKeyword}?`);
-        prompts.push(`${mainKeyword} vale a pena?`);
-        break;
-        
-      case 'blog':
-        prompts.push(`${mainKeyword}: dicas práticas`);
-        prompts.push(`Guia definitivo sobre ${mainKeyword}`);
-        prompts.push(`Como fazer ${mainKeyword} corretamente?`);
-        prompts.push(`${mainKeyword}: passo a passo`);
-        prompts.push(`Tudo sobre ${mainKeyword}`);
-        break;
-        
-      default:
-        prompts.push(`O que é ${mainKeyword}?`);
-        prompts.push(`Como funciona ${mainKeyword}?`);
-        prompts.push(`${mainKeyword}: vantagens e benefícios`);
-        prompts.push(`${mainKeyword} é confiável?`);
-        prompts.push(`Melhor ${mainKeyword} disponível`);
-    }
-    
-    // Add location-based prompt if detected
-    const locationWords = ['brasil', 'são paulo', 'rio de janeiro', 'belo horizonte', 'brasília', 'porto alegre', 'salvador', 'recife', 'fortaleza', 'curitiba', 'goiânia', 'manaus'];
-    const detectedLocation = locationWords.find(loc => lowerContent.includes(loc));
-    
-    if (detectedLocation) {
-      const locationName = {
-        'são paulo': 'São Paulo',
-        'rio de janeiro': 'Rio de Janeiro', 
-        'belo horizonte': 'Belo Horizonte',
-        'brasília': 'Brasília',
-        'porto alegre': 'Porto Alegre'
-      }[detectedLocation] || detectedLocation.replace(/\b\w/g, l => l.toUpperCase());
-      
-      prompts.push(`${mainKeyword} em ${locationName}`);
-    } else {
-      prompts.push(`${mainKeyword} no Brasil`);
-    }
-    
-    // Add problem-solving prompts
-    prompts.push(`Problema com ${mainKeyword}: como resolver?`);
-    if (!isCompoundKeyword) {
-      prompts.push(`${mainKeyword} não funciona: soluções`);
-    }
-    
-    // Add comparison prompt with secondary keyword
-    if (secondaryKeyword && !prompts.some(p => p.includes('vs'))) {
-      prompts.push(`${mainKeyword} vs ${secondaryKeyword}: diferenças`);
-    }
-    
-    // Add brand/company specific prompts
-    const brandName = domain.split('.')[0];
-    if (brandName && brandName.length > 2) {
-      prompts.push(`${brandName}: avaliação e opiniões`);
-      prompts.push(`${brandName} é confiável?`);
-    }
-  }
-  
-  // Fallback prompts if we don't have enough
-  if (prompts.length < 8) {
-    const domainName = domain.split('.')[0];
-    prompts.push(`${domainName} vale a pena?`);
-    prompts.push(`Como usar ${domainName}?`);
-    prompts.push(`Experiência com ${domainName}`);
-    prompts.push(`${domainName}: prós e contras`);
-    prompts.push(`Alternativas ao ${domainName}`);
-  }
-  
-  // Clean and deduplicate prompts
+  if (!mainKeyword) return [];
+
+  // Detectar business type mais sofisticado
+  const businessContext = detectBusinessContext(lowerContent);
+  console.log('🏢 Business context:', businessContext);
+
+  // FASE 2: Prompts Comerciais Inteligentes - baseados no contexto
+  generateContextualPrompts(prompts, mainKeyword, secondaryKeyword, businessContext);
+
+  // FASE 3: Contextualização Avançada - estrutura da página
+  generateStructuralPrompts(prompts, topKeywords, textContent, lowerContent);
+
+  // Prompts Long-tail com múltiplos keywords
+  generateLongTailPrompts(prompts, topKeywords, businessContext);
+
+  // Prompts baseados em intenção comercial
+  generateCommercialIntentPrompts(prompts, topKeywords, businessContext, domain);
+
+  // Prompts de comparação inteligentes
+  generateComparisonPrompts(prompts, topKeywords);
+
+  // Prompts geográficos expandidos
+  generateGeoPrompts(prompts, mainKeyword, lowerContent);
+
+  // Prompts de solução de problemas
+  generateProblemSolvingPrompts(prompts, topKeywords, businessContext);
+
+  // Prompts de marca/empresa
+  generateBrandPrompts(prompts, domain, mainKeyword);
+
+  // Prompts de tendências e temporais
+  generateTrendPrompts(prompts, topKeywords, businessContext);
+
+  // Clean, deduplicate and expand to 25 prompts
   const cleanedPrompts = prompts
-    .filter(p => p && p.length > 10) // Remove empty or too short prompts
-    .filter((prompt, index, arr) => arr.indexOf(prompt) === index) // Remove duplicates
-    .slice(0, 12); // Limit to 12 prompts
-  
-  console.log('✨ Generated prompts:', cleanedPrompts);
-  
+    .filter(p => p && p.length > 8 && p.length < 120)
+    .filter((prompt, index, arr) => arr.indexOf(prompt) === index)
+    .slice(0, 25); // EXPANDIDO PARA 25 PROMPTS
+
+  console.log('✨ Generated', cleanedPrompts.length, 'enhanced prompts');
   return cleanedPrompts;
+}
+
+function detectBusinessContext(content: string): string {
+  const contexts = {
+    ecommerce: ['comprar', 'venda', 'loja', 'produto', 'preço', 'carrinho', 'pagamento', 'frete', 'desconto', 'estoque'],
+    service: ['serviço', 'atendimento', 'consultoria', 'orçamento', 'contrato', 'profissional', 'especialista'],
+    technology: ['software', 'sistema', 'tecnologia', 'api', 'integração', 'solução', 'plataforma', 'desenvolvimento'],
+    education: ['curso', 'treinamento', 'ensino', 'aprender', 'certificação', 'educação', 'formação'],
+    health: ['saúde', 'médico', 'clínica', 'tratamento', 'sintoma', 'terapia', 'consulta', 'diagnóstico'],
+    finance: ['financeiro', 'investimento', 'empréstimo', 'crédito', 'banco', 'taxa', 'juros', 'seguro'],
+    manufacturing: ['fabricação', 'produção', 'indústria', 'equipamento', 'máquina', 'qualidade', 'certificação'],
+    legal: ['advocacia', 'jurídico', 'direito', 'lei', 'processo', 'tribunal', 'advogado', 'contrato'],
+    real_estate: ['imóvel', 'casa', 'apartamento', 'venda', 'aluguel', 'corretor', 'financiamento'],
+    automotive: ['carro', 'veículo', 'auto', 'peça', 'manutenção', 'oficina', 'concessionária']
+  };
+
+  let maxScore = 0;
+  let detectedContext = 'generic';
+
+  for (const [context, terms] of Object.entries(contexts)) {
+    const score = terms.reduce((acc, term) => acc + (content.match(new RegExp(term, 'gi'))?.length || 0), 0);
+    if (score > maxScore) {
+      maxScore = score;
+      detectedContext = context;
+    }
+  }
+
+  return detectedContext;
+}
+
+function generateContextualPrompts(prompts: string[], main: string, secondary: string, context: string) {
+  const templates = {
+    ecommerce: [
+      `Onde comprar ${main} com melhor preço online?`,
+      `${main} em promoção: melhores ofertas`,
+      `Loja confiável para ${main}`,
+      `${main} com frete grátis no Brasil`,
+      `Cupom de desconto para ${main}`
+    ],
+    service: [
+      `Melhor empresa de ${main} na região`,
+      `${main}: orçamento gratuito`,
+      `Profissional especializado em ${main}`,
+      `Como escolher ${main} de qualidade?`,
+      `${main}: avaliações de clientes`
+    ],
+    technology: [
+      `Como implementar ${main} na empresa?`,
+      `${main}: guia de integração`,
+      `Melhor ferramenta de ${main} 2024`,
+      `${main}: custos e benefícios`,
+      `Migração para ${main}: passo a passo`
+    ],
+    education: [
+      `Curso online de ${main} certificado`,
+      `Como aprender ${main} do zero?`,
+      `${main}: treinamento corporativo`,
+      `Certificação profissional em ${main}`,
+      `${main} para iniciantes: por onde começar?`
+    ]
+  };
+
+  const contextTemplates = templates[context as keyof typeof templates] || templates.service;
+  prompts.push(...contextTemplates);
+
+  if (secondary) {
+    prompts.push(`${main} vs ${secondary}: qual escolher?`);
+    prompts.push(`${main} e ${secondary}: comparativo completo`);
+  }
+}
+
+function generateStructuralPrompts(prompts: string[], keywords: string[], content: string, lowerContent: string) {
+  // Detectar CTAs e call-to-actions
+  const ctas = ['solicite', 'contate', 'ligue', 'agende', 'cadastre', 'inscreva', 'baixe', 'acesse'];
+  const hasCTA = ctas.some(cta => lowerContent.includes(cta));
+
+  if (hasCTA && keywords[0]) {
+    prompts.push(`Como solicitar ${keywords[0]} online?`);
+    prompts.push(`${keywords[0]}: contato e atendimento`);
+  }
+
+  // Detectar listas e estruturas
+  if (content.includes('1.') || content.includes('•') || content.includes('-')) {
+    prompts.push(`${keywords[0]}: lista completa e detalhada`);
+    prompts.push(`Passo a passo para ${keywords[0]}`);
+  }
+
+  // Detectar FAQ patterns
+  if (lowerContent.includes('pergunta') || lowerContent.includes('dúvida') || lowerContent.includes('faq')) {
+    prompts.push(`${keywords[0]}: perguntas frequentes`);
+    prompts.push(`Dúvidas sobre ${keywords[0]}: respostas`);
+  }
+}
+
+function generateLongTailPrompts(prompts: string[], keywords: string[], context: string) {
+  for (let i = 0; i < Math.min(keywords.length, 6); i++) {
+    const kw = keywords[i];
+    if (kw && kw.length > 3) {
+      prompts.push(`${kw} vale a pena investir?`);
+      prompts.push(`Como funciona ${kw} na prática?`);
+      
+      if (context === 'ecommerce') {
+        prompts.push(`${kw} original vs falsificado`);
+        prompts.push(`${kw}: garantia e pós-venda`);
+      } else if (context === 'service') {
+        prompts.push(`${kw}: quanto custa em média?`);
+        prompts.push(`${kw} urgente: atendimento 24h`);
+      }
+    }
+  }
+}
+
+function generateCommercialIntentPrompts(prompts: string[], keywords: string[], context: string, domain: string) {
+  const mainKw = keywords[0];
+  if (!mainKw) return;
+
+  // Prompts de intenção comercial alta
+  prompts.push(`${mainKw} profissional: contratação`);
+  prompts.push(`${mainKw}: orçamento personalizado`);
+  prompts.push(`Empresa especializada em ${mainKw}`);
+  
+  // Prompts de urgência e necessidade
+  prompts.push(`${mainKw} com urgência: soluções`);
+  prompts.push(`${mainKw}: atendimento imediato`);
+  
+  // Prompts de qualidade e confiança
+  prompts.push(`${mainKw} de qualidade: como identificar?`);
+  prompts.push(`${mainKw} confiável: dicas de escolha`);
+
+  // Brand authority prompts
+  if (domain && domain.length > 3) {
+    const brandName = domain.split('.')[0];
+    prompts.push(`${brandName}: especialista em ${mainKw}`);
+    prompts.push(`Por que escolher ${brandName} para ${mainKw}?`);
+  }
+}
+
+function generateComparisonPrompts(prompts: string[], keywords: string[]) {
+  for (let i = 0; i < Math.min(keywords.length - 1, 4); i++) {
+    const kw1 = keywords[i];
+    const kw2 = keywords[i + 1];
+    if (kw1 && kw2 && kw1 !== kw2) {
+      prompts.push(`${kw1} vs ${kw2}: análise comparativa`);
+      prompts.push(`Diferença entre ${kw1} e ${kw2}`);
+    }
+  }
+  
+  // Alternative prompts
+  if (keywords[0]) {
+    prompts.push(`Alternativas para ${keywords[0]}`);
+    prompts.push(`Substituir ${keywords[0]} por que?`);
+  }
+}
+
+function generateGeoPrompts(prompts: string[], mainKeyword: string, content: string) {
+  const cities = ['são paulo', 'rio de janeiro', 'brasília', 'belo horizonte', 'porto alegre', 'salvador', 'recife', 'fortaleza', 'curitiba', 'goiânia'];
+  const states = ['sp', 'rj', 'mg', 'rs', 'ba', 'pr', 'sc', 'pe', 'ce', 'go'];
+  
+  const detectedCity = cities.find(city => content.includes(city));
+  const detectedState = states.find(state => content.includes(state));
+  
+  if (detectedCity) {
+    const cityName = detectedCity.replace(/\b\w/g, l => l.toUpperCase());
+    prompts.push(`${mainKeyword} em ${cityName}: melhores opções`);
+    prompts.push(`${mainKeyword} ${cityName}: endereços e contatos`);
+  } else if (detectedState) {
+    prompts.push(`${mainKeyword} ${detectedState.toUpperCase()}: fornecedores`);
+  } else {
+    prompts.push(`${mainKeyword} Brasil: cobertura nacional`);
+    prompts.push(`${mainKeyword} em todo território nacional`);
+  }
+}
+
+function generateProblemSolvingPrompts(prompts: string[], keywords: string[], context: string) {
+  const mainKw = keywords[0];
+  if (!mainKw) return;
+
+  prompts.push(`Problema com ${mainKw}: como resolver rapidamente?`);
+  prompts.push(`${mainKw} não funciona: soluções práticas`);
+  prompts.push(`Erro em ${mainKw}: correção passo a passo`);
+  
+  if (context === 'technology') {
+    prompts.push(`${mainKw}: troubleshooting comum`);
+    prompts.push(`Configurar ${mainKw} corretamente`);
+  } else if (context === 'service') {
+    prompts.push(`${mainKw}: quando procurar ajuda?`);
+    prompts.push(`${mainKw}: sinais de que precisa trocar`);
+  }
+}
+
+function generateBrandPrompts(prompts: string[], domain: string, mainKeyword: string) {
+  const brandName = domain.split('.')[0];
+  if (brandName && brandName.length > 2) {
+    prompts.push(`${brandName}: avaliação detalhada`);
+    prompts.push(`${brandName} é confiável para ${mainKeyword}?`);
+    prompts.push(`Experiência real com ${brandName}`);
+    prompts.push(`${brandName}: prós e contras`);
+    prompts.push(`Reclamações sobre ${brandName}: são procedentes?`);
+  }
+}
+
+function generateTrendPrompts(prompts: string[], keywords: string[], context: string) {
+  const mainKw = keywords[0];
+  if (!mainKw) return;
+
+  const currentYear = new Date().getFullYear();
+  prompts.push(`${mainKw}: tendências ${currentYear}`);
+  prompts.push(`${mainKw}: novidades do mercado`);
+  prompts.push(`Futuro do ${mainKw}: perspectivas`);
+  
+  if (context === 'technology') {
+    prompts.push(`${mainKw}: inovações recentes`);
+    prompts.push(`${mainKw} ${currentYear}: atualizações`);
+  } else if (context === 'ecommerce') {
+    prompts.push(`${mainKw}: lançamentos ${currentYear}`);
+    prompts.push(`${mainKw}: modelos mais vendidos`);
+  }
 }
 
 function checkStructuredContent(textContent: string): boolean {
