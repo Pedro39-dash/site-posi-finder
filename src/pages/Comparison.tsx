@@ -2,8 +2,14 @@ import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import ComparisonFormEnhanced from "@/components/comparison/ComparisonFormEnhanced";
 import ComparisonResultsEnhanced, { ComparisonResultEnhanced } from "@/components/comparison/ComparisonResultsEnhanced";
+import CompetitiveAnalysisForm from "@/components/comparison/CompetitiveAnalysisForm";
+import CompetitiveAnalysisResults from "@/components/comparison/CompetitiveAnalysisResults";
 import SimulationNotice from "@/components/SimulationNotice";
 import { useProjects } from "@/contexts/ProjectContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Comparison = () => {
   const { projects } = useProjects();
@@ -12,6 +18,9 @@ const Comparison = () => {
     results: ComparisonResultEnhanced[];
     projectName?: string;
   } | null>(null);
+  
+  // State for real competitive analysis
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
 
   // Enhanced mock function for domain comparison
   const generateComparisonResults = (websites: string[], keywords: string[]): ComparisonResultEnhanced[] => {
@@ -83,6 +92,14 @@ const Comparison = () => {
     setComparisonResults(null);
   };
 
+  const handleAnalysisStarted = (newAnalysisId: string) => {
+    setAnalysisId(newAnalysisId);
+  };
+
+  const handleBackToAnalysisForm = () => {
+    setAnalysisId(null);
+  };
+
   return (
     <>
       <Helmet>
@@ -98,47 +115,56 @@ const Comparison = () => {
       <div className="min-h-screen bg-background lg:pl-80">
         <div className="pt-16 lg:pt-0">
           <main className="container mx-auto px-4 py-8">
-            {!comparisonResults ? (
-              <div className="space-y-8">
-                <div className="text-center space-y-4">
-                  <h1 className="text-4xl font-bold text-foreground">
-                    Comparação de Domínios
-                  </h1>
-                  <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                    Compare as posições de múltiplos sites para as mesmas palavras-chave e 
-                    descubra quem está dominando os resultados de busca.
-                  </p>
-                </div>
-                
-                <SimulationNotice />
-                {projects.length === 0 ? (
-                  <div className="text-center py-12">
-                    <h3 className="text-xl font-semibold mb-4">Crie um projeto primeiro</h3>
-                    <p className="text-muted-foreground mb-6">
-                      Para usar a comparação competitiva, você precisa ter pelo menos um projeto criado.
-                    </p>
-                    <a 
-                      href="/projects" 
-                      className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                    >
-                      Criar Primeiro Projeto
-                    </a>
+            <div className="text-center space-y-4 mb-8">
+              <h1 className="text-4xl font-bold text-foreground">
+                Análise Competitiva
+              </h1>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                Compare posições reais no Google ou use nossa simulação avançada para análise competitiva
+              </p>
+            </div>
+
+            <Tabs defaultValue="real" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-8">
+                <TabsTrigger value="real" className="gap-2">
+                  <Badge variant="secondary">Novo</Badge>
+                  Análise Real
+                </TabsTrigger>
+                <TabsTrigger value="simulation">
+                  Simulação Avançada
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="real">
+                {analysisId ? (
+                  <CompetitiveAnalysisResults 
+                    analysisId={analysisId} 
+                    onBackToForm={handleBackToAnalysisForm}
+                  />
+                ) : (
+                  <CompetitiveAnalysisForm onAnalysisStarted={handleAnalysisStarted} />
+                )}
+              </TabsContent>
+
+              <TabsContent value="simulation">
+                {!comparisonResults ? (
+                  <div className="space-y-6">
+                    <SimulationNotice />
+                    <ComparisonFormEnhanced onCompare={handleComparison} />
                   </div>
                 ) : (
-                  <ComparisonFormEnhanced onCompare={handleComparison} />
+                  <div className="space-y-6">
+                    <SimulationNotice />
+                    <ComparisonResultsEnhanced
+                      websites={comparisonResults.websites}
+                      results={comparisonResults.results}
+                      projectName={comparisonResults.projectName}
+                      onNewComparison={handleNewComparison}
+                    />
+                  </div>
                 )}
-              </div>
-            ) : (
-              <div className="space-y-8">
-                <SimulationNotice />
-                <ComparisonResultsEnhanced
-                  websites={comparisonResults.websites}
-                  results={comparisonResults.results}
-                  projectName={comparisonResults.projectName}
-                  onNewComparison={handleNewComparison}
-                />
-              </div>
-            )}
+              </TabsContent>
+            </Tabs>
           </main>
         </div>
       </div>

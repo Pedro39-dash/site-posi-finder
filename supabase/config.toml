@@ -1,1 +1,7 @@
 project_id = "yfvfklgjzmmobwfhdrqp"
+
+[functions.seo-audit]
+verify_jwt = true
+
+[functions.competitor-analysis]
+verify_jwt = true
