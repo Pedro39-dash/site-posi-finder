@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/use-toast";
 import { 
   Search, 
   CheckCircle, 
@@ -16,98 +17,165 @@ import {
   Zap,
   Link,
   FileText,
-  Eye
+  Eye,
+  History,
+  Trash2
 } from "lucide-react";
-
-interface AuditResult {
-  category: string;
-  score: number;
-  status: 'excellent' | 'good' | 'critical';
-  issues: Array<{
-    type: 'success' | 'warning' | 'error';
-    message: string;
-    priority: 'high' | 'medium' | 'low';
-  }>;
-}
+import { AuditService, type AuditResult, type AuditReport } from "@/services/auditService";
 
 const Audit = () => {
+  const { toast } = useToast();
   const [url, setUrl] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [results, setResults] = useState<AuditResult[] | null>(null);
   const [overallScore, setOverallScore] = useState<number>(0);
+  const [currentAuditId, setCurrentAuditId] = useState<string | null>(null);
+  const [previousAudits, setPreviousAudits] = useState<AuditReport[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
-  const mockAuditResults: AuditResult[] = [
-    {
-      category: "Meta Tags",
-      score: 85,
-      status: 'good',
-      issues: [
-        { type: 'success', message: 'Title tag presente e otimizado', priority: 'low' },
-        { type: 'warning', message: 'Meta description pode ser mais descritiva', priority: 'medium' },
-        { type: 'success', message: 'Meta robots configurado corretamente', priority: 'low' }
-      ]
-    },
-    {
-      category: "Estrutura HTML",
-      score: 92,
-      status: 'excellent',
-      issues: [
-        { type: 'success', message: 'Hierarquia de headings (H1-H6) correta', priority: 'low' },
-        { type: 'success', message: 'HTML semântico implementado', priority: 'low' },
-        { type: 'warning', message: 'Algumas imagens sem alt text', priority: 'medium' }
-      ]
-    },
-    {
-      category: "Performance",
-      score: 78,
-      status: 'good',
-      issues: [
-        { type: 'warning', message: 'Tempo de carregamento pode ser otimizado', priority: 'high' },
-        { type: 'error', message: 'Imagens não otimizadas encontradas', priority: 'high' },
-        { type: 'success', message: 'CSS e JS minificados', priority: 'low' }
-      ]
-    },
-    {
-      category: "Links",
-      score: 68,
-      status: 'critical',
-      issues: [
-        { type: 'error', message: '3 links quebrados encontrados', priority: 'high' },
-        { type: 'warning', message: 'Poucos links internos para SEO', priority: 'medium' },
-        { type: 'success', message: 'Links externos com rel="noopener"', priority: 'low' }
-      ]
-    },
-    {
-      category: "Mobile-Friendly",
-      score: 95,
-      status: 'excellent',
-      issues: [
-        { type: 'success', message: 'Design responsivo implementado', priority: 'low' },
-        { type: 'success', message: 'Viewport meta tag configurada', priority: 'low' },
-        { type: 'success', message: 'Touch targets adequados', priority: 'low' }
-      ]
+  // Load previous audits on component mount
+  useEffect(() => {
+    loadPreviousAudits();
+  }, []);
+
+  const loadPreviousAudits = async () => {
+    const result = await AuditService.getUserAudits(5);
+    if (result.success && result.audits) {
+      setPreviousAudits(result.audits);
     }
-  ];
+  };
 
   const handleAudit = async () => {
     if (!url.trim()) return;
     
     setIsScanning(true);
     setResults(null);
+    setOverallScore(0);
+    setCurrentAuditId(null);
     
-    // Simular scan com delay
-    setTimeout(() => {
-      const totalScore = mockAuditResults.reduce((sum, result) => sum + result.score, 0) / mockAuditResults.length;
-      setOverallScore(Math.round(totalScore));
-      setResults(mockAuditResults);
+    try {
+      const result = await AuditService.startAudit(url.trim());
+      
+      if (result.success && result.auditId) {
+        setCurrentAuditId(result.auditId);
+        toast({
+          title: "Auditoria iniciada",
+          description: "Analisando seu site... isso pode levar alguns minutos.",
+        });
+        
+        // Poll for results
+        pollAuditStatus(result.auditId);
+      } else {
+        throw new Error(result.error || 'Failed to start audit');
+      }
+    } catch (error) {
+      console.error('Error starting audit:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao iniciar auditoria. Tente novamente.",
+        variant: "destructive",
+      });
       setIsScanning(false);
-    }, 3000);
+    }
+  };
+
+  const pollAuditStatus = async (auditId: string) => {
+    const maxAttempts = 60; // 5 minutes max
+    let attempts = 0;
+    
+    const poll = async () => {
+      attempts++;
+      
+      try {
+        const result = await AuditService.getAuditStatus(auditId);
+        
+        if (result.success && result.report) {
+          const report = result.report;
+          
+          if (report.status === 'completed' && report.categories) {
+            setResults(report.categories);
+            setOverallScore(report.overall_score);
+            setIsScanning(false);
+            loadPreviousAudits(); // Refresh the history
+            
+            toast({
+              title: "Auditoria concluída",
+              description: `Score geral: ${report.overall_score}%`,
+            });
+            return;
+          } else if (report.status === 'failed') {
+            throw new Error('Audit failed');
+          } else if (attempts < maxAttempts) {
+            // Continue polling
+            setTimeout(poll, 5000); // Poll every 5 seconds
+          } else {
+            throw new Error('Audit timeout');
+          }
+        } else {
+          throw new Error(result.error || 'Failed to get audit status');
+        }
+      } catch (error) {
+        console.error('Error polling audit status:', error);
+        setIsScanning(false);
+        toast({
+          title: "Erro",
+          description: "Falha ao obter resultados da auditoria.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    poll();
+  };
+
+  const loadPreviousAudit = async (auditId: string) => {
+    try {
+      const result = await AuditService.getAuditStatus(auditId);
+      
+      if (result.success && result.report && result.report.categories) {
+        setResults(result.report.categories);
+        setOverallScore(result.report.overall_score);
+        setUrl(result.report.url);
+        setShowHistory(false);
+      }
+    } catch (error) {
+      console.error('Error loading previous audit:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao carregar auditoria anterior.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deletePreviousAudit = async (auditId: string) => {
+    try {
+      const result = await AuditService.deleteAudit(auditId);
+      
+      if (result.success) {
+        loadPreviousAudits();
+        toast({
+          title: "Auditoria excluída",
+          description: "A auditoria foi removida com sucesso.",
+        });
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting audit:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao excluir auditoria.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'excellent': return 'text-green-600';
       case 'good': return 'text-yellow-600';
+      case 'needs_improvement': return 'text-orange-600';
       case 'critical': return 'text-red-600';
       default: return 'text-gray-600';
     }
@@ -117,6 +185,7 @@ const Audit = () => {
     switch (status) {
       case 'excellent': return <CheckCircle className="h-5 w-5 text-green-600" />;
       case 'good': return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
+      case 'needs_improvement': return <AlertTriangle className="h-5 w-5 text-orange-600" />;
       case 'critical': return <XCircle className="h-5 w-5 text-red-600" />;
       default: return null;
     }
@@ -133,12 +202,25 @@ const Audit = () => {
 
   const getCategoryIcon = (category: string) => {
     switch (category.toLowerCase()) {
-      case 'meta tags': return <FileText className="h-5 w-5" />;
-      case 'estrutura html': return <Globe className="h-5 w-5" />;
+      case 'meta_tags': return <FileText className="h-5 w-5" />;
+      case 'html_structure': return <Globe className="h-5 w-5" />;
       case 'performance': return <Zap className="h-5 w-5" />;
       case 'links': return <Link className="h-5 w-5" />;
-      case 'mobile-friendly': return <Smartphone className="h-5 w-5" />;
+      case 'mobile_friendly': return <Smartphone className="h-5 w-5" />;
+      case 'images': return <Eye className="h-5 w-5" />;
       default: return <Eye className="h-5 w-5" />;
+    }
+  };
+
+  const getCategoryName = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'meta_tags': return 'Meta Tags';
+      case 'html_structure': return 'Estrutura HTML';
+      case 'performance': return 'Performance';
+      case 'links': return 'Links';
+      case 'mobile_friendly': return 'Mobile-Friendly';
+      case 'images': return 'Imagens';
+      default: return category;
     }
   };
 
@@ -166,9 +248,20 @@ const Audit = () => {
           {/* Formulário de Auditoria */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5" />
-                Iniciar Auditoria
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Iniciar Auditoria
+                </div>
+                {previousAudits.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowHistory(!showHistory)}
+                  >
+                    <History className="h-4 w-4 mr-2" />
+                    Histórico ({previousAudits.length})
+                  </Button>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -191,18 +284,72 @@ const Audit = () => {
             </CardContent>
           </Card>
 
+          {/* Histórico de Auditorias */}
+          {showHistory && previousAudits.length > 0 && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Auditorias Anteriores</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {previousAudits.map((audit) => (
+                    <div 
+                      key={audit.id} 
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium">{audit.url}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(audit.created_at).toLocaleDateString('pt-BR')} - 
+                          Score: {audit.overall_score}%
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={audit.status === 'completed' ? 'default' : 
+                                      audit.status === 'failed' ? 'destructive' : 'secondary'}>
+                          {audit.status === 'completed' ? 'Completa' :
+                           audit.status === 'failed' ? 'Falhou' :
+                           audit.status === 'analyzing' ? 'Analisando' : 'Pendente'}
+                        </Badge>
+                        {audit.status === 'completed' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => loadPreviousAudit(audit.id)}
+                          >
+                            Ver
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deletePreviousAudit(audit.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Loading State */}
           {isScanning && (
             <Card className="mb-8">
               <CardContent className="py-8">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                  <h3 className="text-lg font-semibold mb-2">Analisando seu site...</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Verificando meta tags, estrutura, performance e muito mais
-                  </p>
-                  <Progress value={65} className="max-w-md mx-auto" />
-                </div>
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <h3 className="text-lg font-semibold mb-2">Analisando seu site...</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Verificando meta tags, estrutura, performance e muito mais
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Este processo pode levar alguns minutos para uma análise completa
+                    </p>
+                    <Progress value={33} className="max-w-md mx-auto" />
+                  </div>
               </CardContent>
             </Card>
           )}
@@ -242,7 +389,7 @@ const Audit = () => {
                       <CardTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {getCategoryIcon(result.category)}
-                          {result.category}
+                          {getCategoryName(result.category)}
                         </div>
                         <div className="flex items-center gap-2">
                           {getStatusIcon(result.status)}
@@ -255,24 +402,29 @@ const Audit = () => {
                     <CardContent>
                       <Progress value={result.score} className="mb-4" />
                       
-                      <div className="space-y-2">
-                        {result.issues.map((issue, issueIndex) => (
-                          <div key={issueIndex} className="flex items-start gap-2 text-sm">
-                            {getIssueIcon(issue.type)}
-                            <div className="flex-1">
-                              <span className="text-foreground">{issue.message}</span>
-                              <Badge 
-                                variant={issue.priority === 'high' ? 'destructive' : 
-                                        issue.priority === 'medium' ? 'secondary' : 'outline'}
-                                className="ml-2 text-xs"
-                              >
-                                {issue.priority === 'high' ? 'Alta' : 
-                                 issue.priority === 'medium' ? 'Média' : 'Baixa'} prioridade
-                              </Badge>
+                        <div className="space-y-2">
+                          {result.issues.map((issue, issueIndex) => (
+                            <div key={issueIndex} className="flex items-start gap-2 text-sm">
+                              {getIssueIcon(issue.type)}
+                              <div className="flex-1">
+                                <span className="text-foreground">{issue.message}</span>
+                                {issue.recommendation && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    💡 {issue.recommendation}
+                                  </div>
+                                )}
+                                <Badge 
+                                  variant={issue.priority === 'high' ? 'destructive' : 
+                                          issue.priority === 'medium' ? 'secondary' : 'outline'}
+                                  className="ml-2 text-xs"
+                                >
+                                  {issue.priority === 'high' ? 'Alta' : 
+                                   issue.priority === 'medium' ? 'Média' : 'Baixa'} prioridade
+                                </Badge>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -285,23 +437,41 @@ const Audit = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="p-4 border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 rounded-lg">
-                      <h4 className="font-semibold text-red-800 dark:text-red-400 mb-2">Prioridade Alta</h4>
-                      <ul className="space-y-1 text-sm text-red-700 dark:text-red-300">
-                        <li>• Corrigir 3 links quebrados encontrados</li>
-                        <li>• Otimizar imagens para melhor performance</li>
-                        <li>• Melhorar tempo de carregamento da página</li>
-                      </ul>
-                    </div>
+                    {/* High Priority Issues */}
+                    {(() => {
+                      const highPriorityIssues = results?.flatMap(result => 
+                        result.issues.filter(issue => issue.priority === 'high')
+                      ) || [];
+                      
+                      return highPriorityIssues.length > 0 && (
+                        <div className="p-4 border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 rounded-lg">
+                          <h4 className="font-semibold text-red-800 dark:text-red-400 mb-2">Prioridade Alta</h4>
+                          <ul className="space-y-1 text-sm text-red-700 dark:text-red-300">
+                            {highPriorityIssues.slice(0, 5).map((issue, index) => (
+                              <li key={index}>• {issue.message}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })()}
                     
-                    <div className="p-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 rounded-lg">
-                      <h4 className="font-semibold text-yellow-800 dark:text-yellow-400 mb-2">Prioridade Média</h4>
-                      <ul className="space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
-                        <li>• Expandir meta description para ser mais descritiva</li>
-                        <li>• Adicionar alt text nas imagens restantes</li>
-                        <li>• Aumentar número de links internos</li>
-                      </ul>
-                    </div>
+                    {/* Medium Priority Issues */}
+                    {(() => {
+                      const mediumPriorityIssues = results?.flatMap(result => 
+                        result.issues.filter(issue => issue.priority === 'medium')
+                      ) || [];
+                      
+                      return mediumPriorityIssues.length > 0 && (
+                        <div className="p-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 rounded-lg">
+                          <h4 className="font-semibold text-yellow-800 dark:text-yellow-400 mb-2">Prioridade Média</h4>
+                          <ul className="space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
+                            {mediumPriorityIssues.slice(0, 5).map((issue, index) => (
+                              <li key={index}>• {issue.message}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </CardContent>
               </Card>
