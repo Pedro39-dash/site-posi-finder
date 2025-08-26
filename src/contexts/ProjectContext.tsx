@@ -29,7 +29,9 @@ export interface ProjectKeyword {
 interface ProjectContextType {
   projects: Project[];
   selectedProject: Project | null;
+  activeProject: Project | null;
   setSelectedProject: (project: Project | null) => void;
+  setActiveProject: (project: Project | null) => void;
   createProject: (projectData: Omit<Project, 'id' | 'createdAt' | 'currentScore' | 'trend'>) => void;
   updateProject: (id: string, projectData: Partial<Project>) => void;
   deleteProject: (id: string) => void;
@@ -99,6 +101,7 @@ const MOCK_PROJECTS: Project[] = [
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
 
   useEffect(() => {
     // Carrega projetos do localStorage ou usa dados mockados
@@ -116,6 +119,20 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } else {
       setProjects(MOCK_PROJECTS);
       localStorage.setItem('projects', JSON.stringify(MOCK_PROJECTS));
+    }
+
+    // Carrega projeto ativo se existir
+    const savedActiveProject = localStorage.getItem('activeProject');
+    if (savedActiveProject) {
+      const parsedActiveProject = JSON.parse(savedActiveProject);
+      setActiveProject({
+        ...parsedActiveProject,
+        createdAt: new Date(parsedActiveProject.createdAt),
+        competitors: parsedActiveProject.competitors.map((c: any) => ({
+          ...c,
+          addedAt: new Date(c.addedAt)
+        }))
+      });
     }
   }, []);
 
@@ -205,11 +222,22 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const handleSetActiveProject = (project: Project | null) => {
+    setActiveProject(project);
+    if (project) {
+      localStorage.setItem('activeProject', JSON.stringify(project));
+    } else {
+      localStorage.removeItem('activeProject');
+    }
+  };
+
   return (
     <ProjectContext.Provider value={{
       projects,
       selectedProject,
+      activeProject,
       setSelectedProject,
+      setActiveProject: handleSetActiveProject,
       createProject,
       updateProject,
       deleteProject,

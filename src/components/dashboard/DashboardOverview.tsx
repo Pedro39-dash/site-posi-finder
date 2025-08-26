@@ -1,9 +1,11 @@
-import { TrendingUp, TrendingDown, Eye, AlertTriangle, Users, Trophy } from "lucide-react";
+import { TrendingUp, TrendingDown, Eye, AlertTriangle, Users, Trophy, Settings, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ProjectsSection from "./ProjectsSection";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMonitoring } from "@/contexts/MonitoringContext";
+import { useProjects } from "@/contexts/ProjectContext";
 import { useNavigate } from "react-router-dom";
 
 interface DashboardOverviewProps {
@@ -13,18 +15,30 @@ interface DashboardOverviewProps {
 const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
   const { user } = useAuth();
   const { sites } = useMonitoring();
+  const { activeProject, projects } = useProjects();
   const navigate = useNavigate();
 
-  // Mock data simulando métricas do cliente
-  const mockMetrics = {
-    totalKeywords: 47,
+  // Métricas baseadas no projeto ativo
+  const mockMetrics = activeProject ? {
+    totalKeywords: activeProject.keywords.length || 47,
     averagePosition: 8.3,
-    topPositions: 12,
-    competitorBeat: 3,
-    trendsUp: 15,
-    trendsDown: 8,
-    siteHealth: 92,
-    monthlyProgress: +12.5
+    topPositions: Math.floor((activeProject.keywords.length || 47) * 0.25),
+    competitorBeat: activeProject.competitors.length || 3,
+    trendsUp: Math.floor((activeProject.keywords.length || 47) * 0.32),
+    trendsDown: Math.floor((activeProject.keywords.length || 47) * 0.17),
+    siteHealth: activeProject.currentScore || 92,
+    monthlyProgress: +12.5,
+    featuredKeyword: activeProject.keywords[0]?.keyword || "marketing digital"
+  } : {
+    totalKeywords: 0,
+    averagePosition: 0,
+    topPositions: 0,
+    competitorBeat: 0,
+    trendsUp: 0,
+    trendsDown: 0,
+    siteHealth: 0,
+    monthlyProgress: 0,
+    featuredKeyword: "Nenhuma palavra-chave"
   };
 
   const healthStatus = mockMetrics.siteHealth >= 90 ? 'excellent' : 
@@ -35,24 +49,61 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-6 border border-primary/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">
-              Bem-vindo, {user?.username}! 👋
-            </h1>
-            <p className="text-muted-foreground">
-              Aqui está um resumo do desempenho SEO dos seus projetos em nossa consultoria.
-            </p>
-          </div>
-          <div className="hidden md:block">
-            <Badge variant="secondary" className="bg-primary/20 text-primary">
-              Cliente Premium
-            </Badge>
+      {/* Active Project Header */}
+      {activeProject ? (
+        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-6 border border-primary/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-primary/20 rounded-lg p-3">
+                <Globe className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground mb-1">
+                  {activeProject.name}
+                </h1>
+                <p className="text-muted-foreground flex items-center gap-2">
+                  <span>{activeProject.mainDomain}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {activeProject.sector}
+                  </Badge>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="bg-primary/20 text-primary">
+                Projeto Ativo
+              </Badge>
+              {projects.length > 1 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/projects')}
+                  className="gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Trocar Projeto
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-6 border border-primary/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground mb-2">
+                Bem-vindo, {user?.username}! 👋
+              </h1>
+              <p className="text-muted-foreground">
+                Selecione um projeto para ver as métricas de SEO específicas.
+              </p>
+            </div>
+            <Button onClick={() => navigate('/projects')}>
+              Gerenciar Projetos
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Main KPIs Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -153,7 +204,7 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
+              <TrendingUp className="h-5 w-5 text-primary" />
               Progresso Mensal
             </CardTitle>
           </CardHeader>
@@ -163,8 +214,12 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
                 <div className="text-3xl font-bold text-primary mb-2">
                   +{mockMetrics.monthlyProgress}%
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Melhoria geral nas posições
+                <p className="text-sm text-muted-foreground mb-1">
+                  Palavra-chave em destaque:
+                </p>
+                <p className="font-semibold text-foreground">
+                  "{mockMetrics.featuredKeyword}" 
+                  <span className="text-green-500 text-sm ml-1">+8 posições</span>
                 </p>
               </div>
               <div className="bg-secondary/50 rounded-full h-2 overflow-hidden">
@@ -177,9 +232,6 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Projects Section */}
-      <ProjectsSection />
 
       {/* Quick Actions */}
       <Card>
@@ -229,6 +281,12 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Projects Section - Moved to bottom */}
+      <div className="border-t pt-6">
+        <ProjectsSection />
+      </div>
+
     </div>
   );
 };

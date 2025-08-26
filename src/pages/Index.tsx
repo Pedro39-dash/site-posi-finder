@@ -8,6 +8,8 @@ import SimulationNotice from "@/components/SimulationNotice";
 import HowItWorks from "@/components/HowItWorks";
 import DashboardOverview from "@/components/dashboard/DashboardOverview";
 import WelcomeOnboarding from "@/components/WelcomeOnboarding";
+import ProjectSelectionModal from "@/components/onboarding/ProjectSelectionModal";
+import { useProjects } from "@/contexts/ProjectContext";
 
 interface SearchResult {
   keyword: string;
@@ -19,19 +21,46 @@ const Index = () => {
   const [searchResults, setSearchResults] = useState<{ website: string; results: SearchResult[] } | null>(null);
   const [showDashboard, setShowDashboard] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showProjectSelection, setShowProjectSelection] = useState(false);
   const [viewMode, setViewMode] = useState<'dashboard' | 'search'>('dashboard');
+  
+  const { activeProject } = useProjects();
 
-  // Check if user is new (first time accessing)
+  // Check if user is new or needs project selection
   useEffect(() => {
     const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+    const hasActiveProject = localStorage.getItem('activeProject');
+    
     if (!hasSeenOnboarding) {
       setShowOnboarding(true);
+    } else if (!hasActiveProject) {
+      setShowProjectSelection(true);
     }
   }, []);
+
+  // Check if active project exists after projects load
+  useEffect(() => {
+    if (!showOnboarding && !activeProject && !showProjectSelection) {
+      const hasActiveProject = localStorage.getItem('activeProject');
+      if (!hasActiveProject) {
+        setShowProjectSelection(true);
+      }
+    }
+  }, [activeProject, showOnboarding, showProjectSelection]);
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     localStorage.setItem('hasSeenOnboarding', 'true');
+    
+    // Após completar onboarding, verificar se precisa selecionar projeto
+    const hasActiveProject = localStorage.getItem('activeProject');
+    if (!hasActiveProject) {
+      setShowProjectSelection(true);
+    }
+  };
+
+  const handleProjectSelectionComplete = () => {
+    setShowProjectSelection(false);
   };
 
   // Enhanced mock function with realistic position distribution and caching
@@ -176,6 +205,10 @@ const Index = () => {
         
         {showOnboarding && (
           <WelcomeOnboarding onComplete={handleOnboardingComplete} />
+        )}
+        
+        {showProjectSelection && (
+          <ProjectSelectionModal onComplete={handleProjectSelectionComplete} />
         )}
       </div>
     </>

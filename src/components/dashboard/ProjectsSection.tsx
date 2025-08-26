@@ -6,12 +6,16 @@ import { useProjects, Project } from "@/contexts/ProjectContext";
 import { useNavigate } from "react-router-dom";
 
 const ProjectsSection = () => {
-  const { projects, setSelectedProject } = useProjects();
+  const { projects, activeProject, setSelectedProject, setActiveProject } = useProjects();
   const navigate = useNavigate();
 
   const handleViewProject = (project: Project) => {
     setSelectedProject(project);
     navigate("/projects");
+  };
+
+  const handleSwitchProject = (project: Project) => {
+    setActiveProject(project);
   };
 
   const handleCompareProject = (project: Project) => {
@@ -36,32 +40,39 @@ const ProjectsSection = () => {
     return "text-destructive";
   };
 
-  // Mostra os 3 projetos mais importantes
-  const featuredProjects = projects
+  // Filtra outros projetos (exceto o ativo) e mostra os top 3
+  const otherProjects = projects
+    .filter(project => project.id !== activeProject?.id)
     .sort((a, b) => b.currentScore - a.currentScore)
     .slice(0, 3);
 
-  if (projects.length === 0) {
+  if (otherProjects.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FolderOpen className="h-5 w-5 text-primary" />
-            Seus Projetos
+          <CardTitle className="flex items-center justify-between">
+            <span>Outros Projetos</span>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/projects')}
+            >
+              Gerenciar todos
+            </Button>
           </CardTitle>
-          <CardDescription>
-            Gerencie seus sites e monitore a performance SEO
-          </CardDescription>
+          <p className="text-sm text-muted-foreground">
+            Você tem apenas um projeto de monitoramento SEO
+          </p>
         </CardHeader>
         <CardContent className="text-center py-8">
           <FolderOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Nenhum projeto criado</h3>
+          <h3 className="text-lg font-semibold mb-2">Apenas um projeto</h3>
           <p className="text-muted-foreground mb-6">
-            Crie seu primeiro projeto para começar a monitorar seu SEO
+            Crie mais projetos para monitorar outros domínios
           </p>
           <Button onClick={() => navigate("/projects")} className="gap-2">
             <Plus className="h-4 w-4" />
-            Criar Primeiro Projeto
+            Criar Novo Projeto
           </Button>
         </CardContent>
       </Card>
@@ -71,29 +82,26 @@ const ProjectsSection = () => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <FolderOpen className="h-5 w-5 text-primary" />
-              Seus Projetos ({projects.length})
-            </CardTitle>
-            <CardDescription>
-              Performance dos seus principais projetos SEO
-            </CardDescription>
-          </div>
-          <Button variant="outline" onClick={() => navigate("/projects")} className="gap-2">
-            Ver Todos
-            <ArrowRight className="h-4 w-4" />
+        <CardTitle className="flex items-center justify-between">
+          <span>Outros Projetos</span>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate('/projects')}
+          >
+            Gerenciar todos
           </Button>
-        </div>
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Seus outros projetos de monitoramento SEO
+        </p>
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {featuredProjects.map((project) => (
+        {otherProjects.map((project) => (
           <div
             key={project.id}
-            className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-            onClick={() => handleViewProject(project)}
+            className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex-1">
@@ -126,24 +134,28 @@ const ProjectsSection = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCompareProject(project);
-                  }}
-                  disabled={project.competitors.length === 0}
+                  onClick={() => handleSwitchProject(project)}
                   className="text-xs"
                 >
-                  Comparar
+                  Ativar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleViewProject(project)}
+                  className="text-xs"
+                >
+                  Gerenciar
                 </Button>
               </div>
             </div>
           </div>
         ))}
         
-        {projects.length > 3 && (
+        {projects.length > 4 && (
           <div className="text-center pt-2">
             <Button variant="outline" onClick={() => navigate("/projects")} className="w-full">
-              Ver mais {projects.length - 3} projetos
+              Ver mais {projects.length - 4} projetos
             </Button>
           </div>
         )}
