@@ -901,6 +901,79 @@ function combineAnalyses(htmlAnalysis: AuditCategory[], pageSpeedData: { desktop
   return categories;
 }
 
+function decodeHtmlEntities(text: string): string {
+  // Decode common HTML entities
+  const entities = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&apos;': "'",
+    '&nbsp;': ' ',
+    '&copy;': '©',
+    '&reg;': '®',
+    '&trade;': '™',
+    '&euro;': '€',
+    '&pound;': '£',
+    '&yen;': '¥',
+    // Portuguese specific entities
+    '&aacute;': 'á',
+    '&agrave;': 'à',
+    '&acirc;': 'â',
+    '&atilde;': 'ã',
+    '&Aacute;': 'Á',
+    '&Agrave;': 'À',
+    '&Acirc;': 'Â',
+    '&Atilde;': 'Ã',
+    '&eacute;': 'é',
+    '&egrave;': 'è',
+    '&ecirc;': 'ê',
+    '&Eacute;': 'É',
+    '&Egrave;': 'È',
+    '&Ecirc;': 'Ê',
+    '&iacute;': 'í',
+    '&igrave;': 'ì',
+    '&icirc;': 'î',
+    '&Iacute;': 'Í',
+    '&Igrave;': 'Ì',
+    '&Icirc;': 'Î',
+    '&oacute;': 'ó',
+    '&ograve;': 'ò',
+    '&ocirc;': 'ô',
+    '&otilde;': 'õ',
+    '&Oacute;': 'Ó',
+    '&Ograve;': 'Ò',
+    '&Ocirc;': 'Ô',
+    '&Otilde;': 'Õ',
+    '&uacute;': 'ú',
+    '&ugrave;': 'ù',
+    '&ucirc;': 'û',
+    '&Uacute;': 'Ú',
+    '&Ugrave;': 'Ù',
+    '&Ucirc;': 'Û',
+    '&ccedil;': 'ç',
+    '&Ccedil;': 'Ç'
+  };
+
+  let result = text;
+  
+  // Replace named entities
+  for (const [entity, char] of Object.entries(entities)) {
+    result = result.replace(new RegExp(entity, 'g'), char);
+  }
+  
+  // Replace numeric entities &#123; and &#x1A;
+  result = result.replace(/&#(\d+);/g, (match, dec) => {
+    return String.fromCharCode(parseInt(dec, 10));
+  });
+  
+  result = result.replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
+    return String.fromCharCode(parseInt(hex, 16));
+  });
+  
+  return result;
+}
+
 function extractTextContent(html: string): string {
   // Remove script and style elements
   let cleanHtml = html.replace(/<script[^>]*>.*?<\/script>/gis, '');
@@ -912,6 +985,9 @@ function extractTextContent(html: string): string {
   
   // Remove remaining HTML tags
   cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
+  
+  // Decode HTML entities AFTER removing tags
+  cleanHtml = decodeHtmlEntities(cleanHtml);
   
   // Clean up whitespace but preserve paragraph breaks
   cleanHtml = cleanHtml.replace(/[ \t]+/g, ' '); // Convert multiple spaces/tabs to single space
@@ -1548,142 +1624,267 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
 }
 
 function extractKeywords(textContent: string, title: string, metaDesc: string): string[] {
-  const combinedText = `${title} ${metaDesc} ${textContent}`.toLowerCase();
+  // Combine and decode all text sources
+  const rawCombinedText = `${title} ${metaDesc} ${textContent}`;
+  const decodedText = decodeHtmlEntities(rawCombinedText);
+  const combinedText = decodedText.toLowerCase();
   
-  // Common Portuguese stop words
+  console.log('🔍 Extracting keywords from text sample:', combinedText.substring(0, 200) + '...');
+  
+  // Enhanced Portuguese stop words
   const stopWords = new Set([
     'a', 'e', 'o', 'de', 'da', 'do', 'para', 'com', 'em', 'na', 'no', 'por', 'que', 'se', 'um', 'uma',
     'os', 'as', 'dos', 'das', 'nos', 'nas', 'pelo', 'pela', 'pelos', 'pelas', 'ao', 'aos', 'à', 'às',
     'este', 'esta', 'estes', 'estas', 'esse', 'essa', 'esses', 'essas', 'aquele', 'aquela', 'aqueles', 'aquelas',
     'seu', 'sua', 'seus', 'suas', 'nosso', 'nossa', 'nossos', 'nossas', 'meu', 'minha', 'meus', 'minhas',
     'ele', 'ela', 'eles', 'elas', 'você', 'vocês', 'nós', 'eu', 'tu', 'mas', 'mais', 'muito', 'bem', 'já',
-    'ainda', 'onde', 'como', 'quando', 'porque', 'então', 'assim', 'também', 'só', 'até', 'depois', 'antes'
+    'ainda', 'onde', 'como', 'quando', 'porque', 'então', 'assim', 'também', 'só', 'até', 'depois', 'antes',
+    'são', 'foi', 'ser', 'ter', 'tem', 'tinha', 'está', 'estar', 'essa', 'isso', 'aqui', 'ali', 'lá',
+    'pode', 'podem', 'deve', 'devem', 'vai', 'vão', 'fazer', 'feito', 'todo', 'toda', 'todos', 'todas',
+    'outro', 'outra', 'outros', 'outras', 'mesmo', 'mesma', 'mesmos', 'mesmas', 'algum', 'alguma', 'alguns',
+    'algumas', 'nenhum', 'nenhuma', 'qualquer', 'cada', 'primeiro', 'primeira', 'segundo', 'segunda',
+    'último', 'última', 'melhor', 'maior', 'menor', 'grande', 'pequeno', 'pequena', 'novo', 'nova',
+    'velho', 'velha', 'bom', 'boa', 'mau', 'má', 'ruim', 'difícil', 'fácil', 'importante', 'possível',
+    'impossível', 'necessário', 'necessária', 'certo', 'certa', 'errado', 'errada', 'verdade', 'verdadeiro',
+    'falso', 'falsa', 'real', 'sobre', 'entre', 'sem', 'contra', 'através', 'durante', 'desde', 'até',
+    'dentro', 'fora', 'perto', 'longe', 'acima', 'abaixo', 'frente', 'atrás', 'lado', 'direita', 'esquerda',
+    'centro', 'meio', 'fim', 'início', 'começo', 'final', 'hora', 'tempo', 'dia', 'noite', 'manhã', 'tarde',
+    'hoje', 'ontem', 'amanhã', 'sempre', 'nunca', 'às', 'vezes', 'agora', 'logo', 'depois', 'antes',
+    'primeiro', 'segundo', 'terceiro', 'quarto', 'quinto', 'ano', 'anos', 'vez', 'vezes', 'forma', 'caso',
+    'parte', 'lugar', 'lado', 'nome', 'tipo', 'grupo', 'sistema', 'processo', 'exemplo', 'modelo', 'resultado'
   ]);
   
-  // Extract words and clean them
+  // Extract words with improved regex for Portuguese
   const words = combinedText
-    .replace(/[^a-záàâãéêíóôõúç\s]/g, ' ')
+    .replace(/[^\p{L}\s]/gu, ' ') // Keep only letters and spaces (Unicode aware)
     .split(/\s+/)
     .filter(word => word.length >= 3 && !stopWords.has(word))
-    .filter(word => !/^\d+$/.test(word)); // Remove pure numbers
+    .filter(word => !/^\d+$/.test(word)) // Remove pure numbers
+    .filter(word => word.length <= 25); // Remove unusually long words (likely errors)
   
-  // Count frequency
+  console.log('📝 Found words after filtering:', words.length);
+  
+  // Enhanced frequency counting with compound word detection
   const wordCount = new Map<string, number>();
+  const compoundWords = new Map<string, number>();
+  
+  // Count individual words
   words.forEach(word => {
     wordCount.set(word, (wordCount.get(word) || 0) + 1);
   });
   
-  // Return top keywords sorted by frequency
-  return Array.from(wordCount.entries())
+  // Detect compound terms (2-word phrases that appear frequently)
+  for (let i = 0; i < words.length - 1; i++) {
+    const compound = `${words[i]} ${words[i + 1]}`;
+    if (compound.length <= 30) { // Reasonable compound length
+      compoundWords.set(compound, (compoundWords.get(compound) || 0) + 1);
+    }
+  }
+  
+  // Get top individual words
+  const topWords = Array.from(wordCount.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
+    .slice(0, 15)
     .map(([word]) => word);
+  
+  // Get top compound words (appearing at least 2 times)
+  const topCompounds = Array.from(compoundWords.entries())
+    .filter(([_, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([compound]) => compound);
+  
+  // Combine results, prioritizing compounds
+  const allKeywords = [...topCompounds, ...topWords]
+    .filter((keyword, index, arr) => arr.indexOf(keyword) === index) // Remove duplicates
+    .slice(0, 20);
+  
+  console.log('🎯 Extracted keywords:', allKeywords);
+  
+  return allKeywords;
 }
 
 function generateAIPrompts(keywords: string[], textContent: string, url: string): string[] {
   const domain = url.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
   const prompts = [];
   
-  // Detect business type based on content
-  const lowerContent = textContent.toLowerCase();
-  const isEcommerce = lowerContent.includes('comprar') || lowerContent.includes('preço') || lowerContent.includes('produto') || lowerContent.includes('loja');
-  const isService = lowerContent.includes('serviço') || lowerContent.includes('consultoria') || lowerContent.includes('atendimento');
-  const isBlog = lowerContent.includes('artigo') || lowerContent.includes('post') || lowerContent.includes('blog') || lowerContent.includes('dicas');
-  const isTech = lowerContent.includes('software') || lowerContent.includes('sistema') || lowerContent.includes('tecnologia') || lowerContent.includes('desenvolvimento');
-  const isEducational = lowerContent.includes('curso') || lowerContent.includes('treinamento') || lowerContent.includes('educação') || lowerContent.includes('aprender');
+  console.log('🤖 Generating AI prompts from keywords:', keywords.slice(0, 5));
   
-  // Generate context-aware prompts
+  // Decode HTML entities in text content
+  const decodedContent = decodeHtmlEntities(textContent);
+  const lowerContent = decodedContent.toLowerCase();
+  
+  // Enhanced business type detection with more specific patterns
+  const businessPatterns = {
+    ecommerce: ['comprar', 'preço', 'produto', 'loja', 'venda', 'carrinho', 'checkout', 'pagamento', 'desconto', 'promoção', 'oferta'],
+    service: ['serviço', 'consultoria', 'atendimento', 'contrato', 'orçamento', 'projeto', 'solução', 'especialista', 'profissional'],
+    manufacturing: ['fabricação', 'indústria', 'equipamento', 'máquina', 'produção', 'industrial', 'técnico', 'especificação'],
+    construction: ['construção', 'obra', 'engenharia', 'arquitetura', 'projeto', 'construir', 'reforma', 'material'],
+    technology: ['software', 'sistema', 'tecnologia', 'desenvolvimento', 'digital', 'aplicativo', 'plataforma', 'automação'],
+    education: ['curso', 'treinamento', 'educação', 'aprender', 'ensino', 'certificação', 'escola', 'universidade'],
+    health: ['saúde', 'médico', 'clínica', 'hospital', 'tratamento', 'diagnóstico', 'terapia', 'medicina'],
+    finance: ['financeiro', 'banco', 'investimento', 'crédito', 'empréstimo', 'seguro', 'economia', 'consultoria financeira'],
+    blog: ['artigo', 'post', 'blog', 'dicas', 'tutorial', 'guia', 'notícia', 'informação', 'conteúdo']
+  };
+  
+  // Detect business types with scoring
+  const businessScores = {};
+  for (const [type, patterns] of Object.entries(businessPatterns)) {
+    businessScores[type] = patterns.reduce((score, pattern) => {
+      const matches = (lowerContent.match(new RegExp(pattern, 'g')) || []).length;
+      return score + matches;
+    }, 0);
+  }
+  
+  // Get the primary business type
+  const primaryType = Object.entries(businessScores)
+    .sort(([, a], [, b]) => b - a)[0]?.[0] || 'generic';
+  
+  console.log('🏢 Detected business type:', primaryType, 'with scores:', businessScores);
+  
+  // Generate context-aware prompts based on keywords
   if (keywords.length > 0) {
-    const topKeywords = keywords.slice(0, 3);
+    const topKeywords = keywords.slice(0, 5);
     const mainKeyword = topKeywords[0];
+    const secondaryKeyword = topKeywords[1];
     
-    // E-commerce prompts
-    if (isEcommerce) {
-      prompts.push(`Onde comprar ${mainKeyword} barato?`);
-      prompts.push(`${mainKeyword}: melhor preço online`);
-      prompts.push(`Loja confiável para ${mainKeyword}`);
-      prompts.push(`${mainKeyword} com desconto`);
-      prompts.push(`Comparar preços de ${mainKeyword}`);
+    // Detect if main keyword is a compound phrase
+    const isCompoundKeyword = mainKeyword.includes(' ');
+    
+    console.log('🎯 Main keyword:', mainKeyword, '| Secondary:', secondaryKeyword);
+    
+    switch (primaryType) {
+      case 'ecommerce':
+        prompts.push(`Onde comprar ${mainKeyword} com melhor preço?`);
+        prompts.push(`${mainKeyword} barato online`);
+        prompts.push(`Loja confiável de ${mainKeyword}`);
+        prompts.push(`${mainKeyword} com frete grátis`);
+        prompts.push(`Comparar preços ${mainKeyword}`);
+        if (secondaryKeyword) prompts.push(`${mainKeyword} vs ${secondaryKeyword}: qual comprar?`);
+        break;
+        
+      case 'manufacturing':
+      case 'construction':
+        prompts.push(`Fornecedor de ${mainKeyword} confiável`);
+        prompts.push(`${mainKeyword} industrial: especificações`);
+        prompts.push(`Como escolher ${mainKeyword} adequado?`);
+        prompts.push(`${mainKeyword}: catálogo e preços`);
+        prompts.push(`Distribuidor autorizado ${mainKeyword}`);
+        if (secondaryKeyword) prompts.push(`${mainKeyword} para ${secondaryKeyword}`);
+        break;
+        
+      case 'service':
+        prompts.push(`Melhor empresa de ${mainKeyword}`);
+        prompts.push(`${mainKeyword} profissional especializado`);
+        prompts.push(`Como contratar ${mainKeyword} confiável?`);
+        prompts.push(`${mainKeyword}: orçamento sem compromisso`);
+        prompts.push(`Consultoria em ${mainKeyword}`);
+        break;
+        
+      case 'technology':
+        prompts.push(`Como implementar ${mainKeyword}?`);
+        prompts.push(`${mainKeyword}: guia completo`);
+        prompts.push(`Melhor solução de ${mainKeyword}`);
+        prompts.push(`${mainKeyword}: vantagens e desvantagens`);
+        prompts.push(`Integração com ${mainKeyword}`);
+        break;
+        
+      case 'education':
+        prompts.push(`Curso de ${mainKeyword} online`);
+        prompts.push(`Como aprender ${mainKeyword}?`);
+        prompts.push(`Certificação em ${mainKeyword}`);
+        prompts.push(`${mainKeyword} para iniciantes`);
+        prompts.push(`Melhor treinamento ${mainKeyword}`);
+        break;
+        
+      case 'health':
+        prompts.push(`${mainKeyword}: sintomas e tratamento`);
+        prompts.push(`Especialista em ${mainKeyword}`);
+        prompts.push(`Como tratar ${mainKeyword}?`);
+        prompts.push(`${mainKeyword}: prevenção e cuidados`);
+        prompts.push(`Clínica especializada ${mainKeyword}`);
+        break;
+        
+      case 'finance':
+        prompts.push(`${mainKeyword}: como funciona?`);
+        prompts.push(`Melhor ${mainKeyword} do mercado`);
+        prompts.push(`${mainKeyword}: taxas e condições`);
+        prompts.push(`Como solicitar ${mainKeyword}?`);
+        prompts.push(`${mainKeyword} vale a pena?`);
+        break;
+        
+      case 'blog':
+        prompts.push(`${mainKeyword}: dicas práticas`);
+        prompts.push(`Guia definitivo sobre ${mainKeyword}`);
+        prompts.push(`Como fazer ${mainKeyword} corretamente?`);
+        prompts.push(`${mainKeyword}: passo a passo`);
+        prompts.push(`Tudo sobre ${mainKeyword}`);
+        break;
+        
+      default:
+        prompts.push(`O que é ${mainKeyword}?`);
+        prompts.push(`Como funciona ${mainKeyword}?`);
+        prompts.push(`${mainKeyword}: vantagens e benefícios`);
+        prompts.push(`${mainKeyword} é confiável?`);
+        prompts.push(`Melhor ${mainKeyword} disponível`);
     }
     
-    // Service-based prompts
-    else if (isService) {
-      prompts.push(`Melhor empresa de ${mainKeyword}`);
-      prompts.push(`Serviços de ${mainKeyword} profissionais`);
-      prompts.push(`Como contratar ${mainKeyword} confiável?`);
-      prompts.push(`${mainKeyword}: orçamento gratuito`);
-      prompts.push(`Consultoria especializada em ${mainKeyword}`);
-    }
-    
-    // Tech/Software prompts
-    else if (isTech) {
-      prompts.push(`Como implementar ${mainKeyword}?`);
-      prompts.push(`Melhor solução para ${mainKeyword}`);
-      prompts.push(`${mainKeyword}: guia técnico completo`);
-      prompts.push(`Desenvolvimento com ${mainKeyword}`);
-      prompts.push(`${mainKeyword} vs alternativas`);
-    }
-    
-    // Educational prompts
-    else if (isEducational) {
-      prompts.push(`Curso de ${mainKeyword} online`);
-      prompts.push(`Como aprender ${mainKeyword}?`);
-      prompts.push(`Certificação em ${mainKeyword}`);
-      prompts.push(`${mainKeyword} para iniciantes`);
-      prompts.push(`Melhor treinamento de ${mainKeyword}`);
-    }
-    
-    // Blog/Content prompts
-    else if (isBlog) {
-      prompts.push(`${mainKeyword}: dicas práticas`);
-      prompts.push(`Guia completo sobre ${mainKeyword}`);
-      prompts.push(`Como usar ${mainKeyword} corretamente?`);
-      prompts.push(`${mainKeyword}: melhores práticas`);
-      prompts.push(`Tudo sobre ${mainKeyword}`);
-    }
-    
-    // Generic business prompts
-    else {
-      prompts.push(`O que é ${mainKeyword}?`);
-      prompts.push(`Como funciona ${mainKeyword}?`);
-      prompts.push(`Vantagens do ${mainKeyword}`);
-      prompts.push(`${mainKeyword} é confiável?`);
-      prompts.push(`Melhor ${mainKeyword} do mercado`);
-    }
-    
-    // Add location-based prompts if content suggests it
-    const locationWords = ['brasil', 'são paulo', 'rio de janeiro', 'belo horizonte', 'brasília', 'porto alegre', 'salvador', 'recife', 'fortaleza'];
+    // Add location-based prompt if detected
+    const locationWords = ['brasil', 'são paulo', 'rio de janeiro', 'belo horizonte', 'brasília', 'porto alegre', 'salvador', 'recife', 'fortaleza', 'curitiba', 'goiânia', 'manaus'];
     const detectedLocation = locationWords.find(loc => lowerContent.includes(loc));
+    
     if (detectedLocation) {
-      const locationName = detectedLocation === 'são paulo' ? 'São Paulo' : 
-                          detectedLocation === 'rio de janeiro' ? 'Rio de Janeiro' :
-                          detectedLocation === 'belo horizonte' ? 'Belo Horizonte' :
-                          detectedLocation.replace(/\b\w/g, l => l.toUpperCase());
+      const locationName = {
+        'são paulo': 'São Paulo',
+        'rio de janeiro': 'Rio de Janeiro', 
+        'belo horizonte': 'Belo Horizonte',
+        'brasília': 'Brasília',
+        'porto alegre': 'Porto Alegre'
+      }[detectedLocation] || detectedLocation.replace(/\b\w/g, l => l.toUpperCase());
+      
       prompts.push(`${mainKeyword} em ${locationName}`);
     } else {
       prompts.push(`${mainKeyword} no Brasil`);
     }
     
-    // Problem-solving prompts
+    // Add problem-solving prompts
     prompts.push(`Problema com ${mainKeyword}: como resolver?`);
-    prompts.push(`${mainKeyword} não funciona: soluções`);
+    if (!isCompoundKeyword) {
+      prompts.push(`${mainKeyword} não funciona: soluções`);
+    }
     
-    // Comparison prompts
-    if (topKeywords.length > 1) {
-      prompts.push(`${mainKeyword} vs ${topKeywords[1]}`);
+    // Add comparison prompt with secondary keyword
+    if (secondaryKeyword && !prompts.some(p => p.includes('vs'))) {
+      prompts.push(`${mainKeyword} vs ${secondaryKeyword}: diferenças`);
+    }
+    
+    // Add brand/company specific prompts
+    const brandName = domain.split('.')[0];
+    if (brandName && brandName.length > 2) {
+      prompts.push(`${brandName}: avaliação e opiniões`);
+      prompts.push(`${brandName} é confiável?`);
     }
   }
   
-  // Domain-specific fallback prompts
-  if (prompts.length < 5) {
-    prompts.push(`${domain} é confiável?`);
-    prompts.push(`Como usar ${domain}?`);
-    prompts.push(`Avaliação do ${domain}`);
-    prompts.push(`${domain} vale a pena?`);
-    prompts.push(`Experiência com ${domain}`);
+  // Fallback prompts if we don't have enough
+  if (prompts.length < 8) {
+    const domainName = domain.split('.')[0];
+    prompts.push(`${domainName} vale a pena?`);
+    prompts.push(`Como usar ${domainName}?`);
+    prompts.push(`Experiência com ${domainName}`);
+    prompts.push(`${domainName}: prós e contras`);
+    prompts.push(`Alternativas ao ${domainName}`);
   }
   
-  return prompts.slice(0, 10);
+  // Clean and deduplicate prompts
+  const cleanedPrompts = prompts
+    .filter(p => p && p.length > 10) // Remove empty or too short prompts
+    .filter((prompt, index, arr) => arr.indexOf(prompt) === index) // Remove duplicates
+    .slice(0, 12); // Limit to 12 prompts
+  
+  console.log('✨ Generated prompts:', cleanedPrompts);
+  
+  return cleanedPrompts;
 }
 
 function checkStructuredContent(textContent: string): boolean {
