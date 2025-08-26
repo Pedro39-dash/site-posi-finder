@@ -5,11 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { MonitoringProvider } from "@/contexts/MonitoringContext";
+import { ProjectProvider } from "@/contexts/ProjectContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Navigation from "@/components/layout/Navigation";
 import Index from "./pages/Index";
+import Projects from "./pages/Projects";
 import Comparison from "./pages/Comparison";
 import Monitoring from "./pages/Monitoring";
 import Audit from "./pages/Audit";
@@ -23,7 +25,8 @@ const App = () => (
     <HelmetProvider>
       <ThemeProvider defaultTheme="dark">
         <AuthProvider>
-          <MonitoringProvider>
+          <ProjectProvider>
+            <MonitoringProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -34,6 +37,12 @@ const App = () => (
                     <ProtectedRoute>
                       <Navigation />
                       <Index />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/projects" element={
+                    <ProtectedRoute>
+                      <Navigation />
+                      <Projects />
                     </ProtectedRoute>
                   } />
                   <Route path="/comparison" element={
@@ -65,6 +74,7 @@ const App = () => (
               </BrowserRouter>
             </TooltipProvider>
           </MonitoringProvider>
+          </ProjectProvider>
         </AuthProvider>
       </ThemeProvider>
     </HelmetProvider>

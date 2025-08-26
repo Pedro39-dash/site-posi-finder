@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, Eye, AlertTriangle, Users, Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import ProjectsSection from "./ProjectsSection";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMonitoring } from "@/contexts/MonitoringContext";
@@ -176,6 +177,9 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Projects Section */}
+      <ProjectsSection />
 
       {/* Quick Actions */}
       <Card>

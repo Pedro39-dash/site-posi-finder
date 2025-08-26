@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import ComparisonForm from "@/components/comparison/ComparisonForm";
-import ComparisonResults, { ComparisonResult } from "@/components/comparison/ComparisonResults";
+import ComparisonFormEnhanced from "@/components/comparison/ComparisonFormEnhanced";
+import ComparisonResultsEnhanced, { ComparisonResultEnhanced } from "@/components/comparison/ComparisonResultsEnhanced";
 import SimulationNotice from "@/components/SimulationNotice";
+import { useProjects } from "@/contexts/ProjectContext";
 
 const Comparison = () => {
+  const { projects } = useProjects();
   const [comparisonResults, setComparisonResults] = useState<{
     websites: string[];
-    results: ComparisonResult[];
+    results: ComparisonResultEnhanced[];
+    projectName?: string;
   } | null>(null);
 
   // Enhanced mock function for domain comparison
-  const generateComparisonResults = (websites: string[], keywords: string[]): ComparisonResult[] => {
+  const generateComparisonResults = (websites: string[], keywords: string[]): ComparisonResultEnhanced[] => {
     const cacheKey = `comparison_${websites.join('_')}_${keywords.join('_')}`;
     const cached = localStorage.getItem(cacheKey);
     
@@ -19,8 +22,8 @@ const Comparison = () => {
       return JSON.parse(cached);
     }
 
-    const results: ComparisonResult[] = keywords.map(keyword => {
-      const keywordResults = websites.map(website => {
+    const results: ComparisonResultEnhanced[] = keywords.map(keyword => {
+      const keywordResults = websites.map((website, index) => {
         // More realistic position distribution
         const rand = Math.random();
         let position: number | null = null;
@@ -40,6 +43,7 @@ const Comparison = () => {
           website,
           position,
           isWinner: false, // Will be set below
+          isClient: index === 0, // First website is always the client
         };
       });
 
@@ -66,9 +70,13 @@ const Comparison = () => {
     return results;
   };
 
-  const handleComparison = (data: { websites: string[]; keywords: string[] }) => {
+  const handleComparison = (data: { websites: string[]; keywords: string[]; projectName?: string }) => {
     const results = generateComparisonResults(data.websites, data.keywords);
-    setComparisonResults({ websites: data.websites, results });
+    setComparisonResults({ 
+      websites: data.websites, 
+      results,
+      projectName: data.projectName 
+    });
   };
 
   const handleNewComparison = () => {
@@ -103,14 +111,30 @@ const Comparison = () => {
                 </div>
                 
                 <SimulationNotice />
-                <ComparisonForm onCompare={handleComparison} />
+                {projects.length === 0 ? (
+                  <div className="text-center py-12">
+                    <h3 className="text-xl font-semibold mb-4">Crie um projeto primeiro</h3>
+                    <p className="text-muted-foreground mb-6">
+                      Para usar a comparação competitiva, você precisa ter pelo menos um projeto criado.
+                    </p>
+                    <a 
+                      href="/projects" 
+                      className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                    >
+                      Criar Primeiro Projeto
+                    </a>
+                  </div>
+                ) : (
+                  <ComparisonFormEnhanced onCompare={handleComparison} />
+                )}
               </div>
             ) : (
               <div className="space-y-8">
                 <SimulationNotice />
-                <ComparisonResults 
+                <ComparisonResultsEnhanced
                   websites={comparisonResults.websites}
                   results={comparisonResults.results}
+                  projectName={comparisonResults.projectName}
                   onNewComparison={handleNewComparison}
                 />
               </div>

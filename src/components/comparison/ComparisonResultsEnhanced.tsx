@@ -1,0 +1,342 @@
+import { ArrowUp, ArrowDown, Trophy, Target, TrendingUp, Download } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+
+export interface ComparisonResultEnhanced {
+  keyword: string;
+  results: {
+    website: string;
+    position: number | null;
+    isWinner: boolean;
+    isClient: boolean;
+  }[];
+}
+
+interface ComparisonResultsEnhancedProps {
+  websites: string[];
+  results: ComparisonResultEnhanced[];
+  projectName?: string;
+  onNewComparison: () => void;
+}
+
+const ComparisonResultsEnhanced = ({ websites, results, projectName, onNewComparison }: ComparisonResultsEnhancedProps) => {
+  const clientDomain = websites[0];
+  const competitorDomain = websites[1];
+
+  // Cálculo do score geral
+  const calculateScore = (website: string) => {
+    const websiteResults = results.map(r => r.results.find(res => res.website === website));
+    const validPositions = websiteResults
+      .filter(r => r?.position !== null)
+      .map(r => r!.position!);
+    
+    if (validPositions.length === 0) return 0;
+    
+    const totalScore = validPositions.reduce((acc, pos) => {
+      if (pos === 1) return acc + 100;
+      if (pos <= 3) return acc + 90;
+      if (pos <= 5) return acc + 80;
+      if (pos <= 10) return acc + 70;
+      return acc + 50;
+    }, 0);
+    
+    return Math.round(totalScore / validPositions.length);
+  };
+
+  const clientScore = calculateScore(clientDomain);
+  const competitorScore = calculateScore(competitorDomain);
+  const scoreDifference = clientScore - competitorScore;
+  
+  // Estatísticas
+  const clientWins = results.filter(r => 
+    r.results.find(res => res.website === clientDomain)?.isWinner
+  ).length;
+  
+  const competitorWins = results.filter(r => 
+    r.results.find(res => res.website === competitorDomain)?.isWinner
+  ).length;
+
+  // Oportunidades (palavras onde o concorrente está melhor)
+  const opportunities = results.filter(r => {
+    const clientPos = r.results.find(res => res.website === clientDomain)?.position;
+    const competitorPos = r.results.find(res => res.website === competitorDomain)?.position;
+    
+    if (!clientPos || !competitorPos) return false;
+    return competitorPos < clientPos;
+  });
+
+  // Dados para o gráfico
+  const chartData = results.slice(0, 10).map(r => {
+    const clientResult = r.results.find(res => res.website === clientDomain);
+    const competitorResult = r.results.find(res => res.website === competitorDomain);
+    
+    return {
+      keyword: r.keyword.length > 15 ? r.keyword.substring(0, 15) + "..." : r.keyword,
+      [clientDomain]: clientResult?.position || 100,
+      [competitorDomain]: competitorResult?.position || 100
+    };
+  });
+
+  const getDomainName = (url: string) => {
+    return url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  };
+
+  const getPositionBadgeVariant = (position: number | null) => {
+    if (!position) return "secondary";
+    if (position <= 3) return "default";
+    if (position <= 10) return "secondary";
+    return "outline";
+  };
+
+  const getPositionText = (position: number | null) => {
+    return position ? `${position}ª` : "Não encontrado";
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-accent";
+    if (score >= 60) return "text-primary";
+    return "text-destructive";
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Header com Score Geral */}
+      <div className="text-center space-y-4">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Trophy className="h-6 w-6 text-primary" />
+          <h1 className="text-3xl font-bold">
+            Comparação Competitiva
+            {projectName && <span className="text-primary"> - {projectName}</span>}
+          </h1>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          {/* Score do Cliente */}
+          <Card className="border-primary/20">
+            <CardHeader className="text-center pb-2">
+              <CardTitle className="text-lg">Seu Site</CardTitle>
+              <CardDescription>{getDomainName(clientDomain)}</CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className={`text-4xl font-bold ${getScoreColor(clientScore)}`}>
+                {clientScore}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Score SEO</p>
+              <Badge variant="secondary" className="mt-2">
+                {clientWins} vitórias
+              </Badge>
+            </CardContent>
+          </Card>
+
+          {/* Comparação */}
+          <Card className="border-muted">
+            <CardContent className="flex items-center justify-center h-full p-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  {scoreDifference > 0 ? (
+                    <ArrowUp className="h-8 w-8 text-accent" />
+                  ) : scoreDifference < 0 ? (
+                    <ArrowDown className="h-8 w-8 text-destructive" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                      =
+                    </div>
+                  )}
+                </div>
+                <p className="font-bold text-lg">
+                  {scoreDifference > 0 ? "+" : ""}{scoreDifference} pontos
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {scoreDifference > 0 ? "Você está ganhando!" : 
+                   scoreDifference < 0 ? "Precisa melhorar" : "Empatado"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Score do Concorrente */}
+          <Card className="border-destructive/20">
+            <CardHeader className="text-center pb-2">
+              <CardTitle className="text-lg">Concorrente</CardTitle>
+              <CardDescription>{getDomainName(competitorDomain)}</CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className={`text-4xl font-bold ${getScoreColor(competitorScore)}`}>
+                {competitorScore}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Score SEO</p>
+              <Badge variant="secondary" className="mt-2">
+                {competitorWins} vitórias
+              </Badge>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Gráfico de Comparação */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart className="h-5 w-5" />
+            Posições por Palavra-chave (Top 10)
+          </CardTitle>
+          <CardDescription>
+            Quanto menor a barra, melhor a posição (1ª posição = topo do Google)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="keyword" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  fontSize={12}
+                />
+                <YAxis 
+                  reversed
+                  domain={[1, 100]}
+                  tickFormatter={(value) => `${value}ª`}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`${value}ª posição`, ""]}
+                  labelFormatter={(label) => `Palavra: ${label}`}
+                />
+                <Bar 
+                  dataKey={clientDomain} 
+                  fill="hsl(var(--primary))" 
+                  name="Seu site"
+                  radius={4}
+                />
+                <Bar 
+                  dataKey={competitorDomain} 
+                  fill="hsl(var(--destructive))" 
+                  name="Concorrente"
+                  radius={4}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Oportunidades de Melhoria */}
+      {opportunities.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-destructive" />
+              Oportunidades de Melhoria ({opportunities.length})
+            </CardTitle>
+            <CardDescription>
+              Palavras-chave onde seu concorrente está melhor posicionado
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {opportunities.slice(0, 5).map((opp) => {
+                const clientPos = opp.results.find(r => r.website === clientDomain)?.position;
+                const competitorPos = opp.results.find(r => r.website === competitorDomain)?.position;
+                const gap = clientPos && competitorPos ? clientPos - competitorPos : 0;
+                
+                return (
+                  <div key={opp.keyword} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <span className="font-medium">{opp.keyword}</span>
+                      <p className="text-sm text-muted-foreground">
+                        Concorrente: {getPositionText(competitorPos)} | Você: {getPositionText(clientPos)}
+                      </p>
+                    </div>
+                    <Badge variant="destructive">
+                      -{gap} posições
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tabela Detalhada */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Resultados Detalhados</CardTitle>
+          <CardDescription>
+            Posição de cada palavra-chave nos resultados de busca
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Palavra-chave</TableHead>
+                <TableHead className="text-center">
+                  {getDomainName(clientDomain)}
+                  <br />
+                  <span className="text-xs text-muted-foreground">(Seu site)</span>
+                </TableHead>
+                <TableHead className="text-center">
+                  {getDomainName(competitorDomain)}
+                  <br />
+                  <span className="text-xs text-muted-foreground">(Concorrente)</span>
+                </TableHead>
+                <TableHead className="text-center">Vencedor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {results.map((result) => {
+                const clientResult = result.results.find(r => r.website === clientDomain);
+                const competitorResult = result.results.find(r => r.website === competitorDomain);
+                const winner = result.results.find(r => r.isWinner);
+                
+                return (
+                  <TableRow key={result.keyword}>
+                    <TableCell className="font-medium">{result.keyword}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={getPositionBadgeVariant(clientResult?.position)}>
+                        {getPositionText(clientResult?.position)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={getPositionBadgeVariant(competitorResult?.position)}>
+                        {getPositionText(competitorResult?.position)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {winner && (
+                        <Badge variant={winner.website === clientDomain ? "default" : "destructive"}>
+                          {winner.website === clientDomain ? "Você" : "Concorrente"}
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Ações */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <Button variant="outline" onClick={onNewComparison} className="gap-2">
+          <TrendingUp className="h-4 w-4" />
+          Nova Comparação
+        </Button>
+        <Button variant="outline" className="gap-2">
+          <Download className="h-4 w-4" />
+          Exportar Relatório
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default ComparisonResultsEnhanced;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BarChart3, Search, GitCompare, Monitor, Menu, X, LogOut, User } from "lucide-react";
+import { BarChart3, Search, GitCompare, Monitor, Menu, X, LogOut, User, FolderOpen } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -12,7 +12,8 @@ const Navigation = () => {
   const { user, logout } = useAuth();
 
   const navItems = [
-    { title: "Análise Individual", path: "/", icon: Search },
+    { title: "Dashboard", path: "/", icon: Search },
+    { title: "Projetos", path: "/projects", icon: FolderOpen },
     { title: "Comparação", path: "/comparison", icon: GitCompare },
     { title: "Monitoramento", path: "/monitoring", icon: Monitor },
   ];
