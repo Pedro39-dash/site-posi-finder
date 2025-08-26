@@ -12,6 +12,7 @@ import Navigation from "@/components/layout/Navigation";
 import Index from "./pages/Index";
 import Comparison from "./pages/Comparison";
 import Monitoring from "./pages/Monitoring";
+import Audit from "./pages/Audit";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -45,6 +46,12 @@ const App = () => (
                     <ProtectedRoute>
                       <Navigation />
                       <Monitoring />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/audit" element={
+                    <ProtectedRoute>
+                      <Navigation />
+                      <Audit />
                     </ProtectedRoute>
                   } />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

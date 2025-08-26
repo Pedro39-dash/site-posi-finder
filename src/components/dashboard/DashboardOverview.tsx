@@ -211,7 +211,7 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
             </button>
             
             <button 
-              onClick={() => navigate('/monitoring')}
+              onClick={() => navigate('/audit')}
               className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left"
             >
               <div className="flex items-center gap-3 mb-2">
@@ -219,7 +219,7 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
                 <span className="font-medium">Auditoria SEO</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Verificar saúde técnica do seu site
+                Análise técnica completa do site
               </p>
             </button>
           </div>
