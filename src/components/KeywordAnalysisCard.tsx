@@ -18,24 +18,45 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const extractKeywords = () => {
     if (!results) return [];
 
-    const keywords: string[] = [];
+    let keywords: string[] = [];
     
-    results.forEach(category => {
-      if (category.issues) {
-        category.issues.forEach((issue: any) => {
-          if (issue.metadata?.keywords) {
-            keywords.push(...issue.metadata.keywords);
-          }
-        });
-      }
-    });
+    // Find the AI search optimization category specifically
+    const aiOptimizationCategory = results.find(category => 
+      category.category === 'ai_search_optimization'
+    );
+    
+    if (aiOptimizationCategory?.issues) {
+      aiOptimizationCategory.issues.forEach((issue: any) => {
+        if (issue.metadata?.keywords) {
+          keywords.push(...issue.metadata.keywords);
+        }
+      });
+    }
+    
+    // If no keywords found in AI optimization, try other categories
+    if (keywords.length === 0) {
+      results.forEach(category => {
+        if (category.issues) {
+          category.issues.forEach((issue: any) => {
+            if (issue.metadata?.keywords) {
+              keywords.push(...issue.metadata.keywords);
+            }
+          });
+        }
+      });
+    }
 
     // Remove duplicates and filter out common words
+    const stopWords = new Set([
+      'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'man', 'car', 'she', 'use', 'way', 'many',
+      'que', 'para', 'com', 'uma', 'por', 'dos', 'das', 'nos', 'nas', 'ser', 'ter', 'seu', 'sua', 'seus', 'suas', 'mais', 'como', 'muito', 'bem', 'onde', 'quando', 'porque', 'então', 'assim', 'também', 'já', 'ainda', 'até', 'depois', 'antes'
+    ]);
+    
     const uniqueKeywords = [...new Set(keywords)].filter(keyword => 
-      keyword.length > 2 && !['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'man', 'car', 'she', 'use', 'way', 'many'].includes(keyword.toLowerCase())
+      keyword && keyword.length > 2 && !stopWords.has(keyword.toLowerCase())
     );
 
-    return uniqueKeywords.slice(0, 10); // Top 10 keywords
+    return uniqueKeywords.slice(0, 15); // Top 15 keywords
   };
 
   // Generate AI prompts based on domain and keywords
@@ -43,31 +64,73 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     const domain = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
     const keywords = extractKeywords();
     
-    const prompts = [];
+    // Try to get prompts from the audit results first
+    const aiOptimizationCategory = results?.find(category => 
+      category.category === 'ai_search_optimization'
+    );
     
-    // Basic domain searches
-    prompts.push(`O que é ${domain}?`);
-    prompts.push(`Como usar ${domain}`);
-    prompts.push(`${domain} é confiável?`);
+    const existingPrompts = aiOptimizationCategory?.issues
+      .find((issue: any) => issue.metadata?.prompts)?.metadata?.prompts || [];
     
-    // Keyword-based prompts
-    if (keywords.length > 0) {
-      prompts.push(`Melhor site para ${keywords[0]}`);
-      prompts.push(`${keywords[0]} online`);
-      if (keywords[1]) {
-        prompts.push(`${keywords[0]} e ${keywords[1]}`);
-      }
+    if (existingPrompts.length > 0) {
+      return existingPrompts.slice(0, 8);
     }
     
-    // Industry-specific prompts
-    const businessTypes = ['empresa', 'serviço', 'produto', 'solução', 'consultoria'];
-    businessTypes.forEach(type => {
-      if (keywords.some(k => k.toLowerCase().includes(type))) {
-        prompts.push(`Melhores ${type}s como ${domain}`);
+    // Fallback: generate prompts based on keywords and domain
+    const prompts = [];
+    
+    // Extract company/service type from keywords
+    const serviceKeywords = keywords.filter(k => 
+      ['serviço', 'empresa', 'consultoria', 'solução', 'software', 'sistema', 'plataforma', 'desenvolvimento'].some(s => k.toLowerCase().includes(s))
+    );
+    
+    const productKeywords = keywords.filter(k => 
+      ['produto', 'venda', 'loja', 'comprar', 'preço', 'oferta'].some(s => k.toLowerCase().includes(s))
+    );
+    
+    if (keywords.length > 0) {
+      const topKeyword = keywords[0];
+      
+      // Problem-solution prompts
+      prompts.push(`Onde encontrar ${topKeyword} profissional?`);
+      prompts.push(`Como escolher ${topKeyword} de qualidade?`);
+      prompts.push(`Melhor empresa de ${topKeyword}`);
+      
+      // Service-based prompts
+      if (serviceKeywords.length > 0) {
+        prompts.push(`Serviços de ${topKeyword} confiáveis`);
+        prompts.push(`Consultoria especializada em ${topKeyword}`);
       }
-    });
+      
+      // Product-based prompts  
+      if (productKeywords.length > 0) {
+        prompts.push(`Onde comprar ${topKeyword}?`);
+        prompts.push(`${topKeyword}: melhor preço`);
+      }
+      
+      // Comparison prompts
+      prompts.push(`Comparar empresas de ${topKeyword}`);
+      prompts.push(`${topKeyword}: qual a melhor opção?`);
+      
+      // Educational prompts
+      prompts.push(`Guia completo sobre ${topKeyword}`);
+      prompts.push(`Como funciona ${topKeyword}?`);
+      
+      // Location-based prompts
+      prompts.push(`${topKeyword} no Brasil`);
+      prompts.push(`${topKeyword} em São Paulo`);
+    }
+    
+    // Domain-specific prompts as fallback
+    if (prompts.length === 0) {
+      prompts.push(`O que é ${domain}?`);
+      prompts.push(`Como usar ${domain}`);
+      prompts.push(`${domain} é confiável?`);
+      prompts.push(`Avaliação do ${domain}`);
+      prompts.push(`Alternativas ao ${domain}`);
+    }
 
-    return prompts.slice(0, 8); // Top 8 prompts
+    return prompts.slice(0, 8);
   };
 
   const copyToClipboard = async (text: string, index: number) => {

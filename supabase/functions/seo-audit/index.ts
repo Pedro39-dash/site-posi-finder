@@ -1580,41 +1580,109 @@ function extractKeywords(textContent: string, title: string, metaDesc: string): 
 }
 
 function generateAIPrompts(keywords: string[], textContent: string, url: string): string[] {
-  const domain = url.replace(/https?:\/\//, '').split('/')[0];
+  const domain = url.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
   const prompts = [];
   
-  // Generate different types of prompts
+  // Detect business type based on content
+  const lowerContent = textContent.toLowerCase();
+  const isEcommerce = lowerContent.includes('comprar') || lowerContent.includes('preço') || lowerContent.includes('produto') || lowerContent.includes('loja');
+  const isService = lowerContent.includes('serviço') || lowerContent.includes('consultoria') || lowerContent.includes('atendimento');
+  const isBlog = lowerContent.includes('artigo') || lowerContent.includes('post') || lowerContent.includes('blog') || lowerContent.includes('dicas');
+  const isTech = lowerContent.includes('software') || lowerContent.includes('sistema') || lowerContent.includes('tecnologia') || lowerContent.includes('desenvolvimento');
+  const isEducational = lowerContent.includes('curso') || lowerContent.includes('treinamento') || lowerContent.includes('educação') || lowerContent.includes('aprender');
+  
+  // Generate context-aware prompts
   if (keywords.length > 0) {
-    const topKeywords = keywords.slice(0, 5);
+    const topKeywords = keywords.slice(0, 3);
+    const mainKeyword = topKeywords[0];
     
-    // Problem-solution prompts
-    prompts.push(`Onde encontrar ${topKeywords[0]} profissional?`);
-    prompts.push(`Como escolher ${topKeywords[0]} de qualidade?`);
-    prompts.push(`Melhor empresa de ${topKeywords[0]}`);
+    // E-commerce prompts
+    if (isEcommerce) {
+      prompts.push(`Onde comprar ${mainKeyword} barato?`);
+      prompts.push(`${mainKeyword}: melhor preço online`);
+      prompts.push(`Loja confiável para ${mainKeyword}`);
+      prompts.push(`${mainKeyword} com desconto`);
+      prompts.push(`Comparar preços de ${mainKeyword}`);
+    }
     
     // Service-based prompts
-    if (textContent.toLowerCase().includes('serviço') || textContent.toLowerCase().includes('consultoria')) {
-      prompts.push(`Serviços de ${topKeywords[0]} confiáveis`);
-      prompts.push(`Consultoria especializada em ${topKeywords[0]}`);
+    else if (isService) {
+      prompts.push(`Melhor empresa de ${mainKeyword}`);
+      prompts.push(`Serviços de ${mainKeyword} profissionais`);
+      prompts.push(`Como contratar ${mainKeyword} confiável?`);
+      prompts.push(`${mainKeyword}: orçamento gratuito`);
+      prompts.push(`Consultoria especializada em ${mainKeyword}`);
     }
     
-    // Location-based prompts (if location detected)
-    const locationWords = ['brasil', 'são paulo', 'rio', 'belo horizonte', 'brasília'];
-    const hasLocation = locationWords.some(loc => textContent.toLowerCase().includes(loc));
-    if (hasLocation) {
-      prompts.push(`${topKeywords[0]} no Brasil`);
+    // Tech/Software prompts
+    else if (isTech) {
+      prompts.push(`Como implementar ${mainKeyword}?`);
+      prompts.push(`Melhor solução para ${mainKeyword}`);
+      prompts.push(`${mainKeyword}: guia técnico completo`);
+      prompts.push(`Desenvolvimento com ${mainKeyword}`);
+      prompts.push(`${mainKeyword} vs alternativas`);
     }
-    
-    // Comparison prompts
-    prompts.push(`Comparar empresas de ${topKeywords[0]}`);
-    prompts.push(`${topKeywords[0]}: qual a melhor opção?`);
     
     // Educational prompts
-    prompts.push(`Guia completo sobre ${topKeywords[0]}`);
-    prompts.push(`Como funciona ${topKeywords[0]}?`);
+    else if (isEducational) {
+      prompts.push(`Curso de ${mainKeyword} online`);
+      prompts.push(`Como aprender ${mainKeyword}?`);
+      prompts.push(`Certificação em ${mainKeyword}`);
+      prompts.push(`${mainKeyword} para iniciantes`);
+      prompts.push(`Melhor treinamento de ${mainKeyword}`);
+    }
+    
+    // Blog/Content prompts
+    else if (isBlog) {
+      prompts.push(`${mainKeyword}: dicas práticas`);
+      prompts.push(`Guia completo sobre ${mainKeyword}`);
+      prompts.push(`Como usar ${mainKeyword} corretamente?`);
+      prompts.push(`${mainKeyword}: melhores práticas`);
+      prompts.push(`Tudo sobre ${mainKeyword}`);
+    }
+    
+    // Generic business prompts
+    else {
+      prompts.push(`O que é ${mainKeyword}?`);
+      prompts.push(`Como funciona ${mainKeyword}?`);
+      prompts.push(`Vantagens do ${mainKeyword}`);
+      prompts.push(`${mainKeyword} é confiável?`);
+      prompts.push(`Melhor ${mainKeyword} do mercado`);
+    }
+    
+    // Add location-based prompts if content suggests it
+    const locationWords = ['brasil', 'são paulo', 'rio de janeiro', 'belo horizonte', 'brasília', 'porto alegre', 'salvador', 'recife', 'fortaleza'];
+    const detectedLocation = locationWords.find(loc => lowerContent.includes(loc));
+    if (detectedLocation) {
+      const locationName = detectedLocation === 'são paulo' ? 'São Paulo' : 
+                          detectedLocation === 'rio de janeiro' ? 'Rio de Janeiro' :
+                          detectedLocation === 'belo horizonte' ? 'Belo Horizonte' :
+                          detectedLocation.replace(/\b\w/g, l => l.toUpperCase());
+      prompts.push(`${mainKeyword} em ${locationName}`);
+    } else {
+      prompts.push(`${mainKeyword} no Brasil`);
+    }
+    
+    // Problem-solving prompts
+    prompts.push(`Problema com ${mainKeyword}: como resolver?`);
+    prompts.push(`${mainKeyword} não funciona: soluções`);
+    
+    // Comparison prompts
+    if (topKeywords.length > 1) {
+      prompts.push(`${mainKeyword} vs ${topKeywords[1]}`);
+    }
   }
   
-  return prompts.slice(0, 8);
+  // Domain-specific fallback prompts
+  if (prompts.length < 5) {
+    prompts.push(`${domain} é confiável?`);
+    prompts.push(`Como usar ${domain}?`);
+    prompts.push(`Avaliação do ${domain}`);
+    prompts.push(`${domain} vale a pena?`);
+    prompts.push(`Experiência com ${domain}`);
+  }
+  
+  return prompts.slice(0, 10);
 }
 
 function checkStructuredContent(textContent: string): boolean {

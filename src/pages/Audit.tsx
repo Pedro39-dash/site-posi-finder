@@ -602,7 +602,27 @@ const Audit = () => {
                                 <span className="text-foreground">{issue.message}</span>
                                 {issue.recommendation && (
                                   <div className="text-xs text-muted-foreground mt-1">
-                                    💡 {issue.recommendation}
+                                    {issue.recommendation.includes('pagespeed.web.dev') ? (
+                                      <div className="flex items-center gap-2">
+                                        <span>💡 Análise detalhada disponível:</span>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            const pageSpeedUrl = issue.recommendation.match(/https:\/\/pagespeed\.web\.dev[^\s)]+/)?.[0];
+                                            if (pageSpeedUrl) {
+                                              window.open(pageSpeedUrl, '_blank');
+                                            }
+                                          }}
+                                          className="h-6 text-xs"
+                                        >
+                                          <Zap className="h-3 w-3 mr-1" />
+                                          Ver no PageSpeed Insights
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <span>💡 {issue.recommendation}</span>
+                                    )}
                                   </div>
                                 )}
                                 <Badge 
