@@ -96,7 +96,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     );
 
     console.log('🔍 Final extracted keywords:', uniqueKeywords.length, uniqueKeywords);
-    return uniqueKeywords.slice(0, 15); // Top 15 keywords
+    return uniqueKeywords; // Return all keywords found
   };
 
   // Generate AI prompts based on domain and keywords
