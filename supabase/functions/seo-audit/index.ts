@@ -353,21 +353,21 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
   if (!title) {
     metaIssues.push({
       type: 'error' as const,
-      message: 'Missing page title',
+      message: 'Título da página ausente',
       priority: 'high' as const,
-      recommendation: 'Add a descriptive title tag to your page'
+      recommendation: 'Adicione uma tag de título descritiva à sua página'
     });
   } else if (title.length > 60) {
     metaIssues.push({
       type: 'warning' as const,
-      message: 'Title too long (over 60 characters)',
+      message: 'Título muito longo (mais de 60 caracteres)',
       priority: 'medium' as const,
-      recommendation: 'Keep title under 60 characters for better search engine display'
+      recommendation: 'Mantenha o título abaixo de 60 caracteres para melhor exibição nos buscadores'
     });
   } else {
     metaIssues.push({
       type: 'success' as const,
-      message: 'Title tag is present and properly sized',
+      message: 'Tag de título presente e com tamanho adequado',
       priority: 'low' as const
     });
   }
@@ -375,21 +375,21 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
   if (!metaDesc) {
     metaIssues.push({
       type: 'error' as const,
-      message: 'Missing meta description',
+      message: 'Meta description ausente',
       priority: 'high' as const,
-      recommendation: 'Add a meta description between 150-160 characters'
+      recommendation: 'Adicione uma meta description entre 150-160 caracteres'
     });
   } else if (metaDesc.length > 160) {
     metaIssues.push({
       type: 'warning' as const,
-      message: 'Meta description too long (over 160 characters)',
+      message: 'Meta description muito longa (mais de 160 caracteres)',
       priority: 'medium' as const,
-      recommendation: 'Keep meta description under 160 characters'
+      recommendation: 'Mantenha a meta description abaixo de 160 caracteres'
     });
   } else {
     metaIssues.push({
       type: 'success' as const,
-      message: 'Meta description is present and properly sized',
+      message: 'Meta description presente e com tamanho adequado',
       priority: 'low' as const
     });
   }
@@ -408,21 +408,21 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
   if (h1Matches.length === 0) {
     structureIssues.push({
       type: 'error' as const,
-      message: 'No H1 tag found',
+      message: 'Nenhuma tag H1 encontrada',
       priority: 'high' as const,
-      recommendation: 'Add exactly one H1 tag to your page'
+      recommendation: 'Adicione exatamente uma tag H1 à sua página'
     });
   } else if (h1Matches.length > 1) {
     structureIssues.push({
       type: 'warning' as const,
-      message: `Multiple H1 tags found (${h1Matches.length})`,
+      message: `Múltiplas tags H1 encontradas (${h1Matches.length})`,
       priority: 'medium' as const,
-      recommendation: 'Use only one H1 tag per page'
+      recommendation: 'Use apenas uma tag H1 por página'
     });
   } else {
     structureIssues.push({
       type: 'success' as const,
-      message: 'Single H1 tag found',
+      message: 'Tag H1 única encontrada',
       priority: 'low' as const
     });
   }
@@ -437,32 +437,48 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
 
   // Images Analysis
   const imageIssues = [];
-  const imagesWithoutAlt = imgMatches.filter(img => !img.includes('alt=') || img.includes('alt=""') || img.includes("alt=''")).length;
+  const imagesWithoutAltTags = imgMatches.filter(img => !img.includes('alt=') || img.includes('alt=""') || img.includes("alt=''"));
   
   if (imgMatches.length > 0) {
-  if (imagesWithoutAlt === 0) {
+    if (imagesWithoutAltTags.length === 0) {
       imageIssues.push({
         type: 'success' as const,
-        message: 'All images have alt attributes',
+        message: 'Todas as imagens possuem atributos alt',
         priority: 'low' as const
       });
     } else {
+      // Extract image filenames from src attributes
+      const imageFilenames = imagesWithoutAltTags
+        .map(img => {
+          const srcMatch = img.match(/src=["']([^"']*?)["']/i);
+          if (srcMatch) {
+            const src = srcMatch[1];
+            const filename = src.split('/').pop() || src;
+            return filename;
+          }
+          return null;
+        })
+        .filter(Boolean)
+        .slice(0, 8); // Limit to 8 filenames to avoid very long messages
+      
+      const filenameList = imageFilenames.length > 0 ? ` (${imageFilenames.join(', ')})` : '';
+      
       imageIssues.push({
         type: 'error' as const,
-        message: `${imagesWithoutAlt} images missing alt attributes`,
+        message: `${imagesWithoutAltTags.length} imagens sem atributo alt${filenameList}`,
         priority: 'high' as const,
-        recommendation: 'Add descriptive alt attributes to all images for accessibility and SEO'
+        recommendation: 'Adicione atributos alt descritivos a todas as imagens para acessibilidade e SEO'
       });
     }
   } else {
     imageIssues.push({
       type: 'success' as const,
-      message: 'No images to analyze',
+      message: 'Nenhuma imagem para analisar',
       priority: 'low' as const
     });
   }
 
-  const imageScore = imgMatches.length > 0 ? (imgMatches.length - imagesWithoutAlt) / imgMatches.length * 100 : 100;
+  const imageScore = imgMatches.length > 0 ? (imgMatches.length - imagesWithoutAltTags.length) / imgMatches.length * 100 : 100;
   categories.push({
     category: 'images',
     score: Math.max(0, imageScore),
@@ -597,11 +613,17 @@ function extractTextContent(html: string): string {
   let cleanHtml = html.replace(/<script[^>]*>.*?<\/script>/gis, '');
   cleanHtml = cleanHtml.replace(/<style[^>]*>.*?<\/style>/gis, '');
   
-  // Remove HTML tags but keep the text
+  // Convert block elements to paragraph breaks
+  cleanHtml = cleanHtml.replace(/<\/(p|div|section|article|h[1-6]|li)>/gi, '\n\n');
+  cleanHtml = cleanHtml.replace(/<br\s*\/?>/gi, '\n');
+  
+  // Remove remaining HTML tags
   cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
   
-  // Clean up whitespace
-  cleanHtml = cleanHtml.replace(/\s+/g, ' ').trim();
+  // Clean up whitespace but preserve paragraph breaks
+  cleanHtml = cleanHtml.replace(/[ \t]+/g, ' '); // Convert multiple spaces/tabs to single space
+  cleanHtml = cleanHtml.replace(/\n\s*\n/g, '\n\n'); // Normalize paragraph breaks
+  cleanHtml = cleanHtml.trim();
   
   return cleanHtml;
 }
@@ -1040,23 +1062,35 @@ function analyzeReadability(textContent: string): AuditCategory {
     });
   }
 
-  // Check paragraph structure
-  const paragraphs = textContent.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-  const avgWordsPerParagraph = words.length / paragraphs.length;
+  // Check paragraph structure using proper paragraph breaks
+  const paragraphs = textContent.split(/\n\n+/).filter(p => p.trim().length > 0);
   
-  if (avgWordsPerParagraph <= 150) {
+  // Calculate words per paragraph more accurately
+  const paragraphWordCounts = paragraphs.map(p => p.split(/\s+/).filter(w => w.length > 0).length);
+  const avgWordsPerParagraph = paragraphWordCounts.length > 0 
+    ? paragraphWordCounts.reduce((sum, count) => sum + count, 0) / paragraphWordCounts.length 
+    : 0;
+  
+  if (avgWordsPerParagraph <= 100 && avgWordsPerParagraph > 0) {
     score += 40;
     issues.push({
       type: 'success' as const,
       message: `Parágrafos com tamanho adequado (média: ${avgWordsPerParagraph.toFixed(0)} palavras)`,
       priority: 'low' as const
     });
-  } else {
+  } else if (avgWordsPerParagraph > 100) {
     issues.push({
       type: 'warning' as const,
       message: `Parágrafos muito longos (média: ${avgWordsPerParagraph.toFixed(0)} palavras)`,
       priority: 'medium' as const,
-      recommendation: 'Divida parágrafos longos em parágrafos menores'
+      recommendation: 'Divida parágrafos longos em parágrafos menores (recomendado: até 100 palavras por parágrafo)'
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Estrutura de parágrafos não detectada adequadamente',
+      priority: 'medium' as const,
+      recommendation: 'Organize o conteúdo em parágrafos bem definidos'
     });
   }
 
