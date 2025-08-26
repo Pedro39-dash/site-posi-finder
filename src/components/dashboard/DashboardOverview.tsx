@@ -3,10 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMonitoring } from "@/contexts/MonitoringContext";
+import { useNavigate } from "react-router-dom";
 
-const DashboardOverview = () => {
+interface DashboardOverviewProps {
+  onViewModeChange?: (mode: 'search') => void;
+}
+
+const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
   const { user } = useAuth();
   const { sites } = useMonitoring();
+  const navigate = useNavigate();
 
   // Mock data simulando métricas do cliente
   const mockMetrics = {
@@ -178,7 +184,10 @@ const DashboardOverview = () => {
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-3 gap-4">
-            <button className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left">
+            <button 
+              onClick={() => onViewModeChange?.('search')}
+              className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left"
+            >
               <div className="flex items-center gap-3 mb-2">
                 <Eye className="h-5 w-5 text-primary" />
                 <span className="font-medium">Ver Posições</span>
@@ -188,7 +197,10 @@ const DashboardOverview = () => {
               </p>
             </button>
             
-            <button className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left">
+            <button 
+              onClick={() => navigate('/comparison')}
+              className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left"
+            >
               <div className="flex items-center gap-3 mb-2">
                 <Users className="h-5 w-5 text-primary" />
                 <span className="font-medium">Comparar Concorrentes</span>
@@ -198,7 +210,10 @@ const DashboardOverview = () => {
               </p>
             </button>
             
-            <button className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left">
+            <button 
+              onClick={() => navigate('/monitoring')}
+              className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left"
+            >
               <div className="flex items-center gap-3 mb-2">
                 <AlertTriangle className="h-5 w-5 text-primary" />
                 <span className="font-medium">Auditoria SEO</span>

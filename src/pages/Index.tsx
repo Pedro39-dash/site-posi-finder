@@ -113,29 +113,7 @@ const Index = () => {
           {viewMode === 'dashboard' && !showDashboard ? (
             <main className="py-8">
               <div className="container mx-auto px-4">
-                <DashboardOverview />
-                
-                {/* Quick access to main features */}
-                <div className="mt-8 flex flex-wrap gap-4 justify-center">
-                  <button
-                    onClick={() => setViewMode('search')}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-semibold transition-colors shadow-elegant"
-                  >
-                    Verificar Posições
-                  </button>
-                  <button 
-                    onClick={() => window.location.href = '/comparison'}
-                    className="bg-secondary text-secondary-foreground hover:bg-secondary/90 px-6 py-3 rounded-lg font-semibold transition-colors"
-                  >
-                    Comparar Concorrentes
-                  </button>
-                  <button 
-                    onClick={() => window.location.href = '/monitoring'}
-                    className="bg-accent text-accent-foreground hover:bg-accent/90 px-6 py-3 rounded-lg font-semibold transition-colors"
-                  >
-                    Monitoramento
-                  </button>
-                </div>
+                <DashboardOverview onViewModeChange={setViewMode} />
               </div>
             </main>
           ) : viewMode === 'search' && !showDashboard ? (
