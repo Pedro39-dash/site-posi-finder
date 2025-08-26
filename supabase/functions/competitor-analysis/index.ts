@@ -227,15 +227,25 @@ async function performCompetitiveAnalysis(
 
 async function extractKeywordsFromAudit(supabase: any, auditReportId: string): Promise<string[]> {
   try {
+    // First get the audit category ID
+    const { data: categories, error: categoryError } = await supabase
+      .from('audit_categories')
+      .select('id')
+      .eq('audit_report_id', auditReportId)
+      .eq('category', 'ai_search_optimization');
+
+    if (categoryError || !categories || categories.length === 0) {
+      console.warn('Could not find audit category:', categoryError);
+      return [];
+    }
+
+    const categoryId = categories[0].id;
+
     // Get keywords from audit issues metadata
     const { data: issues, error } = await supabase
       .from('audit_issues')
       .select('metadata')
-      .eq('audit_category_id', `
-        (SELECT id FROM audit_categories 
-         WHERE audit_report_id = '${auditReportId}' 
-         AND category = 'ai_search_optimization')
-      `);
+      .eq('audit_category_id', categoryId);
 
     if (error) {
       console.warn('Could not fetch keywords from audit:', error);
