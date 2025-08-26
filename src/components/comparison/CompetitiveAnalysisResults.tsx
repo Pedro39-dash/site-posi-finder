@@ -23,12 +23,12 @@ const CompetitiveAnalysisResults = ({ analysisId, onBackToForm }: CompetitiveAna
   useEffect(() => {
     loadAnalysisData();
     
-    // Poll for updates if analysis is still running
+    // Poll for updates if analysis is still running - more frequent polling for better UX
     const pollInterval = setInterval(() => {
       if (analysisData?.analysis.status === 'analyzing' || analysisData?.analysis.status === 'pending') {
         loadAnalysisData();
       }
-    }, 5000);
+    }, 2000); // Reduced from 5000ms to 2000ms for more responsive updates
 
     return () => clearInterval(pollInterval);
   }, [analysisId]);
@@ -82,19 +82,47 @@ const CompetitiveAnalysisResults = ({ analysisId, onBackToForm }: CompetitiveAna
 
   // Show loading state if analysis is still running
   if (analysis.status === 'analyzing' || analysis.status === 'pending') {
+    // Calculate progress based on metadata
+    const metadata = analysis.metadata || {};
+    const totalKeywords = metadata.total_keywords || 0;
+    const processedKeywords = metadata.processed_keywords || 0;
+    const progressPercentage = totalKeywords > 0 ? Math.round((processedKeywords / totalKeywords) * 100) : 30;
+    const stage = metadata.stage || 'initializing';
+    
+    // Get stage description
+    const getStageDescription = (stage: string) => {
+      switch (stage) {
+        case 'keyword_analysis':
+          return `Analisando palavras-chave (${processedKeywords}/${totalKeywords})`;
+        case 'competitor_analysis':
+          return 'Identificando concorrentes...';
+        case 'opportunity_analysis':
+          return 'Identificando oportunidades...';
+        case 'finalizing':
+          return 'Finalizando análise...';
+        default:
+          return 'Iniciando análise...';
+      }
+    };
+
     return (
       <div className="space-y-8">
         <div className="text-center space-y-4">
           <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto" />
           <h2 className="text-2xl font-bold">Análise em Progresso</h2>
           <p className="text-muted-foreground">
-            Estamos analisando {analysis.target_domain} e identificando concorrentes...
+            Analisando <span className="font-semibold text-primary">{analysis.target_domain}</span>
           </p>
-          <div className="max-w-md mx-auto">
-            <Progress value={analysis.status === 'analyzing' ? 60 : 30} className="w-full" />
-            <p className="text-sm text-muted-foreground mt-2">
-              {analysis.status === 'analyzing' ? 'Analisando posições...' : 'Iniciando análise...'}
+          <div className="max-w-md mx-auto space-y-3">
+            <Progress value={progressPercentage} className="w-full" />
+            <p className="text-sm text-muted-foreground">
+              {getStageDescription(stage)}
             </p>
+            {totalKeywords > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Progresso: {progressPercentage}% completo
+              </p>
+            )}
           </div>
         </div>
       </div>

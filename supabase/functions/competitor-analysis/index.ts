@@ -101,35 +101,70 @@ async function performCompetitiveAnalysis(
   try {
     console.log(`🔍 Starting analysis for ${targetDomain}`);
 
-    // Get keywords from the audit report
-    const keywords = await extractKeywordsFromAudit(supabase, auditReportId);
-    console.log(`📝 Extracted ${keywords.length} keywords from audit`);
+    // Validate API credentials first
+    const apiKey = Deno.env.get('GOOGLE_CUSTOM_SEARCH_API_KEY');
+    const cx = Deno.env.get('GOOGLE_CUSTOM_SEARCH_CX');
+    
+    if (!apiKey || !cx) {
+      throw new Error('Google Custom Search API credentials not configured');
+    }
 
-    // Perform search analysis for each keyword
+    // Get and optimize keywords from the audit report
+    const rawKeywords = await extractKeywordsFromAudit(supabase, auditReportId);
+    const optimizedKeywords = optimizeKeywords(rawKeywords);
+    console.log(`📝 Optimized ${rawKeywords.length} keywords to ${optimizedKeywords.length} for analysis`);
+
+    // Update status to show progress
+    await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
+      stage: 'keyword_analysis',
+      total_keywords: optimizedKeywords.length,
+      processed_keywords: 0
+    });
+
+    // Perform search analysis in batches
     const keywordAnalyses: KeywordAnalysis[] = [];
     const competitorDomains = new Set<string>();
-
-    // Limit to top 20 keywords to avoid API limits
-    const topKeywords = keywords.slice(0, 20);
-
-    for (const keyword of topKeywords) {
-      console.log(`🔍 Analyzing keyword: "${keyword}"`);
+    const batchSize = 5;
+    
+    for (let i = 0; i < optimizedKeywords.length; i += batchSize) {
+      const batch = optimizedKeywords.slice(i, i + batchSize);
+      console.log(`🔄 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(optimizedKeywords.length/batchSize)}`);
       
-      try {
-        const analysis = await analyzeKeywordPositions(keyword, targetDomain);
-        keywordAnalyses.push(analysis);
-
-        // Collect competitor domains
-        analysis.competitor_positions.forEach(pos => {
-          if (pos.domain !== targetDomain) {
-            competitorDomains.add(pos.domain);
-          }
-        });
-
-        // Add delay to respect API limits
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (error) {
-        console.warn(`⚠️ Failed to analyze keyword "${keyword}":`, error.message);
+      const batchPromises = batch.map(async (keyword, index) => {
+        const globalIndex = i + index;
+        console.log(`🔍 [${globalIndex + 1}/${optimizedKeywords.length}] Analyzing: "${keyword}"`);
+        
+        try {
+          const analysis = await analyzeKeywordPositionsWithRetry(keyword, targetDomain, 3);
+          
+          // Collect competitor domains
+          analysis.competitor_positions.forEach(pos => {
+            if (pos.domain !== targetDomain) {
+              competitorDomains.add(pos.domain);
+            }
+          });
+          
+          return analysis;
+        } catch (error) {
+          console.warn(`⚠️ Failed to analyze keyword "${keyword}" after retries:`, error.message);
+          return null;
+        }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      const validResults = batchResults.filter(result => result !== null) as KeywordAnalysis[];
+      keywordAnalyses.push(...validResults);
+      
+      // Update progress
+      await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
+        stage: 'keyword_analysis',
+        total_keywords: optimizedKeywords.length,
+        processed_keywords: i + batch.length
+      });
+      
+      // Shorter delay between batches
+      if (i + batchSize < optimizedKeywords.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
@@ -452,4 +487,102 @@ function calculateOverallCompetitivenessScore(keywordAnalyses: KeywordAnalysis[]
   });
 
   return scoredKeywords > 0 ? Math.round(totalScore / scoredKeywords) : 0;
+}
+
+// Optimize keywords for better API success rates
+function optimizeKeywords(keywords: string[]): string[] {
+  const optimized = keywords
+    .filter(keyword => {
+      // Filter out invalid keywords
+      if (!keyword || keyword.length < 3 || keyword.length > 50) return false;
+      
+      // Remove keywords with too many special characters
+      const specialCharCount = (keyword.match(/[^\w\s]/g) || []).length;
+      if (specialCharCount > 2) return false;
+      
+      // Remove keywords that are too generic or too specific
+      const wordCount = keyword.trim().split(/\s+/).length;
+      if (wordCount > 5) return false;
+      
+      return true;
+    })
+    .map(keyword => {
+      // Normalize keywords
+      return keyword
+        .toLowerCase()
+        .trim()
+        // Remove accents for better API compatibility
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        // Clean up extra spaces
+        .replace(/\s+/g, ' ');
+    })
+    .filter((keyword, index, arr) => arr.indexOf(keyword) === index) // Remove duplicates
+    .sort((a, b) => {
+      // Prioritize shorter, more focused keywords
+      const scoreA = a.split(' ').length + (a.length / 10);
+      const scoreB = b.split(' ').length + (b.length / 10);
+      return scoreA - scoreB;
+    })
+    .slice(0, 15); // Limit to top 15 most relevant keywords
+
+  return optimized;
+}
+
+// Retry logic for API calls
+async function analyzeKeywordPositionsWithRetry(
+  keyword: string, 
+  targetDomain: string, 
+  maxRetries: number = 3
+): Promise<KeywordAnalysis> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 Attempt ${attempt}/${maxRetries} for keyword: "${keyword}"`);
+      const result = await analyzeKeywordPositions(keyword, targetDomain);
+      
+      // Add a small delay after successful request
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      return result;
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`⚠️ Attempt ${attempt} failed for keyword "${keyword}":`, error.message);
+      
+      // Exponential backoff: wait longer between retries
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed to analyze keyword "${keyword}" after ${maxRetries} attempts`);
+}
+
+// Update analysis progress for real-time feedback
+async function updateAnalysisProgress(
+  supabase: any,
+  analysisId: string,
+  status: string,
+  metadata: any
+) {
+  try {
+    await supabase
+      .from('competitor_analyses')
+      .update({
+        status,
+        metadata: {
+          ...metadata,
+          last_updated: new Date().toISOString()
+        }
+      })
+      .eq('id', analysisId);
+    
+    console.log(`📊 Progress updated: ${metadata.stage} - ${metadata.processed_keywords}/${metadata.total_keywords}`);
+  } catch (error) {
+    console.warn('Failed to update progress:', error.message);
+  }
 }
