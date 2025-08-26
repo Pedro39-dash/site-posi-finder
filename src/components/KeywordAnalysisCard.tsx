@@ -135,7 +135,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
           
           if (validPrompts.length > 3) {
             console.log('🤖 Found valid prompts:', validPrompts.length, 'prompts');
-            return validPrompts.slice(0, 8);
+            return validPrompts; // Return all prompts from database
           }
         }
       }
@@ -195,7 +195,8 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       prompts.push(`Alternativas ao ${domain}`);
     }
 
-    return prompts.slice(0, 8);
+    console.log('🤖 Generated AI prompts:', prompts.length, prompts);
+    return prompts.slice(0, 12); // Return up to 12 generated prompts
   };
 
   const copyToClipboard = async (text: string, index: number) => {
