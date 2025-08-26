@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, TrendingUp, Search } from "lucide-react";
+import { ArrowRight, TrendingUp, BarChart3 } from "lucide-react";
 import heroImage from "@/assets/seo-hero.jpg";
 
 const HeroSection = () => {
@@ -17,19 +17,19 @@ const HeroSection = () => {
             </div>
             
             <h1 className="text-5xl lg:text-6xl font-bold text-primary-foreground mb-6">
-              Descubra a Posição do Seu Site
-              <span className="block text-accent-foreground">nos Resultados de Busca</span>
+              Painel Exclusivo para
+              <span className="block text-accent-foreground">Nossos Clientes de SEO</span>
             </h1>
             
             <p className="text-xl text-primary-foreground/90 mb-8 max-w-2xl">
-              Digite seu site e palavras-chave para descobrir exatamente onde você está rankeando no Google. 
-              Monitore sua posição e otimize sua estratégia de SEO.
+              Você contratou nossos serviços de SEO e agora tem acesso total ao acompanhamento dos seus resultados. 
+              Monitore posições, compare com concorrentes e veja o progresso do seu investimento em tempo real.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button variant="hero" size="lg" className="shadow-elegant">
-                <Search className="mr-2 h-5 w-5" />
-                Verificar Posição Agora
+                <BarChart3 className="mr-2 h-5 w-5" />
+                Acessar Meu Dashboard
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               

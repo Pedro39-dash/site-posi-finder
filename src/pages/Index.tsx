@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { ArrowLeft } from "lucide-react";
 import HeroSection from "@/components/HeroSection";
@@ -6,6 +6,8 @@ import SearchForm from "@/components/SearchForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
 import SimulationNotice from "@/components/SimulationNotice";
 import HowItWorks from "@/components/HowItWorks";
+import DashboardOverview from "@/components/dashboard/DashboardOverview";
+import WelcomeOnboarding from "@/components/WelcomeOnboarding";
 
 interface SearchResult {
   keyword: string;
@@ -16,6 +18,21 @@ interface SearchResult {
 const Index = () => {
   const [searchResults, setSearchResults] = useState<{ website: string; results: SearchResult[] } | null>(null);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [viewMode, setViewMode] = useState<'dashboard' | 'search'>('dashboard');
+
+  // Check if user is new (first time accessing)
+  useEffect(() => {
+    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+    if (!hasSeenOnboarding) {
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    localStorage.setItem('hasSeenOnboarding', 'true');
+  };
 
   // Enhanced mock function with realistic position distribution and caching
   const generateMockResults = (website: string, keywords: string[]): SearchResult[] => {
@@ -70,15 +87,22 @@ const Index = () => {
   const handleNewSearch = () => {
     setShowDashboard(false);
     setSearchResults(null);
+    setViewMode('search');
+  };
+
+  const handleBackToDashboard = () => {
+    setViewMode('dashboard');
+    setShowDashboard(false);
+    setSearchResults(null);
   };
 
   return (
     <>
       <Helmet>
-        <title>SEO Dashboard - Verificar Posições no Google</title>
+        <title>Dashboard SEO - Painel Exclusivo para Clientes</title>
         <meta 
           name="description" 
-          content="Descubra exatamente onde seu site está posicionado no Google. Analise palavras-chave, monitore posições e otimize sua estratégia de SEO." 
+          content="Painel exclusivo para clientes da nossa consultoria SEO. Monitore posições, compare concorrentes e acompanhe o progresso do seu investimento em tempo real." 
         />
         <meta name="keywords" content="seo, posições google, ranking, palavras-chave, otimização, busca" />
         <link rel="canonical" href="/" />
@@ -86,8 +110,46 @@ const Index = () => {
 
       <div className="min-h-screen bg-background lg:pl-80">
         <div className="pt-16 lg:pt-0">
-          {!showDashboard ? (
+          {viewMode === 'dashboard' && !showDashboard ? (
+            <main className="py-8">
+              <div className="container mx-auto px-4">
+                <DashboardOverview />
+                
+                {/* Quick access to main features */}
+                <div className="mt-8 flex flex-wrap gap-4 justify-center">
+                  <button
+                    onClick={() => setViewMode('search')}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-lg font-semibold transition-colors shadow-elegant"
+                  >
+                    Verificar Posições
+                  </button>
+                  <button 
+                    onClick={() => window.location.href = '/comparison'}
+                    className="bg-secondary text-secondary-foreground hover:bg-secondary/90 px-6 py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    Comparar Concorrentes
+                  </button>
+                  <button 
+                    onClick={() => window.location.href = '/monitoring'}
+                    className="bg-accent text-accent-foreground hover:bg-accent/90 px-6 py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    Monitoramento
+                  </button>
+                </div>
+              </div>
+            </main>
+          ) : viewMode === 'search' && !showDashboard ? (
             <>
+              <div className="container mx-auto px-4 py-4">
+                <button
+                  onClick={handleBackToDashboard}
+                  className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar ao Dashboard
+                </button>
+              </div>
+              
               <HeroSection />
               <HowItWorks />
               
@@ -95,10 +157,10 @@ const Index = () => {
                 <div className="container mx-auto px-4">
                   <div className="text-center mb-12">
                     <h2 className="text-3xl font-bold text-foreground mb-4">
-                      Descubra Sua Posição Atual
+                      Verificar Posições Atuais
                     </h2>
                     <p className="text-muted-foreground max-w-2xl mx-auto">
-                      Digite o URL do seu site e as palavras-chave que deseja monitorar. 
+                      Digite o URL do seu site e as palavras-chave que deseja consultar. 
                       Nossa ferramenta irá verificar sua posição atual nos resultados do Google.
                     </p>
                   </div>
@@ -111,11 +173,11 @@ const Index = () => {
             <main className="pt-8">
               <div className="container mx-auto px-4 mb-8">
                 <button
-                  onClick={handleNewSearch}
+                  onClick={handleBackToDashboard}
                   className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Nova Pesquisa
+                  Voltar ao Dashboard
                 </button>
               </div>
               
@@ -133,6 +195,10 @@ const Index = () => {
             </main>
           )}
         </div>
+        
+        {showOnboarding && (
+          <WelcomeOnboarding onComplete={handleOnboardingComplete} />
+        )}
       </div>
     </>
   );
