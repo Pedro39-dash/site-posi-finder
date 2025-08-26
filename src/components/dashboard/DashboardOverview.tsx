@@ -107,7 +107,10 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
 
       {/* Main KPIs Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="hover:shadow-card transition-all duration-300">
+        <Card 
+          className="hover:shadow-card transition-all duration-300 cursor-pointer hover:scale-[1.02]"
+          onClick={() => navigate('/rankings')}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Eye className="h-4 w-4" />
@@ -123,7 +126,10 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-card transition-all duration-300">
+        <Card 
+          className="hover:shadow-card transition-all duration-300 cursor-pointer hover:scale-[1.02]"
+          onClick={() => navigate('/rankings')}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
@@ -139,7 +145,10 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-card transition-all duration-300">
+        <Card 
+          className="hover:shadow-card transition-all duration-300 cursor-pointer hover:scale-[1.02]"
+          onClick={() => navigate('/rankings')}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Trophy className="h-4 w-4" />
@@ -155,7 +164,10 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-card transition-all duration-300">
+        <Card 
+          className="hover:shadow-card transition-all duration-300 cursor-pointer hover:scale-[1.02]"
+          onClick={() => navigate('/audit')}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
@@ -176,7 +188,10 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
 
       {/* Secondary Metrics */}
       <div className="grid md:grid-cols-2 gap-6">
-        <Card>
+        <Card 
+          className="hover:shadow-card transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/rankings')}
+        >
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-green-500" />
@@ -201,7 +216,10 @@ const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="hover:shadow-card transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/monitoring')}
+        >
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />

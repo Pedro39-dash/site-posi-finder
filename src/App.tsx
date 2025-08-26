@@ -12,6 +12,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Navigation from "@/components/layout/Navigation";
 import Index from "./pages/Index";
 import Projects from "./pages/Projects";
+import Rankings from "./pages/Rankings";
 import Comparison from "./pages/Comparison";
 import Monitoring from "./pages/Monitoring";
 import Audit from "./pages/Audit";
@@ -43,6 +44,12 @@ const App = () => (
                     <ProtectedRoute>
                       <Navigation />
                       <Projects />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/rankings" element={
+                    <ProtectedRoute>
+                      <Navigation />
+                      <Rankings />
                     </ProtectedRoute>
                   } />
                   <Route path="/comparison" element={
