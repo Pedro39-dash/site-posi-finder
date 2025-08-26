@@ -27,10 +27,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => (
     <div className="min-h-screen flex w-full">
       <AppSidebar />
       <div className="flex-1 flex flex-col">
-        <header className="lg:hidden h-12 flex items-center border-b bg-background px-4">
+        <header className="h-12 flex items-center border-b bg-background px-4 sticky top-0 z-40">
           <SidebarTrigger />
+          <div className="flex items-center gap-2 ml-4">
+            <span className="font-semibold text-foreground">SEO Dashboard</span>
+          </div>
         </header>
-        <main className="flex-1">
+        <main className="flex-1 p-4">
           {children}
         </main>
       </div>

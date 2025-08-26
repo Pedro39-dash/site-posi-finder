@@ -15,6 +15,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
@@ -51,19 +52,41 @@ export function AppSidebar() {
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.path}
-                      className={({ isActive: linkActive }) =>
-                        `flex items-center gap-3 ${
-                          linkActive || isActive(item.path)
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                        }`
-                      }
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {state !== "collapsed" && <span className="font-medium">{item.title}</span>}
-                    </NavLink>
+                    {state === "collapsed" ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <NavLink
+                            to={item.path}
+                            className={({ isActive: linkActive }) =>
+                              `flex items-center justify-center w-10 h-10 ${
+                                linkActive || isActive(item.path)
+                                  ? "bg-primary text-primary-foreground"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                              }`
+                            }
+                          >
+                            <item.icon className="h-5 w-5 flex-shrink-0" />
+                          </NavLink>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>{item.title}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <NavLink
+                        to={item.path}
+                        className={({ isActive: linkActive }) =>
+                          `flex items-center gap-3 ${
+                            linkActive || isActive(item.path)
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`
+                        }
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="font-medium">{item.title}</span>
+                      </NavLink>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
