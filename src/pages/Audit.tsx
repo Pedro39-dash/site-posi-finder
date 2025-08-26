@@ -439,15 +439,6 @@ const Audit = () => {
             </CardContent>
           </Card>
 
-          {/* Status do Sistema */}
-          <SystemStatusPanel />
-
-          {/* Painel de Testes */}
-          <AuditTestPanel />
-
-          {/* Monitor da Edge Function */}
-          <EdgeFunctionMonitor />
-
           {/* Histórico de Auditorias */}
           {showHistory && previousAudits.length > 0 && (
             <Card className="mb-8">
@@ -631,6 +622,81 @@ const Audit = () => {
                 ))}
               </div>
 
+              {/* Termos Identificados */}
+              {(() => {
+                const aiOptimization = results.find(r => r.category === 'ai_search_optimization');
+                const keywordIssue = aiOptimization?.issues.find(i => (i as any).metadata);
+                const keywordData = keywordIssue ? (keywordIssue as any).metadata : null;
+                
+                return keywordData?.keywords && (
+                  <Card className="border-2 border-accent/20">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Brain className="h-5 w-5" />
+                        Termos-Chave Identificados
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {keywordData.keywords.map((keyword: string, index: number) => (
+                          <Badge key={index} variant="outline" className="text-sm">
+                            {keyword}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Estes termos foram identificados automaticamente no seu conteúdo e podem ser úteis para otimização SEO.
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {/* Prompts para IAs Sugeridos */}
+              {(() => {
+                const aiOptimization = results.find(r => r.category === 'ai_search_optimization');
+                const promptIssue = aiOptimization?.issues.find(i => (i as any).metadata);
+                const promptData = promptIssue ? (promptIssue as any).metadata : null;
+                
+                return promptData?.prompts && (
+                  <Card className="border-2 border-primary/20">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Brain className="h-5 w-5" />
+                        Prompts Sugeridos para IAs
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Estas são perguntas que usuários podem fazer para IAs sobre seu negócio. 
+                        Considere otimizar seu conteúdo para responder a essas questões.
+                      </p>
+                      <div className="grid gap-3">
+                        {promptData.prompts.map((prompt: string, index: number) => (
+                          <div 
+                            key={index} 
+                            className="p-3 bg-secondary/50 rounded-lg border flex items-center justify-between group hover:bg-secondary/70 transition-colors"
+                          >
+                            <span className="text-sm font-medium">{prompt}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(prompt);
+                                toast({ title: "Copiado!", description: "Prompt copiado para a área de transferência" });
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              📋
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
               {/* Resumo de Ações */}
               <Card>
                 <CardHeader>
@@ -641,15 +707,28 @@ const Audit = () => {
                     {/* High Priority Issues */}
                     {(() => {
                       const highPriorityIssues = results?.flatMap(result => 
-                        result.issues.filter(issue => issue.priority === 'high')
+                        result.issues.filter(issue => issue.priority === 'high' && issue.type !== 'success')
                       ) || [];
                       
                       return highPriorityIssues.length > 0 && (
-                        <div className="p-4 border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 rounded-lg">
-                          <h4 className="font-semibold text-red-800 dark:text-red-400 mb-2">Prioridade Alta</h4>
-                          <ul className="space-y-1 text-sm text-red-700 dark:text-red-300">
-                            {highPriorityIssues.slice(0, 5).map((issue, index) => (
-                              <li key={index}>• {issue.message}</li>
+                        <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg">
+                          <h4 className="font-semibold text-destructive mb-2 flex items-center gap-2">
+                            <XCircle className="h-4 w-4" />
+                            Prioridade Alta - Ação Imediata Necessária
+                          </h4>
+                          <ul className="space-y-2 text-sm">
+                            {highPriorityIssues.slice(0, 8).map((issue, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <span className="text-destructive font-medium">•</span>
+                                <div>
+                                  <span className="text-foreground">{issue.message}</span>
+                                  {issue.recommendation && (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      💡 {issue.recommendation}
+                                    </div>
+                                  )}
+                                </div>
+                              </li>
                             ))}
                           </ul>
                         </div>
@@ -659,15 +738,28 @@ const Audit = () => {
                     {/* Medium Priority Issues */}
                     {(() => {
                       const mediumPriorityIssues = results?.flatMap(result => 
-                        result.issues.filter(issue => issue.priority === 'medium')
+                        result.issues.filter(issue => issue.priority === 'medium' && issue.type !== 'success')
                       ) || [];
                       
                       return mediumPriorityIssues.length > 0 && (
-                        <div className="p-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 rounded-lg">
-                          <h4 className="font-semibold text-yellow-800 dark:text-yellow-400 mb-2">Prioridade Média</h4>
-                          <ul className="space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
-                            {mediumPriorityIssues.slice(0, 5).map((issue, index) => (
-                              <li key={index}>• {issue.message}</li>
+                        <div className="p-4 border border-yellow-500/20 bg-yellow-500/5 rounded-lg">
+                          <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2 flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            Prioridade Média - Melhorias Recomendadas
+                          </h4>
+                          <ul className="space-y-2 text-sm">
+                            {mediumPriorityIssues.slice(0, 8).map((issue, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <span className="text-yellow-600 font-medium">•</span>
+                                <div>
+                                  <span className="text-foreground">{issue.message}</span>
+                                  {issue.recommendation && (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      💡 {issue.recommendation}
+                                    </div>
+                                  )}
+                                </div>
+                              </li>
                             ))}
                           </ul>
                         </div>
@@ -676,6 +768,14 @@ const Audit = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Painéis Administrativos - TODO: Adicionar controle de acesso */}
+              <div className="mt-8 space-y-6 border-t pt-6">
+                <h2 className="text-lg font-semibold text-muted-foreground">Ferramentas Administrativas</h2>
+                <SystemStatusPanel />
+                <AuditTestPanel />
+                <EdgeFunctionMonitor />
+              </div>
             </div>
           )}
         </div>

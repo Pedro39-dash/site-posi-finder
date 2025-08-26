@@ -440,7 +440,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
   const imagesWithoutAlt = imgMatches.filter(img => !img.includes('alt=') || img.includes('alt=""') || img.includes("alt=''")).length;
   
   if (imgMatches.length > 0) {
-    if (imagesWithoutAlt === 0) {
+  if (imagesWithoutAlt === 0) {
       imageIssues.push({
         type: 'success' as const,
         message: 'All images have alt attributes',
@@ -448,10 +448,10 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
       });
     } else {
       imageIssues.push({
-        type: 'warning' as const,
+        type: 'error' as const,
         message: `${imagesWithoutAlt} images missing alt attributes`,
-        priority: 'medium' as const,
-        recommendation: 'Add descriptive alt attributes to all images'
+        priority: 'high' as const,
+        recommendation: 'Add descriptive alt attributes to all images for accessibility and SEO'
       });
     }
   } else {
@@ -708,28 +708,33 @@ function analyzeContentStructure(textContent: string, h1Matches: string[], h2Mat
   const wordCount = textContent.split(/\s+/).length;
 
   // Check content length
-  if (wordCount >= 300) {
+  if (wordCount >= 600) {
+    score += 50;
+    issues.push({
+      type: 'success' as const,
+      message: `Conteúdo com ${wordCount} palavras (excelente)`,
+      priority: 'low' as const
+    });
+  } else if (wordCount >= 300) {
     score += 30;
-    if (wordCount >= 600) {
-      score += 20;
-      issues.push({
-        type: 'success' as const,
-        message: `Conteúdo com ${wordCount} palavras (excelente)`,
-        priority: 'low' as const
-      });
-    } else {
-      issues.push({
-        type: 'success' as const,
-        message: `Conteúdo com ${wordCount} palavras (bom)`,
-        priority: 'low' as const
-      });
-    }
+    issues.push({
+      type: 'success' as const,
+      message: `Conteúdo com ${wordCount} palavras (adequado)`,
+      priority: 'low' as const
+    });
+  } else if (wordCount >= 150) {
+    issues.push({
+      type: 'warning' as const,
+      message: `Conteúdo curto (${wordCount} palavras)`,
+      priority: 'medium' as const,
+      recommendation: 'Adicione mais conteúdo relevante (recomendado: mínimo 300 palavras)'
+    });
   } else {
     issues.push({
       type: 'error' as const,
       message: `Conteúdo muito curto (${wordCount} palavras)`,
       priority: 'high' as const,
-      recommendation: 'Adicione mais conteúdo relevante (mínimo 300 palavras)'
+      recommendation: 'Adicione significativamente mais conteúdo relevante (mínimo 300 palavras)'
     });
   }
 
@@ -1141,12 +1146,18 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
     });
   }
   
-  // Add AI prompts and keywords as metadata
+  // Store prompts and keywords as metadata for separate display
+  const metadata = {
+    prompts: prompts,
+    keywords: keywords.slice(0, 15)
+  };
+  
   issues.push({
     type: 'success' as const,
-    message: `Prompts sugeridos: ${prompts.slice(0, 3).join('; ')}`,
+    message: `Análise de termos e prompts concluída`,
     priority: 'low' as const,
-    recommendation: `Termos identificados: ${keywords.slice(0, 10).join(', ')}`
+    recommendation: `${keywords.length} termos identificados, ${prompts.length} prompts gerados`,
+    metadata: metadata
   });
   
   return {
