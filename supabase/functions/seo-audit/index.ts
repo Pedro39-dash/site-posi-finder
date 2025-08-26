@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { url, userId } = await req.json();
+    const { url, userId, focusKeyword } = await req.json();
     
     if (!url || !userId) {
       return new Response(
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     console.log(`Created audit report with ID: ${auditReport.id}`);
 
     // Start background analysis
-    EdgeRuntime.waitUntil(performSEOAudit(url, auditReport.id, supabase));
+    EdgeRuntime.waitUntil(performSEOAudit(url, auditReport.id, supabase, focusKeyword));
 
     return new Response(
       JSON.stringify({ 
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function performSEOAudit(url: string, auditId: string, supabase: any) {
+async function performSEOAudit(url: string, auditId: string, supabase: any, focusKeyword?: string) {
   console.log(`🚀 Starting SEO audit for: ${url}, Audit ID: ${auditId}`);
   
   try {
@@ -117,7 +117,7 @@ async function performSEOAudit(url: string, auditId: string, supabase: any) {
     
     // Analyze HTML content
     console.log(`🔍 Starting HTML analysis...`);
-    const htmlAnalysis = analyzeHTML(htmlContent, url);
+    const htmlAnalysis = analyzeHTML(htmlContent, url, focusKeyword);
     console.log(`✅ HTML analysis completed, ${htmlAnalysis.length} categories analyzed`);
     
     // Get PageSpeed Insights data
@@ -227,17 +227,21 @@ async function fetchWebpageContent(url: string): Promise<string> {
   }
 }
 
-function analyzeHTML(html: string, url: string): AuditCategory[] {
+function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCategory[] {
   const categories: AuditCategory[] = [];
 
   // Parse HTML
   const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
   const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i);
   const h1Matches = html.match(/<h1[^>]*>([^<]*)<\/h1>/gi) || [];
+  const h2Matches = html.match(/<h2[^>]*>([^<]*)<\/h2>/gi) || [];
+  const h3Matches = html.match(/<h3[^>]*>([^<]*)<\/h3>/gi) || [];
   const imgMatches = html.match(/<img[^>]*>/gi) || [];
   const linkMatches = html.match(/<a[^>]*href=["']([^"']*)["'][^>]*>/gi) || [];
+  const internalLinks = linkMatches.filter(link => link.includes(new URL(url).hostname) || link.includes('href="/')).length;
+  const externalLinks = linkMatches.length - internalLinks;
   
-  // Extract text content for AI analysis
+  // Extract text content for analysis
   const textContent = extractTextContent(html);
 
   // Meta Tags Analysis
@@ -365,6 +369,28 @@ function analyzeHTML(html: string, url: string): AuditCategory[] {
     issues: imageIssues
   });
 
+  // Keyword Analysis
+  if (focusKeyword) {
+    const keywordAnalysis = analyzeKeywordOptimization(textContent, title, metaDesc, url, focusKeyword);
+    categories.push(keywordAnalysis);
+  }
+
+  // Content Structure Analysis
+  const contentStructure = analyzeContentStructure(textContent, h1Matches, h2Matches, h3Matches);
+  categories.push(contentStructure);
+
+  // Links Analysis
+  const linksAnalysis = analyzeLinks(internalLinks, externalLinks, linkMatches, url);
+  categories.push(linksAnalysis);
+
+  // Technical SEO Analysis
+  const technicalAnalysis = analyzeTechnicalSEO(html, url);
+  categories.push(technicalAnalysis);
+
+  // Readability Analysis
+  const readabilityAnalysis = analyzeReadability(textContent);
+  categories.push(readabilityAnalysis);
+
   // AI Search Optimization Analysis
   const aiSearchAnalysis = analyzeAISearchOptimization(textContent, title, metaDesc, url);
   categories.push(aiSearchAnalysis);
@@ -477,6 +503,463 @@ function extractTextContent(html: string): string {
   cleanHtml = cleanHtml.replace(/\s+/g, ' ').trim();
   
   return cleanHtml;
+}
+
+function analyzeKeywordOptimization(textContent: string, title: string, metaDesc: string, url: string, focusKeyword: string): AuditCategory {
+  const issues = [];
+  let score = 0;
+  const keyword = focusKeyword.toLowerCase();
+  const titleLower = title.toLowerCase();
+  const metaDescLower = metaDesc.toLowerCase();
+  const contentLower = textContent.toLowerCase();
+  const urlLower = url.toLowerCase();
+
+  // Check keyword in title
+  if (titleLower.includes(keyword)) {
+    score += 25;
+    issues.push({
+      type: 'success' as const,
+      message: `Palavra-chave encontrada no título`,
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'error' as const,
+      message: `Palavra-chave não encontrada no título`,
+      priority: 'high' as const,
+      recommendation: `Inclua "${focusKeyword}" no título da página`
+    });
+  }
+
+  // Check keyword in meta description
+  if (metaDescLower.includes(keyword)) {
+    score += 20;
+    issues.push({
+      type: 'success' as const,
+      message: `Palavra-chave encontrada na meta description`,
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: `Palavra-chave não encontrada na meta description`,
+      priority: 'medium' as const,
+      recommendation: `Inclua "${focusKeyword}" na meta description`
+    });
+  }
+
+  // Check keyword in URL
+  if (urlLower.includes(keyword.replace(/\s+/g, '-'))) {
+    score += 15;
+    issues.push({
+      type: 'success' as const,
+      message: `Palavra-chave encontrada na URL`,
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: `Palavra-chave não encontrada na URL`,
+      priority: 'medium' as const,
+      recommendation: `Considere incluir "${focusKeyword}" na URL`
+    });
+  }
+
+  // Check keyword density
+  const words = contentLower.split(/\s+/);
+  const keywordCount = words.filter(word => word.includes(keyword.split(' ')[0])).length;
+  const density = (keywordCount / words.length) * 100;
+
+  if (density >= 0.5 && density <= 2.5) {
+    score += 40;
+    issues.push({
+      type: 'success' as const,
+      message: `Densidade da palavra-chave adequada (${density.toFixed(1)}%)`,
+      priority: 'low' as const
+    });
+  } else if (density > 2.5) {
+    issues.push({
+      type: 'warning' as const,
+      message: `Densidade da palavra-chave muito alta (${density.toFixed(1)}%)`,
+      priority: 'medium' as const,
+      recommendation: `Reduza a repetição de "${focusKeyword}" no conteúdo`
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: `Densidade da palavra-chave muito baixa (${density.toFixed(1)}%)`,
+      priority: 'medium' as const,
+      recommendation: `Use "${focusKeyword}" mais naturalmente no conteúdo`
+    });
+  }
+
+  return {
+    category: 'keyword_optimization',
+    score: Math.max(0, score),
+    status: score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs_improvement' : 'critical',
+    issues
+  };
+}
+
+function analyzeContentStructure(textContent: string, h1Matches: string[], h2Matches: string[], h3Matches: string[]): AuditCategory {
+  const issues = [];
+  let score = 0;
+  const wordCount = textContent.split(/\s+/).length;
+
+  // Check content length
+  if (wordCount >= 300) {
+    score += 30;
+    if (wordCount >= 600) {
+      score += 20;
+      issues.push({
+        type: 'success' as const,
+        message: `Conteúdo com ${wordCount} palavras (excelente)`,
+        priority: 'low' as const
+      });
+    } else {
+      issues.push({
+        type: 'success' as const,
+        message: `Conteúdo com ${wordCount} palavras (bom)`,
+        priority: 'low' as const
+      });
+    }
+  } else {
+    issues.push({
+      type: 'error' as const,
+      message: `Conteúdo muito curto (${wordCount} palavras)`,
+      priority: 'high' as const,
+      recommendation: 'Adicione mais conteúdo relevante (mínimo 300 palavras)'
+    });
+  }
+
+  // Check heading hierarchy
+  if (h2Matches.length > 0) {
+    score += 25;
+    issues.push({
+      type: 'success' as const,
+      message: `${h2Matches.length} subtítulos H2 encontrados`,
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Nenhum subtítulo H2 encontrado',
+      priority: 'medium' as const,
+      recommendation: 'Adicione subtítulos H2 para melhor estrutura'
+    });
+  }
+
+  if (h3Matches.length > 0) {
+    score += 15;
+    issues.push({
+      type: 'success' as const,
+      message: `${h3Matches.length} subtítulos H3 encontrados`,
+      priority: 'low' as const
+    });
+  }
+
+  // Check for lists and structured content
+  const hasLists = textContent.includes('•') || textContent.includes('1.') || textContent.includes('-');
+  if (hasLists) {
+    score += 10;
+    issues.push({
+      type: 'success' as const,
+      message: 'Conteúdo estruturado com listas encontrado',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Nenhuma lista ou conteúdo estruturado encontrado',
+      priority: 'medium' as const,
+      recommendation: 'Adicione listas e estruture melhor o conteúdo'
+    });
+  }
+
+  return {
+    category: 'content_structure',
+    score: Math.max(0, score),
+    status: score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs_improvement' : 'critical',
+    issues
+  };
+}
+
+function analyzeLinks(internalLinks: number, externalLinks: number, linkMatches: string[], url: string): AuditCategory {
+  const issues = [];
+  let score = 0;
+  const totalLinks = internalLinks + externalLinks;
+
+  // Check internal links
+  if (internalLinks >= 3) {
+    score += 40;
+    issues.push({
+      type: 'success' as const,
+      message: `${internalLinks} links internos encontrados`,
+      priority: 'low' as const
+    });
+  } else if (internalLinks > 0) {
+    score += 20;
+    issues.push({
+      type: 'warning' as const,
+      message: `Apenas ${internalLinks} links internos encontrados`,
+      priority: 'medium' as const,
+      recommendation: 'Adicione mais links internos para outras páginas relevantes'
+    });
+  } else {
+    issues.push({
+      type: 'error' as const,
+      message: 'Nenhum link interno encontrado',
+      priority: 'high' as const,
+      recommendation: 'Adicione links internos para outras páginas do seu site'
+    });
+  }
+
+  // Check external links
+  if (externalLinks >= 1 && externalLinks <= 5) {
+    score += 30;
+    issues.push({
+      type: 'success' as const,
+      message: `${externalLinks} links externos encontrados`,
+      priority: 'low' as const
+    });
+  } else if (externalLinks > 5) {
+    score += 15;
+    issues.push({
+      type: 'warning' as const,
+      message: `Muitos links externos (${externalLinks})`,
+      priority: 'medium' as const,
+      recommendation: 'Considere reduzir o número de links externos'
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Nenhum link externo encontrado',
+      priority: 'medium' as const,
+      recommendation: 'Adicione links para fontes confiáveis e relevantes'
+    });
+  }
+
+  // Check for anchor text analysis
+  const hasDescriptiveAnchors = linkMatches.some(link => 
+    !link.includes('clique aqui') && !link.includes('saiba mais') && !link.includes('leia mais')
+  );
+  
+  if (hasDescriptiveAnchors || totalLinks === 0) {
+    score += 30;
+    if (totalLinks > 0) {
+      issues.push({
+        type: 'success' as const,
+        message: 'Anchor texts descritivos detectados',
+        priority: 'low' as const
+      });
+    }
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Alguns anchor texts podem ser mais descritivos',
+      priority: 'medium' as const,
+      recommendation: 'Use textos descritivos em vez de "clique aqui" ou "saiba mais"'
+    });
+  }
+
+  return {
+    category: 'links_analysis',
+    score: Math.max(0, score),
+    status: score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs_improvement' : 'critical',
+    issues
+  };
+}
+
+function analyzeTechnicalSEO(html: string, url: string): AuditCategory {
+  const issues = [];
+  let score = 0;
+
+  // Check for Schema markup
+  const hasSchema = html.includes('application/ld+json') || html.includes('schema.org');
+  if (hasSchema) {
+    score += 25;
+    issues.push({
+      type: 'success' as const,
+      message: 'Schema markup detectado',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Nenhum Schema markup encontrado',
+      priority: 'medium' as const,
+      recommendation: 'Adicione Schema markup para melhor compreensão pelos buscadores'
+    });
+  }
+
+  // Check for canonical URL
+  const hasCanonical = html.includes('rel="canonical"');
+  if (hasCanonical) {
+    score += 20;
+    issues.push({
+      type: 'success' as const,
+      message: 'Tag canonical encontrada',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Tag canonical não encontrada',
+      priority: 'medium' as const,
+      recommendation: 'Adicione uma tag canonical para evitar conteúdo duplicado'
+    });
+  }
+
+  // Check for Open Graph tags
+  const hasOG = html.includes('property="og:') || html.includes('property=\'og:');
+  if (hasOG) {
+    score += 20;
+    issues.push({
+      type: 'success' as const,
+      message: 'Meta tags Open Graph encontradas',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Meta tags Open Graph não encontradas',
+      priority: 'medium' as const,
+      recommendation: 'Adicione meta tags Open Graph para melhor compartilhamento em redes sociais'
+    });
+  }
+
+  // Check for Twitter Cards
+  const hasTwitter = html.includes('name="twitter:') || html.includes('name=\'twitter:');
+  if (hasTwitter) {
+    score += 15;
+    issues.push({
+      type: 'success' as const,
+      message: 'Twitter Cards encontrados',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Twitter Cards não encontrados',
+      priority: 'low' as const,
+      recommendation: 'Adicione Twitter Cards para melhor compartilhamento no Twitter'
+    });
+  }
+
+  // Check for robots meta tag
+  const hasRobots = html.includes('name="robots"') || html.includes('name=\'robots\'');
+  if (hasRobots) {
+    score += 10;
+    issues.push({
+      type: 'success' as const,
+      message: 'Meta tag robots encontrada',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Meta tag robots não especificada',
+      priority: 'low' as const,
+      recommendation: 'Considere adicionar meta tag robots para controlar indexação'
+    });
+  }
+
+  // Check HTTPS
+  if (url.startsWith('https://')) {
+    score += 10;
+    issues.push({
+      type: 'success' as const,
+      message: 'Site usa HTTPS',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'error' as const,
+      message: 'Site não usa HTTPS',
+      priority: 'high' as const,
+      recommendation: 'Implemente HTTPS para segurança e melhor ranking'
+    });
+  }
+
+  return {
+    category: 'technical_seo',
+    score: Math.max(0, score),
+    status: score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs_improvement' : 'critical',
+    issues
+  };
+}
+
+function analyzeReadability(textContent: string): AuditCategory {
+  const issues = [];
+  let score = 0;
+  
+  const sentences = textContent.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const words = textContent.split(/\s+/).filter(w => w.length > 0);
+  const avgWordsPerSentence = words.length / sentences.length;
+  
+  // Check average sentence length
+  if (avgWordsPerSentence <= 20) {
+    score += 30;
+    issues.push({
+      type: 'success' as const,
+      message: `Sentenças com tamanho adequado (média: ${avgWordsPerSentence.toFixed(1)} palavras)`,
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: `Sentenças muito longas (média: ${avgWordsPerSentence.toFixed(1)} palavras)`,
+      priority: 'medium' as const,
+      recommendation: 'Use sentenças mais curtas para melhor legibilidade'
+    });
+  }
+
+  // Check for transition words
+  const transitionWords = ['além disso', 'por outro lado', 'portanto', 'assim', 'contudo', 'entretanto', 'finalmente', 'primeiro', 'segundo', 'terceiro'];
+  const hasTransitions = transitionWords.some(word => textContent.toLowerCase().includes(word));
+  
+  if (hasTransitions) {
+    score += 30;
+    issues.push({
+      type: 'success' as const,
+      message: 'Palavras de transição encontradas',
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: 'Poucas palavras de transição encontradas',
+      priority: 'medium' as const,
+      recommendation: 'Use palavras de transição para conectar ideias (além disso, portanto, contudo, etc.)'
+    });
+  }
+
+  // Check paragraph structure
+  const paragraphs = textContent.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+  const avgWordsPerParagraph = words.length / paragraphs.length;
+  
+  if (avgWordsPerParagraph <= 150) {
+    score += 40;
+    issues.push({
+      type: 'success' as const,
+      message: `Parágrafos com tamanho adequado (média: ${avgWordsPerParagraph.toFixed(0)} palavras)`,
+      priority: 'low' as const
+    });
+  } else {
+    issues.push({
+      type: 'warning' as const,
+      message: `Parágrafos muito longos (média: ${avgWordsPerParagraph.toFixed(0)} palavras)`,
+      priority: 'medium' as const,
+      recommendation: 'Divida parágrafos longos em parágrafos menores'
+    });
+  }
+
+  return {
+    category: 'readability',
+    score: Math.max(0, score),
+    status: score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs_improvement' : 'critical',
+    issues
+  };
 }
 
 function analyzeAISearchOptimization(textContent: string, title: string, metaDesc: string, url: string): AuditCategory {

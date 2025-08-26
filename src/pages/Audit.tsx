@@ -30,6 +30,7 @@ import { SystemStatusPanel } from "@/components/SystemStatusPanel";
 const Audit = () => {
   const { toast } = useToast();
   const [url, setUrl] = useState("");
+  const [focusKeyword, setFocusKeyword] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [results, setResults] = useState<AuditResult[] | null>(null);
   const [overallScore, setOverallScore] = useState<number>(0);
@@ -58,7 +59,7 @@ const Audit = () => {
     setCurrentAuditId(null);
     
     try {
-      const result = await AuditService.startAudit(url.trim());
+      const result = await AuditService.startAudit(url.trim(), focusKeyword.trim() || undefined);
       
       if (result.success && result.auditId) {
         setCurrentAuditId(result.auditId);
@@ -209,9 +210,13 @@ const Audit = () => {
       case 'meta_tags': return <FileText className="h-5 w-5" />;
       case 'html_structure': return <Globe className="h-5 w-5" />;
       case 'performance': return <Zap className="h-5 w-5" />;
-      case 'links': return <Link className="h-5 w-5" />;
+      case 'links_analysis': return <Link className="h-5 w-5" />;
       case 'mobile_friendly': return <Smartphone className="h-5 w-5" />;
       case 'images': return <Eye className="h-5 w-5" />;
+      case 'keyword_optimization': return <Search className="h-5 w-5" />;
+      case 'content_structure': return <FileText className="h-5 w-5" />;
+      case 'technical_seo': return <Globe className="h-5 w-5" />;
+      case 'readability': return <FileText className="h-5 w-5" />;
       case 'ai_search_optimization': return <Brain className="h-5 w-5" />;
       default: return <Eye className="h-5 w-5" />;
     }
@@ -222,9 +227,13 @@ const Audit = () => {
       case 'meta_tags': return 'Meta Tags';
       case 'html_structure': return 'Estrutura HTML';
       case 'performance': return 'Performance';
-      case 'links': return 'Links';
+      case 'links_analysis': return 'Análise de Links';
       case 'mobile_friendly': return 'Mobile-Friendly';
       case 'images': return 'Imagens';
+      case 'keyword_optimization': return 'Otimização de Palavras-chave';
+      case 'content_structure': return 'Estrutura de Conteúdo';
+      case 'technical_seo': return 'SEO Técnico';
+      case 'readability': return 'Legibilidade';
       case 'ai_search_optimization': return 'Otimização para IAs';
       default: return category;
     }
@@ -281,21 +290,35 @@ const Audit = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4">
-                <Input
-                  placeholder="Digite a URL do site (ex: https://seusite.com)"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  disabled={isScanning}
-                  className="flex-1"
-                />
-                <Button 
-                  onClick={handleAudit}
-                  disabled={isScanning || !url.trim()}
-                  className="min-w-[120px]"
-                >
-                  {isScanning ? "Analisando..." : "Auditar"}
-                </Button>
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <Input
+                    placeholder="Digite a URL do site (ex: https://seusite.com)"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    disabled={isScanning}
+                    className="flex-1"
+                  />
+                  <Button 
+                    onClick={handleAudit}
+                    disabled={isScanning || !url.trim()}
+                    className="min-w-[120px]"
+                  >
+                    {isScanning ? "Analisando..." : "Auditar"}
+                  </Button>
+                </div>
+                <div className="flex gap-4">
+                  <Input
+                    placeholder="Palavra-chave principal (opcional) - ex: marketing digital"
+                    value={focusKeyword}
+                    onChange={(e) => setFocusKeyword(e.target.value)}
+                    disabled={isScanning}
+                    className="flex-1"
+                  />
+                  <div className="min-w-[120px] flex items-center text-sm text-muted-foreground">
+                    Palavra-chave foco
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -24,7 +24,7 @@ export interface AuditReport {
 }
 
 export class AuditService {
-  static async startAudit(url: string): Promise<{ success: boolean; auditId?: string; error?: string }> {
+  static async startAudit(url: string, focusKeyword?: string): Promise<{ success: boolean; auditId?: string; error?: string }> {
     try {
       console.log(`🚀 Starting audit for: ${url}`);
       
@@ -40,7 +40,8 @@ export class AuditService {
       const { data, error } = await supabase.functions.invoke('seo-audit', {
         body: {
           url: url,
-          userId: user.id
+          userId: user.id,
+          focusKeyword: focusKeyword
         }
       });
 
