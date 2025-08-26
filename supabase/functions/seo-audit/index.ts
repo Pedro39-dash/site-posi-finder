@@ -26,10 +26,13 @@ function validateAndNormalizeUrl(inputUrl: string): { isValid: boolean; normaliz
       return { isValid: false, normalizedUrl, error: 'Invalid hostname' };
     }
     
-    // Check for valid domain pattern
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/.test(urlObj.hostname)) {
+    // Check for valid domain pattern - allow multiple dots for domains like .com.br
+    console.log(`🔍 Validating hostname: ${urlObj.hostname}`);
+    if (!/^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/.test(urlObj.hostname)) {
+      console.log(`❌ Domain validation failed for: ${urlObj.hostname}`);
       return { isValid: false, normalizedUrl, error: 'Invalid domain format' };
     }
+    console.log(`✅ Domain validation passed for: ${urlObj.hostname}`);
     
     return { isValid: true, normalizedUrl, error: '' };
   } catch (error) {
