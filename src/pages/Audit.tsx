@@ -26,6 +26,7 @@ import { AuditService, type AuditResult, type AuditReport } from "@/services/aud
 import { AuditTestPanel } from "@/components/AuditTestPanel";
 import { EdgeFunctionMonitor } from "@/components/EdgeFunctionMonitor";
 import { SystemStatusPanel } from "@/components/SystemStatusPanel";
+import KeywordAnalysisCard from "@/components/KeywordAnalysisCard";
 
 const Audit = () => {
   const { toast } = useToast();
@@ -338,7 +339,7 @@ const Audit = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 py-8">
       <Helmet>
         <title>Auditoria SEO - Análise Técnica Completa</title>
         <meta 
@@ -347,8 +348,7 @@ const Audit = () => {
         />
       </Helmet>
 
-      <main className="py-8">
-        <div className="container mx-auto px-4 max-w-6xl">
+      <div className="container mx-auto px-4 max-w-6xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
               Auditoria SEO
@@ -769,6 +769,9 @@ const Audit = () => {
                 </CardContent>
               </Card>
 
+              {/* Termos e Prompts de IA */}
+              <KeywordAnalysisCard url={url} results={results} />
+
               {/* Painéis Administrativos - TODO: Adicionar controle de acesso */}
               <div className="mt-8 space-y-6 border-t pt-6">
                 <h2 className="text-lg font-semibold text-muted-foreground">Ferramentas Administrativas</h2>
@@ -779,7 +782,7 @@ const Audit = () => {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };

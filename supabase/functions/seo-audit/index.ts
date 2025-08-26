@@ -167,7 +167,7 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
     
     // Combine all analyses
     console.log(`🔄 Combining analyses...`);
-    const categories = combineAnalyses(htmlAnalysis, pageSpeedData);
+    const categories = combineAnalyses(htmlAnalysis, pageSpeedData, url);
     
     // Calculate overall score
     const overallScore = Math.round(
@@ -752,7 +752,7 @@ async function getPageSpeedInsights(url: string): Promise<{ desktop: PageSpeedIn
   }
 }
 
-function combineAnalyses(htmlAnalysis: AuditCategory[], pageSpeedData: { desktop: PageSpeedInsightsResponse | null; mobile: PageSpeedInsightsResponse | null }): AuditCategory[] {
+function combineAnalyses(htmlAnalysis: AuditCategory[], pageSpeedData: { desktop: PageSpeedInsightsResponse | null; mobile: PageSpeedInsightsResponse | null }, originalUrl: string): AuditCategory[] {
   let categories = [...htmlAnalysis];
 
   // Add Performance category (prioritizing desktop data, fallback to mobile)
@@ -780,17 +780,19 @@ function combineAnalyses(htmlAnalysis: AuditCategory[], pageSpeedData: { desktop
       metrics.push(`CLS: ${cls}`);
     }
     
+    const pageSpeedUrl = `https://pagespeed.web.dev/analysis?url=${encodeURIComponent(originalUrl)}`;
+    
     const performanceIssues = [{
-      type: performanceScore >= 90 ? 'success' : performanceScore >= 50 ? 'warning' : 'error',
+      type: performanceScore >= 80 ? 'success' : performanceScore >= 50 ? 'warning' : 'error',
       message: `Performance score: ${performanceScore}/100` + (metrics.length > 0 ? ` (${metrics.join(', ')})` : ''),
       priority: performanceScore >= 90 ? 'medium' : 'high', // Performance always medium/high priority
-      recommendation: performanceScore < 90 ? 'Performance is critical for SEO and user experience. Optimize images, reduce JavaScript, improve server response times, and address Core Web Vitals.' : 'Good performance! Monitor Core Web Vitals regularly.'
+      recommendation: performanceScore < 80 ? `Performance is critical for SEO and user experience. Optimize images, reduce JavaScript, improve server response times, and address Core Web Vitals. 📊 <a href="${pageSpeedUrl}" target="_blank" rel="noopener">Ver detalhes no PageSpeed Insights</a>` : 'Good performance! Monitor Core Web Vitals regularly.'
     }];
     
     categories.push({
       category: 'performance',
       score: performanceScore,
-      status: performanceScore >= 90 ? 'excellent' : performanceScore >= 70 ? 'good' : performanceScore >= 50 ? 'needs_improvement' : 'critical',
+      status: performanceScore >= 80 ? 'excellent' : performanceScore >= 60 ? 'good' : performanceScore >= 40 ? 'needs_improvement' : 'critical',
       issues: performanceIssues
     });
   }
