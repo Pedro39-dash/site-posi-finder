@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Brain, Search, Copy, CheckCircle } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Brain, Search, Copy, CheckCircle, TrendingUp, Target, Zap, Info } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -10,11 +12,43 @@ interface KeywordAnalysisCardProps {
   results: any[] | null;
 }
 
+interface SemanticTerm {
+  term: string;
+  type: 'commercial_modifier' | 'main_entity' | 'attribute' | 'specifier';
+  tailType: 'short' | 'medium' | 'long';
+  intentType: 'commercial' | 'informational' | 'navigational';
+  relevanceScore: number;
+}
+
 const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const { toast } = useToast();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'commercial' | 'informational'>('overview');
 
-  // Extract keywords - First try to use existing processed keywords, then fallback
+  // Extract semantic data from audit results
+  const extractSemanticData = () => {
+    if (!results) return { keywords: [], prompts: [], semanticTerms: [] };
+
+    const aiOptimizationCategory = results.find(category => 
+      category.category === 'ai_search_optimization'
+    );
+    
+    if (aiOptimizationCategory?.issues) {
+      for (const issue of aiOptimizationCategory.issues) {
+        if (issue.metadata?.keywords && issue.metadata?.prompts) {
+          return {
+            keywords: issue.metadata.keywords || [],
+            prompts: issue.metadata.prompts || [],
+            semanticTerms: []
+          };
+        }
+      }
+    }
+
+    return { keywords: [], prompts: [], semanticTerms: [] };
+  };
+
+  // Extract keywords - Fallback for backward compatibility
   const extractKeywords = () => {
     if (!results) {
       console.log('🔍 No results provided to extractKeywords');
@@ -187,103 +221,92 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   };
 
   // Generate AI prompts based on domain and keywords
+  // Categorize terms by intent and tail type
+  const categorizeTerms = (keywords: string[]) => {
+    if (!keywords || keywords.length === 0) return { commercial: [], informational: [], shortTail: [], mediumTail: [], longTail: [] };
+    
+    const commercialKeywords = [
+      'comprar', 'preço', 'custo', 'valor', 'orçamento', 'cotação', 'promoção', 'desconto', 'oferta',
+      'melhor', 'top', 'ranking', 'review', 'análise', 'avaliação', 'buy', 'price', 'best', 'cheap'
+    ];
+    
+    return keywords.reduce((acc, keyword) => {
+      const isCommercial = commercialKeywords.some(ck => keyword.toLowerCase().includes(ck));
+      const wordCount = keyword.split(' ').length;
+      
+      // Intent categorization
+      if (isCommercial) {
+        acc.commercial.push(keyword);
+      } else {
+        acc.informational.push(keyword);
+      }
+      
+      // Tail categorization
+      if (wordCount <= 2) {
+        acc.shortTail.push(keyword);
+      } else if (wordCount <= 4) {
+        acc.mediumTail.push(keyword);
+      } else {
+        acc.longTail.push(keyword);
+      }
+      
+      return acc;
+    }, { 
+      commercial: [] as string[], 
+      informational: [] as string[], 
+      shortTail: [] as string[], 
+      mediumTail: [] as string[], 
+      longTail: [] as string[] 
+    });
+  };
+
   const generateAIPrompts = () => {
+    const { prompts } = extractSemanticData();
+    if (prompts.length > 0) {
+      return prompts;
+    }
+
+    // Fallback to legacy method
     const domain = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
     const keywords = extractKeywords();
     
-    console.log('🤖 Generating AI prompts for domain:', domain);
-    console.log('🤖 Available keywords:', keywords);
-    
-    // Try to get prompts from the audit results first
-    const aiOptimizationCategory = results?.find(category => 
-      category.category === 'ai_search_optimization'
-    );
-    
-    console.log('🤖 AI optimization category for prompts:', aiOptimizationCategory);
-    
-    if (aiOptimizationCategory?.issues) {
-      // Sort issues by created_at desc to get the most recent first
-      const sortedIssues = [...aiOptimizationCategory.issues].sort((a: any, b: any) => {
-        const dateA = new Date(a.created_at || 0).getTime();
-        const dateB = new Date(b.created_at || 0).getTime();
-        return dateB - dateA;
-      });
-      
-      // Look for the most recent issue with valid prompts
-      for (const issue of sortedIssues) {
-        if (issue.metadata?.prompts && Array.isArray(issue.metadata.prompts)) {
-          const validPrompts = issue.metadata.prompts.filter((prompt: string) => 
-            prompt && 
-            typeof prompt === 'string' && 
-            !prompt.includes('&') && // No HTML entities
-            prompt.length > 10 &&
-            prompt.length < 200
-          );
-          
-          if (validPrompts.length > 3) {
-            console.log('🤖 Found valid prompts:', validPrompts.length, 'prompts');
-            return validPrompts; // Return all prompts from database
-          }
-        }
-      }
-    }
-    
-    // Fallback: generate prompts based on keywords and domain
-    const prompts = [];
-    
-    // Extract company/service type from keywords
-    const serviceKeywords = keywords.filter(k => 
-      ['serviço', 'empresa', 'consultoria', 'solução', 'software', 'sistema', 'plataforma', 'desenvolvimento'].some(s => k.toLowerCase().includes(s))
-    );
-    
-    const productKeywords = keywords.filter(k => 
-      ['produto', 'venda', 'loja', 'comprar', 'preço', 'oferta'].some(s => k.toLowerCase().includes(s))
-    );
+    const promptList = [];
     
     if (keywords.length > 0) {
       const topKeyword = keywords[0];
       
-      // Problem-solution prompts
-      prompts.push(`Onde encontrar ${topKeyword} profissional?`);
-      prompts.push(`Como escolher ${topKeyword} de qualidade?`);
-      prompts.push(`Melhor empresa de ${topKeyword}`);
-      
-      // Service-based prompts
-      if (serviceKeywords.length > 0) {
-        prompts.push(`Serviços de ${topKeyword} confiáveis`);
-        prompts.push(`Consultoria especializada em ${topKeyword}`);
-      }
-      
-      // Product-based prompts  
-      if (productKeywords.length > 0) {
-        prompts.push(`Onde comprar ${topKeyword}?`);
-        prompts.push(`${topKeyword}: melhor preço`);
-      }
-      
-      // Comparison prompts
-      prompts.push(`Comparar empresas de ${topKeyword}`);
-      prompts.push(`${topKeyword}: qual a melhor opção?`);
-      
-      // Educational prompts
-      prompts.push(`Guia completo sobre ${topKeyword}`);
-      prompts.push(`Como funciona ${topKeyword}?`);
-      
-      // Location-based prompts
-      prompts.push(`${topKeyword} no Brasil`);
-      prompts.push(`${topKeyword} em São Paulo`);
+      promptList.push(`Onde encontrar ${topKeyword} profissional?`);
+      promptList.push(`Como escolher ${topKeyword} de qualidade?`);
+      promptList.push(`Melhor empresa de ${topKeyword}`);
+      promptList.push(`${topKeyword}: melhor preço`);
+      promptList.push(`Guia completo sobre ${topKeyword}`);
     }
     
-    // Domain-specific prompts as fallback
-    if (prompts.length === 0) {
-      prompts.push(`O que é ${domain}?`);
-      prompts.push(`Como usar ${domain}`);
-      prompts.push(`${domain} é confiável?`);
-      prompts.push(`Avaliação do ${domain}`);
-      prompts.push(`Alternativas ao ${domain}`);
+    if (promptList.length === 0) {
+      promptList.push(`O que é ${domain}?`);
+      promptList.push(`Como usar ${domain}`);
+      promptList.push(`${domain} é confiável?`);
     }
 
-    console.log('🤖 Generated AI prompts:', prompts.length, prompts);
-    return prompts.slice(0, 12); // Return up to 12 generated prompts
+    return promptList.slice(0, 12);
+  };
+
+  const getTailTypeBadgeVariant = (tailType: 'short' | 'medium' | 'long') => {
+    switch (tailType) {
+      case 'short': return 'destructive';
+      case 'medium': return 'secondary';
+      case 'long': return 'default';
+      default: return 'outline';
+    }
+  };
+
+  const getIntentBadgeVariant = (intentType: 'commercial' | 'informational' | 'navigational') => {
+    switch (intentType) {
+      case 'commercial': return 'default';
+      case 'informational': return 'secondary';
+      case 'navigational': return 'outline';
+      default: return 'outline';
+    }
   };
 
   const copyToClipboard = async (text: string, index: number) => {
@@ -306,88 +329,261 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
 
   if (!results) return null;
 
-  const keywords = extractKeywords();
+  const { keywords, prompts } = extractSemanticData();
+  const legacyKeywords = extractKeywords();
   const aiPrompts = generateAIPrompts();
+  
+  const finalKeywords = keywords.length > 0 ? keywords : legacyKeywords;
+  const finalPrompts = prompts.length > 0 ? prompts : aiPrompts;
+  const categorizedTerms = categorizeTerms(finalKeywords);
 
   return (
-    <Card className="shadow-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <Brain className="h-5 w-5 text-primary" />
-          Termos Relevantes e Prompts de IA
-          <Badge variant="outline" className="ml-auto">
-            {keywords.length} termos | {aiPrompts.length} prompts
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Keywords Section */}
-        <div>
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <Search className="h-4 w-4" />
-            Termos Identificados na Página
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {keywords.length > 0 ? (
-              keywords.map((keyword, index) => (
-                <Badge key={index} variant="secondary">
-                  {keyword}
-                </Badge>
-              ))
-            ) : (
-              <p className="text-muted-foreground text-sm">
-                Nenhum termo relevante identificado. Execute uma auditoria completa para obter resultados.
-              </p>
-            )}
+    <TooltipProvider>
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Brain className="h-5 w-5 text-primary" />
+            Análise Semântica Inteligente
+            <Badge variant="outline" className="ml-auto">
+              {finalKeywords.length} termos | {finalPrompts.length} prompts
+            </Badge>
+          </CardTitle>
+          
+          {/* Tab Navigation */}
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant={activeTab === 'overview' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('overview')}
+              className="flex items-center gap-2"
+            >
+              <Target className="h-4 w-4" />
+              Visão Geral
+            </Button>
+            <Button
+              variant={activeTab === 'commercial' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('commercial')}
+              className="flex items-center gap-2"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Comercial ({categorizedTerms.commercial.length})
+            </Button>
+            <Button
+              variant={activeTab === 'informational' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('informational')}
+              className="flex items-center gap-2"
+            >
+              <Search className="h-4 w-4" />
+              Informacional ({categorizedTerms.informational.length})
+            </Button>
           </div>
-        </div>
+        </CardHeader>
 
-        {/* AI Prompts Section */}
-        <div>
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            Possíveis Prompts que Usuários Digitariam
-          </h3>
-          <div className="grid gap-2">
-            {aiPrompts.length > 0 ? (
-              aiPrompts.map((prompt, index) => (
-                <div 
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition-colors"
-                >
-                  <span className="text-sm font-medium">{prompt}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(prompt, index)}
-                    className="ml-2 h-6 w-6 p-0"
-                  >
-                    {copiedIndex === index ? (
-                      <CheckCircle className="h-3 w-3 text-green-600" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                  </Button>
+        <CardContent className="space-y-6">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <>
+              {/* Semantic Summary */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="text-center p-4 bg-primary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{categorizedTerms.shortTail.length}</div>
+                  <div className="text-sm text-muted-foreground">Cauda Curta</div>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3 w-3 mx-auto mt-1 opacity-50" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Termos de 1-2 palavras, alta competição</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-              ))
-            ) : (
-              <p className="text-muted-foreground text-sm">
-                Nenhum prompt foi gerado. Execute uma auditoria para obter sugestões.
-              </p>
-            )}
-          </div>
-        </div>
+                <div className="text-center p-4 bg-accent/5 rounded-lg">
+                  <div className="text-2xl font-bold text-accent">{categorizedTerms.mediumTail.length}</div>
+                  <div className="text-sm text-muted-foreground">Cauda Média</div>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3 w-3 mx-auto mt-1 opacity-50" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Termos de 3-4 palavras, competição média</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="text-center p-4 bg-secondary/5 rounded-lg">
+                  <div className="text-2xl font-bold text-secondary-foreground">{categorizedTerms.longTail.length}</div>
+                  <div className="text-sm text-muted-foreground">Cauda Longa</div>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="h-3 w-3 mx-auto mt-1 opacity-50" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Termos de 5+ palavras, baixa competição, alta conversão</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
 
-        <div className="text-xs text-muted-foreground bg-accent/20 p-3 rounded-lg">
-          <p className="font-medium mb-1">💡 Como usar estas informações:</p>
-          <ul className="space-y-1 ml-2">
-            <li>• <strong>Termos:</strong> Otimize seu conteúdo com essas palavras-chave</li>
-            <li>• <strong>Prompts:</strong> Crie conteúdo que responda a essas perguntas</li>
-            <li>• <strong>SEO para IA:</strong> IAs como ChatGPT, Claude e Gemini usam estes termos para encontrar seu site</li>
-          </ul>
-        </div>
-      </CardContent>
-    </Card>
+              {/* Top Terms by Category */}
+              <div className="space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  Principais Termos por Categoria
+                </h3>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Commercial Terms */}
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <TrendingUp className="h-3 w-3" />
+                      Intenção Comercial
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {categorizedTerms.commercial.slice(0, 8).map((term, index) => (
+                        <Badge key={index} variant="default" className="text-xs">
+                          {term}
+                        </Badge>
+                      ))}
+                      {categorizedTerms.commercial.length > 8 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{categorizedTerms.commercial.length - 8} mais
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Informational Terms */}
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <Search className="h-3 w-3" />
+                      Intenção Informacional
+                    </h4>
+                    <div className="flex flex-wrap gap-1">
+                      {categorizedTerms.informational.slice(0, 8).map((term, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {term}
+                        </Badge>
+                      ))}
+                      {categorizedTerms.informational.length > 8 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{categorizedTerms.informational.length - 8} mais
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Commercial Tab */}
+          {activeTab === 'commercial' && (
+            <div className="space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Termos Comerciais - Intenção de Compra
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {categorizedTerms.commercial.length > 0 ? (
+                  categorizedTerms.commercial.map((term, index) => (
+                    <Badge key={index} variant="default">
+                      {term}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Nenhum termo comercial identificado. Considere incluir palavras como "comprar", "preço", "melhor" no seu conteúdo.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Informational Tab */}
+          {activeTab === 'informational' && (
+            <div className="space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Termos Informacionais - Busca por Conhecimento
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {categorizedTerms.informational.length > 0 ? (
+                  categorizedTerms.informational.map((term, index) => (
+                    <Badge key={index} variant="secondary">
+                      {term}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Nenhum termo informacional identificado.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* AI Prompts Section */}
+          <div>
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Brain className="h-4 w-4" />
+              Prompts Inteligentes Baseados em Intenção
+            </h3>
+            <div className="grid gap-2">
+              {finalPrompts.length > 0 ? (
+                finalPrompts.map((prompt, index) => {
+                  const isCommercial = /comprar|preço|melhor|custo|valor|orçamento/.test(prompt.toLowerCase());
+                  return (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-sm font-medium">{prompt}</span>
+                        <Badge 
+                          variant={isCommercial ? "default" : "secondary"}
+                          className="text-xs"
+                        >
+                          {isCommercial ? 'Comercial' : 'Informacional'}
+                        </Badge>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(prompt, index)}
+                        className="ml-2 h-6 w-6 p-0 shrink-0"
+                      >
+                        {copiedIndex === index ? (
+                          <CheckCircle className="h-3 w-3 text-green-600" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Nenhum prompt foi gerado. Execute uma auditoria para obter sugestões.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="text-xs text-muted-foreground bg-accent/20 p-3 rounded-lg">
+            <p className="font-medium mb-1">🧠 Sistema de Análise Semântica:</p>
+            <ul className="space-y-1 ml-2">
+              <li>• <strong>Modificadores Comerciais:</strong> Detecta intenções de compra (comprar, preço, melhor)</li>
+              <li>• <strong>Entidades Principais:</strong> Identifica produtos/serviços do seu negócio</li>
+              <li>• <strong>Classificação por Cauda:</strong> Organiza termos por competitividade e especificidade</li>
+              <li>• <strong>Prompts Inteligentes:</strong> Gera perguntas que usuários fazem para IAs como ChatGPT</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 };
 

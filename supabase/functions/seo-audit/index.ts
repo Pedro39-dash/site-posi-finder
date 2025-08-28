@@ -153,8 +153,11 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
     // Fetch webpage content
     const html = await fetchWebpageContent(validation.normalizedUrl);
 
-    // Analyze HTML content
-    const htmlAnalysis = analyzeHTML(html, validation.normalizedUrl, focusKeyword);
+    // Perform semantic analysis
+    const semanticAnalysis = performSemanticAnalysis(html, validation.normalizedUrl);
+
+    // Analyze HTML content with semantic enrichment
+    const htmlAnalysis = analyzeHTML(html, validation.normalizedUrl, focusKeyword, semanticAnalysis);
 
     // Get PageSpeed Insights data (desktop and mobile)
     const pageSpeedData = await getPageSpeedInsights(validation.normalizedUrl);
@@ -330,7 +333,319 @@ async function fetchWebpageContent(url: string): Promise<string> {
   throw new Error('All fetch attempts failed');
 }
 
-function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCategory[] {
+// Semantic Analysis Engine
+interface SemanticTerm {
+  term: string;
+  type: 'commercial_modifier' | 'main_entity' | 'attribute' | 'specifier';
+  tailType: 'short' | 'medium' | 'long';
+  intentType: 'commercial' | 'informational' | 'navigational';
+  relevanceScore: number;
+  sourceContext: {
+    htmlTag: string;
+    frequency: number;
+    isVerbatim: boolean;
+  };
+}
+
+interface SemanticAnalysis {
+  commercialModifiers: string[];
+  mainEntities: string[];
+  attributes: string[];
+  shortTailTerms: SemanticTerm[];
+  mediumTailTerms: SemanticTerm[];
+  longTailTerms: SemanticTerm[];
+  intelligentPrompts: string[];
+}
+
+function performSemanticAnalysis(html: string, url: string): SemanticAnalysis {
+  console.log('🧠 Starting semantic analysis...');
+  
+  // Commercial modifiers dictionary (Brazilian Portuguese + English)
+  const commercialModifiers = [
+    'comprar', 'preço', 'custo', 'valor', 'orçamento', 'cotação', 'promoção', 'desconto', 'oferta',
+    'melhor', 'top', 'ranking', 'review', 'análise', 'avaliação', 'teste', 'comparação',
+    'barato', 'grátis', 'gratuito', 'premium', 'profissional', 'especializado',
+    'onde', 'como', 'qual', 'quando', 'porque', 'para que serve',
+    'buy', 'price', 'cost', 'budget', 'quote', 'sale', 'discount', 'offer',
+    'best', 'top', 'review', 'analysis', 'comparison', 'vs', 'versus',
+    'cheap', 'free', 'premium', 'professional', 'expert'
+  ];
+
+  // Entity indicators (products, services, brands)
+  const entityIndicators = [
+    'software', 'sistema', 'plataforma', 'ferramenta', 'aplicativo', 'app',
+    'serviço', 'consultoria', 'empresa', 'negócio', 'solução',
+    'produto', 'equipamento', 'máquina', 'dispositivo', 'aparelho',
+    'curso', 'treinamento', 'capacitação', 'workshop', 'seminário',
+    'seguro', 'plano', 'pacote', 'assinatura', 'licença'
+  ];
+
+  // Attribute/Specifier indicators
+  const attributeIndicators = [
+    'digital', 'online', 'híbrido', 'automático', 'manual', 'inteligente',
+    'pequeno', 'médio', 'grande', 'industrial', 'comercial', 'residencial',
+    'novo', 'usado', 'premium', 'básico', 'avançado', 'completo',
+    'rápido', 'lento', 'eficiente', 'confiável', 'seguro', 'moderno'
+  ];
+
+  // Parse HTML and extract content with context
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  
+  // Extract content with HTML context
+  const contentElements = [
+    { tag: 'title', weight: 3, elements: Array.from(doc.querySelectorAll('title')) },
+    { tag: 'h1', weight: 3, elements: Array.from(doc.querySelectorAll('h1')) },
+    { tag: 'h2', weight: 2, elements: Array.from(doc.querySelectorAll('h2')) },
+    { tag: 'h3', weight: 2, elements: Array.from(doc.querySelectorAll('h3')) },
+    { tag: 'meta[name="description"]', weight: 2, elements: Array.from(doc.querySelectorAll('meta[name="description"]')) },
+    { tag: 'strong', weight: 1.5, elements: Array.from(doc.querySelectorAll('strong')) },
+    { tag: 'p', weight: 1, elements: Array.from(doc.querySelectorAll('p')) },
+    { tag: 'li', weight: 1, elements: Array.from(doc.querySelectorAll('li')) },
+    { tag: 'a', weight: 1, elements: Array.from(doc.querySelectorAll('a')) }
+  ];
+
+  const extractedTerms: SemanticTerm[] = [];
+  const foundModifiers = new Set<string>();
+  const foundEntities = new Set<string>();
+  const foundAttributes = new Set<string>();
+
+  // Phase 1: Extract and classify terms
+  contentElements.forEach(({ tag, weight, elements }) => {
+    elements.forEach(element => {
+      let text = '';
+      if (tag === 'meta[name="description"]') {
+        text = element.getAttribute('content') || '';
+      } else {
+        text = element.textContent || '';
+      }
+      
+      if (!text || text.length < 3) return;
+      
+      // Clean and normalize text
+      const cleanText = text
+        .toLowerCase()
+        .replace(/[^\w\sáéíóúâêîôûàèìòùãõç-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Extract n-grams (1-6 words)
+      const words = cleanText.split(' ').filter(word => word.length > 2);
+      
+      for (let i = 0; i < words.length; i++) {
+        // Single words
+        analyzeAndClassifyTerm(words[i], [words[i]], tag, weight, text);
+        
+        // 2-grams
+        if (i < words.length - 1) {
+          const bigram = `${words[i]} ${words[i + 1]}`;
+          analyzeAndClassifyTerm(bigram, [words[i], words[i + 1]], tag, weight, text);
+        }
+        
+        // 3-grams
+        if (i < words.length - 2) {
+          const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
+          analyzeAndClassifyTerm(trigram, [words[i], words[i + 1], words[i + 2]], tag, weight, text);
+        }
+        
+        // 4-grams
+        if (i < words.length - 3) {
+          const fourgram = `${words[i]} ${words[i + 1]} ${words[i + 2]} ${words[i + 3]}`;
+          analyzeAndClassifyTerm(fourgram, [words[i], words[i + 1], words[i + 2], words[i + 3]], tag, weight, text);
+        }
+        
+        // 5+ grams (long tail)
+        if (i < words.length - 4) {
+          const longTerm = words.slice(i, Math.min(i + 6, words.length)).join(' ');
+          analyzeAndClassifyTerm(longTerm, words.slice(i, Math.min(i + 6, words.length)), tag, weight, text);
+        }
+      }
+    });
+  });
+
+  function analyzeAndClassifyTerm(term: string, termWords: string[], sourceTag: string, tagWeight: number, originalText: string) {
+    if (term.length < 3 || term.length > 100) return;
+    
+    // Classify term type
+    const hasCommercialModifier = commercialModifiers.some(mod => 
+      termWords.some(word => word.includes(mod) || mod.includes(word))
+    );
+    const hasEntityIndicator = entityIndicators.some(entity => 
+      termWords.some(word => word.includes(entity) || entity.includes(word))
+    );
+    const hasAttributeIndicator = attributeIndicators.some(attr => 
+      termWords.some(word => word.includes(attr) || attr.includes(word))
+    );
+
+    // Determine term type
+    let termType: SemanticTerm['type'] = 'specifier';
+    if (hasCommercialModifier) {
+      termType = 'commercial_modifier';
+      foundModifiers.add(term);
+    } else if (hasEntityIndicator) {
+      termType = 'main_entity';
+      foundEntities.add(term);
+    } else if (hasAttributeIndicator) {
+      termType = 'attribute';
+      foundAttributes.add(term);
+    }
+
+    // Determine tail type
+    const wordCount = termWords.length;
+    let tailType: SemanticTerm['tailType'] = 'short';
+    if (wordCount >= 5) tailType = 'long';
+    else if (wordCount >= 3) tailType = 'medium';
+
+    // Determine intent type
+    let intentType: SemanticTerm['intentType'] = 'informational';
+    if (hasCommercialModifier || (hasEntityIndicator && hasAttributeIndicator)) {
+      intentType = 'commercial';
+    } else if (term.includes(new URL(url).hostname.split('.')[0])) {
+      intentType = 'navigational';
+    }
+
+    // Calculate relevance score
+    let relevanceScore = 50; // Base score
+    
+    // HTML source weight
+    relevanceScore += tagWeight * 15;
+    
+    // Verbatim match bonus
+    const isVerbatim = originalText.toLowerCase().includes(term);
+    if (isVerbatim) relevanceScore += 20;
+    
+    // Commercial intent bonus
+    if (intentType === 'commercial') relevanceScore += 15;
+    
+    // Entity presence bonus
+    if (termType === 'main_entity') relevanceScore += 10;
+    
+    // Modifier + Entity combination bonus
+    if (hasCommercialModifier && hasEntityIndicator) relevanceScore += 25;
+    
+    // Length penalty for very long terms
+    if (term.length > 50) relevanceScore -= 10;
+    
+    // Cap at 100
+    relevanceScore = Math.min(100, relevanceScore);
+
+    // Only add high-quality terms
+    if (relevanceScore >= 60) {
+      extractedTerms.push({
+        term,
+        type: termType,
+        tailType,
+        intentType,
+        relevanceScore,
+        sourceContext: {
+          htmlTag: sourceTag,
+          frequency: 1, // Will be aggregated later
+          isVerbatim
+        }
+      });
+    }
+  }
+
+  // Phase 2: Aggregate and deduplicate terms
+  const termMap = new Map<string, SemanticTerm>();
+  extractedTerms.forEach(term => {
+    if (termMap.has(term.term)) {
+      const existing = termMap.get(term.term)!;
+      existing.sourceContext.frequency++;
+      existing.relevanceScore = Math.max(existing.relevanceScore, term.relevanceScore);
+    } else {
+      termMap.set(term.term, term);
+    }
+  });
+
+  const finalTerms = Array.from(termMap.values())
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 100); // Limit to top 100 terms
+
+  // Phase 3: Categorize by tail type
+  const shortTailTerms = finalTerms.filter(t => t.tailType === 'short').slice(0, 20);
+  const mediumTailTerms = finalTerms.filter(t => t.tailType === 'medium').slice(0, 30);
+  const longTailTerms = finalTerms.filter(t => t.tailType === 'long').slice(0, 50);
+
+  // Phase 4: Generate intelligent prompts
+  const intelligentPrompts = generateIntelligentPrompts(
+    Array.from(foundModifiers),
+    Array.from(foundEntities),
+    Array.from(foundAttributes),
+    url
+  );
+
+  console.log(`🧠 Semantic analysis complete: ${finalTerms.length} terms, ${intelligentPrompts.length} prompts`);
+
+  return {
+    commercialModifiers: Array.from(foundModifiers).slice(0, 20),
+    mainEntities: Array.from(foundEntities).slice(0, 15),
+    attributes: Array.from(foundAttributes).slice(0, 25),
+    shortTailTerms,
+    mediumTailTerms,
+    longTailTerms,
+    intelligentPrompts
+  };
+}
+
+function generateIntelligentPrompts(modifiers: string[], entities: string[], attributes: string[], url: string): string[] {
+  const prompts: string[] = [];
+  const domain = new URL(url).hostname.replace('www.', '');
+  
+  // Get top entities and modifiers for prompt generation
+  const topEntities = entities.slice(0, 5);
+  const topModifiers = modifiers.slice(0, 5);
+  const topAttributes = attributes.slice(0, 5);
+
+  // Generate entity-based prompts
+  topEntities.forEach(entity => {
+    // Commercial prompts
+    prompts.push(`Onde comprar ${entity}?`);
+    prompts.push(`${entity}: melhor preço`);
+    prompts.push(`Como escolher ${entity}?`);
+    prompts.push(`${entity} profissional`);
+    
+    // Informational prompts
+    prompts.push(`O que é ${entity}?`);
+    prompts.push(`Como funciona ${entity}?`);
+    prompts.push(`Vantagens do ${entity}`);
+    
+    // Attribute combinations
+    topAttributes.forEach(attr => {
+      prompts.push(`${entity} ${attr}`);
+      prompts.push(`${attr} ${entity} no Brasil`);
+    });
+  });
+
+  // Generate modifier + entity combinations
+  topModifiers.forEach(modifier => {
+    topEntities.forEach(entity => {
+      prompts.push(`${modifier} ${entity}`);
+      if (modifier.includes('melhor') || modifier.includes('top')) {
+        prompts.push(`${modifier} ${entity} 2024`);
+      }
+    });
+  });
+
+  // Generate long-tail question prompts
+  if (topEntities.length > 0 && topModifiers.length > 0) {
+    const entity = topEntities[0];
+    prompts.push(`Qual o melhor ${entity} para empresas?`);
+    prompts.push(`Como implementar ${entity} na minha empresa?`);
+    prompts.push(`${entity}: vale a pena investir?`);
+    prompts.push(`Custo-benefício de ${entity}`);
+  }
+
+  // Domain-specific prompts
+  prompts.push(`${domain} é confiável?`);
+  prompts.push(`Como usar o ${domain}`);
+  prompts.push(`Avaliação do ${domain}`);
+
+  // Remove duplicates and limit
+  const uniquePrompts = [...new Set(prompts)];
+  return uniquePrompts.slice(0, 20);
+}
+
+function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticAnalysis?: SemanticAnalysis): AuditCategory[] {
   const categories: AuditCategory[] = [];
 
   // Use DOMParser for better HTML parsing
@@ -469,6 +784,123 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string): AuditCat
     status: metaScore >= 90 ? 'excellent' : metaScore >= 70 ? 'good' : metaScore >= 50 ? 'needs_improvement' : 'critical',
     issues: metaIssues
   });
+
+  // AI Search Optimization Analysis (New semantic category)
+  if (semanticAnalysis) {
+    const aiOptimizationIssues = [];
+    let aiOptimizationScore = 100;
+
+    // Analyze commercial intent coverage
+    const commercialTermsCount = semanticAnalysis.shortTailTerms.filter(t => t.intentType === 'commercial').length +
+                                semanticAnalysis.mediumTailTerms.filter(t => t.intentType === 'commercial').length;
+    
+    if (commercialTermsCount === 0) {
+      aiOptimizationIssues.push({
+        type: 'warning' as const,
+        message: 'Nenhum termo comercial identificado',
+        priority: 'medium' as const,
+        recommendation: 'Inclua termos comerciais como "comprar", "preço", "melhor" para capturar intenções de compra',
+        metadata: {
+          keywords: semanticAnalysis.shortTailTerms.concat(semanticAnalysis.mediumTailTerms).slice(0, 50).map(t => t.term),
+          prompts: semanticAnalysis.intelligentPrompts
+        }
+      });
+      aiOptimizationScore -= 30;
+    } else if (commercialTermsCount < 3) {
+      aiOptimizationIssues.push({
+        type: 'warning' as const,
+        message: `Poucos termos comerciais identificados (${commercialTermsCount})`,
+        priority: 'medium' as const,
+        recommendation: 'Adicione mais termos comerciais para cobrir diferentes intenções de compra',
+        metadata: {
+          keywords: semanticAnalysis.shortTailTerms.concat(semanticAnalysis.mediumTailTerms).slice(0, 50).map(t => t.term),
+          prompts: semanticAnalysis.intelligentPrompts
+        }
+      });
+      aiOptimizationScore -= 15;
+    } else {
+      aiOptimizationIssues.push({
+        type: 'success' as const,
+        message: `Boa cobertura de termos comerciais (${commercialTermsCount} identificados)`,
+        priority: 'low' as const,
+        metadata: {
+          keywords: semanticAnalysis.shortTailTerms.concat(semanticAnalysis.mediumTailTerms).slice(0, 50).map(t => t.term),
+          prompts: semanticAnalysis.intelligentPrompts
+        }
+      });
+    }
+
+    // Analyze long-tail coverage
+    const longTailCount = semanticAnalysis.longTailTerms.length;
+    if (longTailCount < 5) {
+      aiOptimizationIssues.push({
+        type: 'warning' as const,
+        message: `Poucos termos long-tail identificados (${longTailCount})`,
+        priority: 'medium' as const,
+        recommendation: 'Crie conteúdo mais específico e detalhado para capturar termos long-tail',
+        metadata: {
+          keywords: semanticAnalysis.shortTailTerms.concat(semanticAnalysis.mediumTailTerms).slice(0, 50).map(t => t.term),
+          prompts: semanticAnalysis.intelligentPrompts
+        }
+      });
+      aiOptimizationScore -= 20;
+    } else {
+      aiOptimizationIssues.push({
+        type: 'success' as const,
+        message: `Boa cobertura de termos long-tail (${longTailCount} identificados)`,
+        priority: 'low' as const,
+        metadata: {
+          keywords: semanticAnalysis.shortTailTerms.concat(semanticAnalysis.mediumTailTerms).slice(0, 50).map(t => t.term),
+          prompts: semanticAnalysis.intelligentPrompts
+        }
+      });
+    }
+
+    // Analyze entity-attribute combinations
+    const entityCount = semanticAnalysis.mainEntities.length;
+    if (entityCount === 0) {
+      aiOptimizationIssues.push({
+        type: 'error' as const,
+        message: 'Nenhuma entidade principal identificada',
+        priority: 'high' as const,
+        recommendation: 'Defina claramente seus produtos/serviços principais no conteúdo',
+        metadata: {
+          keywords: semanticAnalysis.shortTailTerms.concat(semanticAnalysis.mediumTailTerms).slice(0, 50).map(t => t.term),
+          prompts: semanticAnalysis.intelligentPrompts
+        }
+      });
+      aiOptimizationScore -= 40;
+    } else if (entityCount < 3) {
+      aiOptimizationIssues.push({
+        type: 'warning' as const,
+        message: `Poucas entidades principais identificadas (${entityCount})`,
+        priority: 'medium' as const,
+        recommendation: 'Expanda a descrição de seus produtos/serviços para melhor cobertura semântica',
+        metadata: {
+          keywords: semanticAnalysis.shortTailTerms.concat(semanticAnalysis.mediumTailTerms).slice(0, 50).map(t => t.term),
+          prompts: semanticAnalysis.intelligentPrompts
+        }
+      });
+      aiOptimizationScore -= 20;
+    } else {
+      aiOptimizationIssues.push({
+        type: 'success' as const,
+        message: `Bom número de entidades identificadas (${entityCount})`,
+        priority: 'low' as const,
+        metadata: {
+          keywords: semanticAnalysis.shortTailTerms.concat(semanticAnalysis.mediumTailTerms).slice(0, 50).map(t => t.term),
+          prompts: semanticAnalysis.intelligentPrompts
+        }
+      });
+    }
+
+    categories.push({
+      category: 'ai_search_optimization',
+      score: Math.max(0, aiOptimizationScore),
+      status: aiOptimizationScore >= 90 ? 'excellent' : aiOptimizationScore >= 70 ? 'good' : aiOptimizationScore >= 50 ? 'needs_improvement' : 'critical',
+      issues: aiOptimizationIssues
+    });
+  }
 
   // HTML Structure Analysis - Complete heading hierarchy with 5+ validation points
   const htmlStructureIssues = [];
