@@ -371,478 +371,267 @@ interface SemanticAnalysis {
 }
 
 function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAnalysis {
-  console.log('🧠 Starting contextual semantic analysis...');
+  console.log('🧠 Iniciando análise semântica manual simplificada...');
   
-  // ===== FASE 1: ENGINE DE ANÁLISE DE INTENÇÃO COMERCIAL REAL =====
-  
-  // CRÍTICO: Stop words MASSIVAMENTE expandidas + termos proibidos explícitos
-  const stopWordsExpanded = new Set([
-    // Palavras genéricas SEM valor comercial (principais culpadas do ruído)
-    'para', 'com', 'por', 'sem', 'sobre', 'entre', 'durante', 'desde', 'até', 'como', 'quando', 'onde', 
-    'porque', 'quanto', 'qual', 'quem', 'que', 'uma', 'uns', 'mas', 'mais', 'muito', 'menos', 'ainda',
-    'então', 'assim', 'aqui', 'ali', 'lá', 'este', 'esta', 'esse', 'essa', 'aquele', 'aquela', 'seu', 
-    'sua', 'nosso', 'nossa', 'todo', 'toda', 'todos', 'todas', 'cada', 'algum', 'alguns', 'nenhum', 
-    'nenhuma', 'bem', 'mal', 'boa', 'bom', 'melhor', 'pior', 'grande', 'pequeno', 'alto', 'baixo',
-    'novo', 'velho', 'primeiro', 'último', 'sempre', 'nunca', 'já', 'agora', 'hoje', 'ontem', 'amanhã',
-    // CRÍTICO: Termos genéricos que SEMPRE devem ser rejeitados
-    'empresa', 'empresas', 'serviços', 'serviço', 'produtos', 'produto', 'comercial', 'negócio',
-    'negócios', 'profissional', 'especializada', 'especializado', 'técnicos', 'técnico', 'técnica',
-    'ltda', 'eireli', 'sociedade', 'limitada', 'corporação', 'group', 'grupo', 'holding', 'sa',
-    // English noise words
-    'with', 'from', 'into', 'during', 'before', 'after', 'above', 'below', 'between', 'through',
-    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our'
-  ]);
+  try {
+    // ===== FASE 1: EXTRAÇÃO DE CONTEÚDO PRINCIPAL =====
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    
+    // Extrair apenas conteúdo dos elementos principais
+    const titleText = doc.querySelector('title')?.textContent?.trim() || '';
+    const h1Text = Array.from(doc.querySelectorAll('h1')).map(h => h.textContent?.trim()).join(' ') || '';
+    const h2Text = Array.from(doc.querySelectorAll('h2')).slice(0, 3).map(h => h.textContent?.trim()).join(' ') || '';
+    const menuText = Array.from(doc.querySelectorAll('nav, .menu, #menu, .navigation')).map(el => el.textContent?.trim()).join(' ') || '';
+    const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
+    
+    console.log('📝 Conteúdo extraído:', {
+      title: titleText.slice(0, 80),
+      h1: h1Text.slice(0, 80),
+      menu: menuText.slice(0, 80)
+    });
 
-  // CRÍTICO: Lista de termos PROIBIDOS (nunca devem aparecer nos resultados)
-  const forbiddenTerms = new Set([
-    'serviços', 'serviço', 'produtos', 'produto', 'empresa', 'empresas', 'comercial', 'negócio', 
-    'negócios', 'profissional', 'especializada', 'especializado', 'técnicos', 'técnico', 'técnica',
-    'ltda', 'limitada', 'sociedade', 'corporação', 'holding', 'group', 'grupo', 'sa', 'eireli'
-  ]);
+    // ===== FASE 2: IDENTIFICAR CONTEXTO DO NEGÓCIO =====
+    const businessContext = identifyBusinessSector(titleText + ' ' + h1Text + ' ' + menuText);
+    console.log('🏢 Contexto do negócio:', businessContext);
 
-  // Parse HTML e extrair conteúdo prioritário
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+    // ===== FASE 3: EXTRAIR CONCEITOS PRINCIPAIS =====
+    const mainConcepts = extractMainConcepts(titleText, h1Text, h2Text, menuText, metaDescription);
+    console.log('🎯 Conceitos principais extraídos:', mainConcepts);
+
+    // ===== FASE 4: CONSTRUIR TERMOS COMERCIAIS =====
+    const commercialTerms = buildCommercialTerms(mainConcepts, businessContext);
+    console.log('💼 Termos comerciais:', commercialTerms);
+
+    // ===== FASE 5: VALIDAÇÃO E CLASSIFICAÇÃO FINAL =====
+    const validTerms = commercialTerms
+      .filter(term => isSearchableTerm(term))
+      .slice(0, 12); // Máximo 12 termos de alta qualidade
+
+    console.log('✅ Termos finais aprovados:', validTerms);
+
+    // Classificar em categorias simples
+    const categorizedTerms = categorizeByLength(validTerms);
+    const prompts = generateFocusedPrompts(validTerms, businessContext);
+    
+    return {
+      commercialModifiers: categorizedTerms.commercial.slice(0, 3),
+      mainEntities: categorizedTerms.commercial.slice(0, 4),
+      attributes: categorizedTerms.informational.slice(0, 3),
+      shortTailTerms: categorizedTerms.shortTail,
+      mediumTailTerms: categorizedTerms.mediumTail,
+      longTailTerms: categorizedTerms.longTail,
+      intelligentPrompts: prompts
+    };
+
+  } catch (error) {
+    console.error('❌ Erro na análise semântica:', error);
+    return {
+      commercialModifiers: [],
+      mainEntities: [],
+      attributes: [],
+      shortTailTerms: [],
+      mediumTailTerms: [],
+      longTailTerms: [],
+      intelligentPrompts: []
+    };
+  }
+}
+
+// ===== FUNÇÕES AUXILIARES SIMPLIFICADAS =====
+
+function identifyBusinessSector(text: string): string {
+  const lowerText = text.toLowerCase();
   
-  const contentElements = [
-    { tag: 'title', weight: 5, elements: Array.from(doc.querySelectorAll('title')) },
-    { tag: 'h1', weight: 4, elements: Array.from(doc.querySelectorAll('h1')) },
-    { tag: 'h2', weight: 3, elements: Array.from(doc.querySelectorAll('h2')).slice(0, 3) },
-    { tag: 'meta[name="description"]', weight: 4, elements: Array.from(doc.querySelectorAll('meta[name="description"]')) },
-    { tag: 'h3', weight: 2, elements: Array.from(doc.querySelectorAll('h3')).slice(0, 2) }
+  if (lowerText.includes('inox') || lowerText.includes('polimento') || lowerText.includes('soldagem')) {
+    return 'metalurgia';
+  } else if (lowerText.includes('manutenção') || lowerText.includes('equipamentos') || lowerText.includes('máquinas')) {
+    return 'industrial';
+  } else if (lowerText.includes('desenvolvimento') || lowerText.includes('software') || lowerText.includes('sistema')) {
+    return 'tecnologia';
+  } else if (lowerText.includes('consultoria') || lowerText.includes('assessoria')) {
+    return 'consultoria';
+  } else {
+    return 'geral';
+  }
+}
+
+function extractMainConcepts(title: string, h1: string, h2: string, menu: string, meta: string): string[] {
+  // Combinar todo o texto relevante
+  const combinedText = [title, h1, h2, menu, meta].join(' ').toLowerCase();
+  
+  // Limpar e normalizar
+  const cleanText = combinedText
+    .replace(/[^\w\sáéíóúâêîôûàèìòùãõç-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Lista de termos técnicos válidos (whitelist)
+  const validTechnicalTerms = [
+    'inox', 'polimento', 'soldagem', 'usinagem', 'torneamento', 'fresamento',
+    'manutenção', 'equipamentos', 'máquinas', 'peças', 'componentes',
+    'industrial', 'naval', 'automotivo', 'aeronáutico',
+    'galvanização', 'anodização', 'tratamento', 'acabamento',
+    'aço', 'alumínio', 'ferro', 'cobre', 'bronze'
   ];
 
-  const extractedTerms: SemanticTerm[] = [];
-  const foundModifiers = new Set<string>();
-  const foundEntities = new Set<string>();
-  const foundAttributes = new Set<string>();
-  const processedTerms = new Set<string>();
+  // Termos proibidos (blacklist total)
+  const forbiddenTerms = [
+    'serviços', 'serviço', 'produtos', 'produto', 'empresa', 'empresas', 
+    'comercial', 'negócio', 'negócios', 'profissional', 'especializada', 
+    'especializado', 'técnicos', 'técnico', 'técnica', 'ltda'
+  ];
 
-  // ===== FASE 2: DETECTORES DE PADRÕES COMERCIAIS REAIS =====
-  
-function hasCommercialIntent(term: string, context: string): boolean {
-    // CRÍTICO: Patterns MUITO mais específicos - apenas termos com REAL valor comercial
-    const commercialPatterns = [
-      // Serviços técnicos específicos (produto + processo)
-      /(polimento|soldagem|usinagem|torneamento|fresamento|galvanização|anodização)\s+(inox|aço|alumínio|metal)/i,
-      /(manutenção|reparo|conserto|instalação|montagem|reforma)\s+(equipamentos?|máquinas?|peças?|sistemas?)/i,
-      /(tratamento|acabamento|revestimento|pintura)\s+(superfície|peças?|componentes?)/i,
-      
-      // Produtos técnicos com especificação
-      /(equipamentos?|máquinas?|peças?|componentes?)\s+(industriais?|especializados?|sob\s+medida)/i,
-      /(fabricação|produção|desenvolvimento)\s+(peças?|equipamentos?|máquinas?)/i,
-      
-      // Combinações produto + material (alta especificidade)
-      /\w+\s+(inox|aço\s+inox|aço\s+carbono|alumínio|ferro\s+fundido|bronze|latão)/i,
-      
-      // Serviços + setor específico  
-      /(manutenção|instalação|montagem)\s+(industrial|naval|automotiva|aeronáutica)/i
-    ];
-    
-    // VERIFICAÇÃO RIGOROSA: Ter pelo menos 2 palavras técnicas específicas
-    const technicalWords = (term.match(/(inox|aço|alumínio|ferro|cobre|bronze|latão|titânio|polimento|soldagem|usinagem|torneamento|fresamento|galvanização|anodização|manutenção|equipamentos?|máquinas?|peças?|industrial|naval|automotivo|aeronáutico)/gi) || []);
-    
-    return commercialPatterns.some(pattern => pattern.test(term)) && technicalWords.length >= 1;
-  }
-  
-  function isProbablySearchable(term: string): boolean {
-    // CRÍTICO: Verificação RIGOROSA de pesquisabilidade
-    
-    // REJEIÇÕES IMEDIATAS - termos que NUNCA são pesquisáveis
-    const immediateRejects = [
-      /^(serviços?|produtos?|empresa|comercial|profissional|técnico|técnica|especializada?|negócios?)$/i,
-      /^(para|com|sobre|entre|durante|desde|até|como|quando|onde|porque|quanto)$/i,
-      /^(muito|mais|menos|bem|já|ainda|então|assim|aqui|ali|lá)$/i,
-      /^(ltda|limitada|sociedade|corporação|holding|group|grupo|sa|eireli)$/i,
-      /^(bom|boa|melhor|pior|grande|pequeno|novo|velho)$/i
-    ];
-    
-    if (immediateRejects.some(pattern => pattern.test(term))) {
-      console.log(`❌ Termo rejeitado por filtro imediato: "${term}"`);
-      return false;
+  const concepts = [];
+  const words = cleanText.split(' ').filter(word => word.length >= 3);
+
+  // Extrair palavras individuais técnicas
+  for (const word of words) {
+    if (validTechnicalTerms.includes(word) && !forbiddenTerms.includes(word)) {
+      concepts.push(word);
     }
-    
-    // WHITELIST: Apenas termos que fazem sentido comercial REAL
-    const searchablePatterns = [
-      // Processos técnicos + material
-      /(polimento|soldagem|usinagem|torneamento|fresamento|galvanização)\s+(inox|aço|alumínio|metal)/i,
-      // Serviços + produto específico
-      /(manutenção|instalação|reparo|montagem)\s+(equipamentos?|máquinas?|peças?|componentes?)/i,
-      // Produtos + especificação técnica
-      /(equipamentos?|máquinas?|peças?)\s+(industriais?|especializados?|sob\s+medida)/i,
-      // Material + aplicação
-      /(inox|aço|alumínio|ferro|cobre)\s+\w{4,}/i,
-      // Setor + especificação
-      /(industrial|naval|automotivo|aeronáutico|alimentício)\s+\w{4,}/i
-    ];
-    
-    // Deve ter pelo menos uma palavra técnica específica E fazer sentido semântico
-    const hasTechnicalWord = /(inox|polimento|soldagem|usinagem|torneamento|fresamento|manutenção|industrial|naval|automotivo|aeronáutico|equipamentos?|máquinas?|peças?)/i.test(term);
-    const matchesPattern = searchablePatterns.some(pattern => pattern.test(term));
-    
-    const isSearchable = hasTechnicalWord && (matchesPattern || (term.includes(' ') && term.length >= 12 && term.length <= 45));
-    
-    if (!isSearchable) {
-      console.log(`❌ Termo não pesquisável: "${term}" (técnica: ${hasTechnicalWord}, pattern: ${matchesPattern})`);
-    }
-    
-    return isSearchable;
-  }
-  
-  function hasBusinessValue(term: string): boolean {
-    // CRÍTICO: Apenas termos com VALOR COMERCIAL COMPROVADO
-    const highValuePatterns = [
-      // Processos técnicos específicos (alta demanda B2B)
-      /(polimento|soldagem|usinagem|torneamento|fresamento|galvanização|anodização|eletropolimento)/i,
-      // Serviços técnicos específicos
-      /(manutenção\s+preventiva|manutenção\s+corretiva|instalação\s+industrial|montagem\s+equipamentos)/i,
-      // Materiais específicos com demanda
-      /(inox\s+304|inox\s+316|aço\s+carbono|aço\s+inox|alumínio\s+industrial)/i,
-      // Equipamentos específicos
-      /(máquinas\s+cnc|equipamentos\s+industriais|peças\s+sob\s+medida|componentes\s+especiais)/i,
-      // Setores com alta demanda B2B
-      /(industrial\s+naval|automotivo\s+industrial|aeronáutico\s+especializado)/i
-    ];
-    
-    // Verificação dupla: deve ter pattern E palavras técnicas
-    const technicalCount = (term.match(/(inox|aço|alumínio|ferro|cobre|bronze|polimento|soldagem|usinagem|torneamento|fresamento|manutenção|equipamentos?|máquinas?|peças?|industrial|naval|automotivo)/gi) || []).length;
-    
-    const hasValue = highValuePatterns.some(pattern => pattern.test(term)) && technicalCount >= 1;
-    
-    if (!hasValue && term.includes(' ')) {
-      console.log(`❌ Sem valor comercial: "${term}" (palavras técnicas: ${technicalCount})`);
-    }
-    
-    return hasValue;
   }
 
-function calculateCommercialScore(term: string, termWords: string[], sourceTag: string, originalText: string): number {
-    // CRÍTICO: Verificação IMEDIATA de termos proibidos
-    if (forbiddenTerms.has(term.toLowerCase())) {
-      console.log(`❌ TERMO PROIBIDO REJEITADO: "${term}"`);
-      return 0; // Score zero imediato
+  // Extrair combinações de 2-3 palavras naturais
+  for (let i = 0; i < words.length - 1; i++) {
+    const combination = `${words[i]} ${words[i + 1]}`;
+    
+    // Só aceitar se tiver pelo menos uma palavra técnica
+    if (validTechnicalTerms.some(term => combination.includes(term)) && 
+        !forbiddenTerms.some(term => combination.includes(term))) {
+      concepts.push(combination);
     }
-    
-    // Verificação de stop words no termo completo
-    if (stopWordsExpanded.has(term.toLowerCase())) {
-      console.log(`❌ STOP WORD REJEITADA: "${term}"`);
-      return 0;
-    }
-    
-    let score = 0;
-    
-    // VERIFICAÇÕES COMERCIAIS RIGOROSAS (só termos com REAL valor comercial)
-    if (hasCommercialIntent(term, originalText)) {
-      score += 50; // Aumentado para valorizar termos realmente comerciais
-      console.log(`✅ Intenção comercial detectada: "${term}" (+50)`);
-    }
-    
-    if (isProbablySearchable(term)) {
-      score += 40; // Aumentado para termos pesquisáveis
-      console.log(`✅ Termo pesquisável: "${term}" (+40)`);
-    }
-    
-    if (hasBusinessValue(term)) {
-      score += 35; // Valor de negócio real
-      console.log(`✅ Valor de negócio: "${term}" (+35)`);
-    }
-    
-    // Bonus por fonte (reduzido, foco no conteúdo)
-    if (sourceTag === 'title') score += 15;
-    else if (sourceTag === 'h1') score += 12;
-    else if (sourceTag === 'meta[name="description"]') score += 12;
-    else if (sourceTag === 'h2') score += 8;
-    
-    // Bonus por especificidade (combinações naturais de 2-3 palavras)
-    if (termWords.length === 2 && term.length >= 10) {
-      score += 20; // Bonus para bigrams específicos como "polimento inox"
-      console.log(`✅ Bigram específico: "${term}" (+20)`);
-    }
-    if (termWords.length === 3 && term.length >= 15) {
-      score += 15; // Bonus para trigrams como "manutenção equipamentos industriais"
-      console.log(`✅ Trigram específico: "${term}" (+15)`);
-    }
-    
-    // PENALIZAÇÕES SEVERAS para ruído
-    if (term.length < 4) {
-      score -= 50; // Termos muito curtos
-      console.log(`❌ Termo muito curto: "${term}" (-50)`);
-    }
-    
-    // Penalização por palavras genéricas isoladas
-    if (termWords.length === 1 && term.match(/^(serviços?|produtos?|empresa|comercial|técnico|profissional|especializada?)$/i)) {
-      score -= 100; // Eliminar completamente
-      console.log(`❌ Palavra genérica isolada: "${term}" (-100)`);
-    }
-    
-    // Bonus por especificidade técnica (palavras técnicas longas)
-    if (term.match(/(polimento|soldagem|usinagem|torneamento|fresamento|galvanização|anodização|equipamentos?|máquinas?)/i)) {
-      score += 25; // Bonus para termos técnicos específicos
-      console.log(`✅ Termo técnico específico: "${term}" (+25)`);
-    }
-    
-    const finalScore = Math.max(0, score);
-    console.log(`📊 Score final para "${term}": ${finalScore}`);
-    
-    return finalScore;
-  }
 
-  // ===== FASE 3: SISTEMA DE COMBINAÇÕES SEMÂNTICAS INTELIGENTES =====
-  
-  contentElements.forEach(({ tag, weight, elements }) => {
-    elements.forEach(element => {
-      let text = '';
-      if (tag === 'meta[name="description"]') {
-        text = element.getAttribute('content') || '';
-      } else {
-        text = element.textContent || '';
+    // Trigrams
+    if (i < words.length - 2) {
+      const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
+      if (validTechnicalTerms.some(term => trigram.includes(term)) && 
+          !forbiddenTerms.some(term => trigram.includes(term))) {
+        concepts.push(trigram);
       }
-      
-      if (!text || text.length < 5) return;
-      
-      // Limpeza e normalização avançada
-      const cleanText = text
-        .toLowerCase()
-        .replace(/[^\w\sáéíóúâêîôûàèìòùãõç-]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      // Extrair palavras e filtrar ruído logo no início
-      const words = cleanText.split(' ')
-        .filter(word => word.length > 2)
-        .filter(word => !stopWordsExpanded.has(word))
-        .slice(0, 20); // Limitar processamento para performance
-
-      // ===== GERAÇÃO INTELIGENTE DE TERMOS COMERCIAIS =====
-      for (let i = 0; i < words.length; i++) {
-        // Palavras individuais (APENAS com valor comercial MUITO alto)
-        const singleWord = words[i];
-        if (!processedTerms.has(singleWord) && singleWord.length >= 4) {
-          const score = calculateCommercialScore(singleWord, [singleWord], tag, text);
-          if (score >= 85) { // THRESHOLD MUITO ALTO para palavras individuais (elimina 90% do ruído)
-            console.log(`✅ Single word aprovada: "${singleWord}" (score: ${score})`);
-            analyzeAndClassifyTerm(singleWord, [singleWord], tag, weight, text, score);
-            processedTerms.add(singleWord);
-          } else if (score > 0) {
-            console.log(`❌ Single word rejeitada: "${singleWord}" (score: ${score}, mínimo: 85)`);
-          }
-        }
-        
-        // 2-grams (combinações comerciais específicas)
-        if (i < words.length - 1) {
-          const bigram = `${words[i]} ${words[i + 1]}`;
-          if (!processedTerms.has(bigram) && bigram.length >= 8) {
-            const score = calculateCommercialScore(bigram, [words[i], words[i + 1]], tag, text);
-            if (score >= 75) { // THRESHOLD ALTO para bigrams (só combinações comerciais reais)
-              console.log(`✅ Bigram aprovado: "${bigram}" (score: ${score})`);
-              analyzeAndClassifyTerm(bigram, [words[i], words[i + 1]], tag, weight, text, score);
-              processedTerms.add(bigram);
-            } else if (score > 0) {
-              console.log(`❌ Bigram rejeitado: "${bigram}" (score: ${score}, mínimo: 75)`);
-            }
-          }
-        }
-        
-        // 3-grams (APENAS conceitos comerciais muito específicos)
-        if (i < words.length - 2) {
-          const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
-          if (!processedTerms.has(trigram) && trigram.length >= 12) {
-            const score = calculateCommercialScore(trigram, [words[i], words[i + 1], words[i + 2]], tag, text);
-            if (score >= 70) { // THRESHOLD ALTO para trigrams específicos
-              console.log(`✅ Trigram aprovado: "${trigram}" (score: ${score})`);
-              analyzeAndClassifyTerm(trigram, [words[i], words[i + 1], words[i + 2]], tag, weight, text, score);
-              processedTerms.add(trigram);
-            } else if (score > 0) {
-              console.log(`❌ Trigram rejeitado: "${trigram}" (score: ${score}, mínimo: 70)`);
-            }
-          }
-        }
-      }
-    });
-  });
-
-  // ===== FASE 4: CLASSIFICAÇÃO BASEADA EM INTENÇÃO REAL =====
-  
-  function analyzeAndClassifyTerm(term: string, termWords: string[], sourceTag: string, tagWeight: number, originalText: string, commercialScore: number) {
-    // Classificação inteligente baseada no contexto real
-    let termType: SemanticTerm['type'] = 'specifier';
-    let intentType: SemanticTerm['intentType'] = 'informational';
-    
-    // Detectar tipo baseado no CONTEÚDO REAL, não em listas
-    if (hasCommercialIntent(term, originalText)) {
-      termType = 'commercial_modifier';
-      intentType = 'commercial';
-      foundModifiers.add(term);
-    } else if (hasBusinessValue(term)) {
-      termType = 'main_entity';
-      intentType = 'commercial';
-      foundEntities.add(term);
-    } else if (term.match(/(industrial|comercial|profissional|técnico|especializado)/i)) {
-      termType = 'attribute';
-      foundAttributes.add(term);
-    }
-
-    // Classificação de tail type baseada em semântica
-    const wordCount = termWords.length;
-    let tailType: SemanticTerm['tailType'] = 'short';
-    if (wordCount >= 2 && term.length >= 12) tailType = 'medium';
-    if (wordCount >= 3 && term.length >= 18) tailType = 'long';
-
-    // Usar o score comercial já calculado
-    const relevanceScore = Math.min(100, commercialScore);
-
-    // FILTRO FINAL RIGOROSO: Apenas termos com ALTÍSSIMO VALOR COMERCIAL
-    if (relevanceScore >= 70) { // THRESHOLD FINAL MUITO ALTO (só os melhores 5% dos termos)
-      console.log(`✅ TERMO FINAL APROVADO: "${term}" (score: ${relevanceScore})`);
-      extractedTerms.push({
-        term,
-        type: termType,
-        tailType,
-        intentType,
-        relevanceScore,
-        sourceContext: {
-          htmlTag: sourceTag,
-          frequency: 1,
-          isVerbatim: originalText.toLowerCase().includes(term)
-        }
-      });
-    } else {
-      console.log(`❌ TERMO FINAL REJEITADO: "${term}" (score: ${relevanceScore}, mínimo: 70)`);
     }
   }
 
-  // ===== FASE 5: AGREGAÇÃO E OTIMIZAÇÃO FINAL =====
-  
-  // Agregar termos duplicados com pontuação melhorada
-  const termMap = new Map<string, SemanticTerm>();
-  extractedTerms.forEach(term => {
-    if (termMap.has(term.term)) {
-      const existing = termMap.get(term.term)!;
-      existing.sourceContext.frequency++;
-      // Boost por frequência, mas limitado
-      existing.relevanceScore = Math.min(100, existing.relevanceScore + 5);
-    } else {
-      termMap.set(term.term, term);
+  // Remover duplicatas e ordenar por relevância
+  return [...new Set(concepts)]
+    .filter(concept => concept.length >= 4)
+    .slice(0, 20);
+}
+
+function buildCommercialTerms(concepts: string[], businessContext: string): string[] {
+  const commercialTerms = [];
+
+  // Manter apenas conceitos válidos
+  for (const concept of concepts) {
+    if (isValidCommercialConcept(concept, businessContext)) {
+      commercialTerms.push(concept);
     }
-  });
+  }
 
-  // Ordenar por valor comercial real e limitar drasticamente
-  const finalTerms = Array.from(termMap.values())
-    .filter(term => {
-      // FILTRO FINAL DUPLO: Score alto E não estar na lista proibida
-      const isHighQuality = term.relevanceScore >= 70;
-      const isNotForbidden = !forbiddenTerms.has(term.term.toLowerCase());
-      const hasRealValue = term.term.length >= 4 && !term.term.match(/^(para|com|sobre|entre|muito|mais|menos|bem|já|ainda)$/i);
-      
-      if (!isHighQuality) console.log(`❌ Termo final rejeitado por score baixo: "${term.term}" (${term.relevanceScore})`);
-      if (!isNotForbidden) console.log(`❌ Termo final rejeitado por estar proibido: "${term.term}"`);
-      if (!hasRealValue) console.log(`❌ Termo final rejeitado por falta de valor: "${term.term}"`);
-      
-      return isHighQuality && isNotForbidden && hasRealValue;
-    })
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 15); // REDUZIDO DRASTICAMENTE - apenas os 15 melhores termos
-    
-  console.log(`🎯 TERMOS FINAIS APROVADOS (${finalTerms.length}):`, finalTerms.map(t => `"${t.term}" (${t.relevanceScore})`));
+  return commercialTerms;
+}
 
-  // Categorizar com limites mais rígidos
-  const shortTailTerms = finalTerms.filter(t => t.tailType === 'short').slice(0, 6);
-  const mediumTailTerms = finalTerms.filter(t => t.tailType === 'medium').slice(0, 10); 
-  const longTailTerms = finalTerms.filter(t => t.tailType === 'long').slice(0, 9);
+function isValidCommercialConcept(concept: string, context: string): boolean {
+  // Rejeições imediatas
+  const immediateRejects = [
+    'serviços', 'serviço', 'produtos', 'produto', 'empresa', 'empresas',
+    'comercial', 'negócio', 'negócios', 'profissional', 'técnico', 'técnica'
+  ];
 
-  // Gerar prompts baseados apenas em termos de ALTA QUALIDADE
-  const intelligentPrompts = generateIntelligentBusinessPrompts(
-    Array.from(foundModifiers).slice(0, 2),
-    Array.from(foundEntities).slice(0, 3), 
-    Array.from(foundAttributes).slice(0, 2),
-    url
-  );
+  if (immediateRejects.some(reject => concept.includes(reject))) {
+    console.log(`❌ Conceito rejeitado (termo proibido): "${concept}"`);
+    return false;
+  }
 
-  console.log(`🧠 Contextual semantic analysis complete: ${finalTerms.length} quality commercial terms, ${intelligentPrompts.length} business prompts`);
-  console.log(`📊 Categories: ${shortTailTerms.length} short, ${mediumTailTerms.length} medium, ${longTailTerms.length} long tail terms`);
+  // Deve ter pelo menos uma palavra técnica específica
+  const technicalWords = ['inox', 'polimento', 'soldagem', 'usinagem', 'manutenção', 'equipamentos', 'máquinas', 'peças', 'industrial'];
+  const hasTechnicalWord = technicalWords.some(tech => concept.includes(tech));
 
-  return {
-    commercialModifiers: Array.from(foundModifiers).slice(0, 4),
-    mainEntities: Array.from(foundEntities).slice(0, 4),
-    attributes: Array.from(foundAttributes).slice(0, 5),
-    shortTailTerms,
-    mediumTailTerms,
-    longTailTerms,
-    intelligentPrompts
+  if (!hasTechnicalWord) {
+    console.log(`❌ Conceito rejeitado (sem palavra técnica): "${concept}"`);
+    return false;
+  }
+
+  console.log(`✅ Conceito aprovado: "${concept}"`);
+  return true;
+}
+
+function isSearchableTerm(term: string): boolean {
+  // Validação simples: termo deve ser específico e pesquisável
+  if (term.length < 4) return false;
+  
+  // Deve conter pelo menos uma palavra técnica
+  const technicalPattern = /(inox|polimento|soldagem|usinagem|manutenção|equipamentos|máquinas|peças|industrial|naval|automotivo)/i;
+  
+  const isSearchable = technicalPattern.test(term);
+  
+  if (!isSearchable) {
+    console.log(`❌ Termo não pesquisável: "${term}"`);
+  } else {
+    console.log(`✅ Termo pesquisável: "${term}"`);
+  }
+  
+  return isSearchable;
+}
+
+function categorizeByLength(terms: string[]): any {
+  const result = {
+    commercial: [],
+    informational: [],
+    shortTail: [],
+    mediumTail: [],
+    longTail: []
   };
+
+  for (const term of terms) {
+    const words = term.split(' ').length;
+    const termObj = {
+      term,
+      type: 'commercial_modifier',
+      tailType: words === 1 ? 'short' : words === 2 ? 'medium' : 'long',
+      intentType: 'commercial',
+      relevanceScore: 85,
+      sourceContext: {
+        htmlTag: 'combined',
+        frequency: 1,
+        isVerbatim: true
+      }
+    };
+
+    if (words === 1) {
+      result.shortTail.push(termObj);
+      result.commercial.push(term);
+    } else if (words === 2) {
+      result.mediumTail.push(termObj);
+      result.commercial.push(term);
+    } else {
+      result.longTail.push(termObj);
+      result.informational.push(term);
+    }
+  }
+
+  return result;
+}
+
+function generateFocusedPrompts(terms: string[], context: string): string[] {
+  const prompts = [];
+  
+  // Pegar apenas os 3 melhores termos
+  const topTerms = terms.slice(0, 3);
+  
+  for (const term of topTerms) {
+    if (term.length >= 6) {
+      prompts.push(`${term} preço`);
+      prompts.push(`orçamento ${term}`);
+      prompts.push(`onde fazer ${term}`);
+    }
+  }
+
+  return [...new Set(prompts)].slice(0, 8);
 }
 
 function generateIntelligentBusinessPrompts(modifiers: string[], entities: string[], attributes: string[], url: string): string[] {
-  const prompts: string[] = [];
-  const domain = new URL(url).hostname.replace('www.', '');
-  
-  // SELEÇÃO RIGOROSA: Apenas termos comerciais de ALTA qualidade
-  const topEntity = entities.find(e => 
-    e.length >= 5 && 
-    !e.match(/^(serviços?|produtos?|empresa|comercial|técnico|profissional)$/i) &&
-    (e.includes('inox') || e.includes('polimento') || e.includes('manutenção') || e.includes('equipamentos') || e.includes('máquinas'))
-  );
-  
-  const topModifier = modifiers.find(m => 
-    m.length >= 5 && 
-    !m.match(/^(comercial|técnico|profissional|especializada?)$/i) &&
-    (m.includes('inox') || m.includes('industrial') || m.includes('polimento') || m.includes('soldagem'))
-  );
-  
-  const topAttribute = attributes.find(a => 
-    a.length >= 5 && 
-    !a.match(/^(comercial|técnico|profissional)$/i)
-  );
-
-  console.log(`🎯 Gerando prompts com: entidade="${topEntity}", modificador="${topModifier}", atributo="${topAttribute}"`);
-
-  if (topEntity) {
-    // Prompts comerciais diretos (APENAS se o termo for realmente específico)
-    if (topEntity.length >= 6) {
-      prompts.push(`${topEntity} preço`);
-      prompts.push(`orçamento ${topEntity}`);
-      prompts.push(`onde fazer ${topEntity}`);
-    }
-    
-    if (topModifier && topModifier !== topEntity && topModifier.length >= 6) {
-      prompts.push(`${topModifier} ${topEntity}`);
-    }
-    
-    // Prompts informacionais com intenção comercial (apenas se específicos)
-    if (topEntity.length >= 8) {
-      prompts.push(`como escolher ${topEntity}`);
-      prompts.push(`${topEntity} vale a pena`);
-    }
-    
-    // Prompts com atributos específicos
-    if (topAttribute && topAttribute !== topEntity && topAttribute.length >= 6) {
-      prompts.push(`${topEntity} ${topAttribute}`);
-    }
-    
-    // Prompts de qualidade (apenas para entidades específicas)
-    if (topEntity.includes(' ') && topEntity.length >= 10) {
-      prompts.push(`melhor ${topEntity}`);
-    }
-  }
-
-  // ELIMINAR prompts de marca genérica
-  // (Removido completamente pois geralmente gera ruído)
-
-  // Limpar e retornar apenas prompts únicos e de ALTA qualidade
-  const uniquePrompts = [...new Set(prompts)]
-    .filter(p => p && p.length >= 8 && p.length <= 50) // Mais restritivo
-    .filter(p => !p.match(/^(serviços?|produtos?|empresa|comercial|técnico|profissional)/i)) // Filtrar genéricos
-    .filter(p => {
-      // VERIFICAÇÃO DUPLA: Deve ter pelo menos uma palavra técnica específica
-      const hasTechnicalWord = /(inox|polimento|soldagem|usinagem|manutenção|equipamentos?|máquinas?|industrial)/i.test(p);
-      if (!hasTechnicalWord) {
-        console.log(`❌ Prompt rejeitado por falta de palavra técnica: "${p}"`);
-      }
-      return hasTechnicalWord;
-    })
-    .slice(0, 6); // REDUZIDO para apenas 6 prompts de alta qualidade
-
-  console.log(`✨ Prompts finais gerados (${uniquePrompts.length}):`, uniquePrompts);
-  return uniquePrompts;
+  // Esta função foi movida e simplificada para generateFocusedPrompts
+  return [];
 }
 
 function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticAnalysis?: SemanticAnalysis): AuditCategory[] {
