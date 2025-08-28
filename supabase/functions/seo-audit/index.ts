@@ -410,7 +410,7 @@ function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAn
     console.log('✅ Termos finais aprovados:', validTerms);
 
     // Classificar em categorias simples
-    const categorizedTerms = categorizeByLength(validTerms);
+    const categorizedTerms = categorizeByLength(validTerms, businessContext, mainConcepts);
     const prompts = generateFocusedPrompts(validTerms, businessContext);
     
     return {
@@ -606,6 +606,45 @@ function buildCommercialTerms(concepts: string[], businessContext: string): stri
   return finalTerms;
 }
 
+// Função principal de validação (estava faltando e causando erro)
+function isSearchableTerm(term: string): boolean {
+  return isCommercialTerm(term);
+}
+
+// Função para validar palavras únicas considerando contexto do negócio
+function isValidSingleWord(word: string, sector: string, mainConcepts: string[]): boolean {
+  const cleanWord = word.toLowerCase().trim();
+  
+  // 1. Verificar se é marca/modelo específico do setor
+  const isBrandOrModel = cleanWord.length >= 4 && /^[a-zA-ZáéíóúâêîôûàèìòùãõçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ0-9]+$/.test(cleanWord);
+  
+  // 2. Verificar se aparece nos conceitos principais (alta relevância no contexto)
+  const isMainConcept = mainConcepts.some(concept => 
+    concept.toLowerCase().includes(cleanWord) && concept.split(' ').includes(cleanWord)
+  );
+  
+  // 3. Verificar se é termo técnico específico do setor
+  const sectorTerms: Record<string, string[]> = {
+    metalurgia: ['inox', 'eletropolimento', 'passivação', 'anodização', 'galvanização', 'cromagem'],
+    construção: ['granito', 'mármore', 'porcelanato', 'gesso', 'drywall', 'argamassa'],
+    automotivo: ['tcross', 'golf', 'civic', 'corolla', 'onix', 'hb20', 'kwid'],
+    tecnologia: ['iphone', 'macbook', 'android', 'windows', 'linux', 'nodejs'],
+    saúde: ['ortodontia', 'implante', 'endodontia', 'periodontia', 'prótese'],
+    alimentício: ['orgânico', 'vegano', 'lactose', 'glúten', 'kosher']
+  };
+  
+  const sectorSpecific = (sectorTerms[sector] || []).includes(cleanWord);
+  
+  // 4. Critério de pesquisabilidade individual
+  const isSearchableAlone = cleanWord.length >= 4 && (sectorSpecific || isBrandOrModel);
+  
+  const isValid = (isMainConcept || sectorSpecific) && isSearchableAlone;
+  
+  console.log(`🔍 Palavra única "${word}": ${isValid ? '✅ ACEITA' : '❌ REJEITADA'} (setor: ${sector}, conceito principal: ${isMainConcept}, específica do setor: ${sectorSpecific}, pesquisável sozinha: ${isSearchableAlone})`);
+  
+  return isValid;
+}
+
 function isCommercialTerm(concept: string): boolean {
   // 1. TESTE DE PESQUISABILIDADE: "Alguém pesquisaria isso para contratar?"
   if (concept.length < 4) return false;
@@ -632,7 +671,7 @@ function isCommercialTerm(concept: string): boolean {
 
 // Funções de análise semântica removidas - substituídas pela lógica manual simples
 
-function categorizeByLength(terms: string[]): any {
+function categorizeByLength(terms: string[], businessContext?: string, mainConcepts?: string[]): any {
   const result = {
     commercial: [],
     informational: [],
@@ -643,12 +682,22 @@ function categorizeByLength(terms: string[]): any {
 
   for (const term of terms) {
     const words = term.split(' ').length;
+    
+    // Para palavras únicas, aplicar validação rigorosa considerando contexto
+    if (words === 1) {
+      const isValidSingle = isValidSingleWord(term, businessContext || 'generic', mainConcepts || []);
+      if (!isValidSingle) {
+        console.log(`❌ Palavra única rejeitada por contexto: "${term}"`);
+        continue; // Pula essa palavra única se não for válida no contexto
+      }
+    }
+    
     const termObj = {
       term,
       type: 'commercial_modifier',
       tailType: words === 1 ? 'short' : words === 2 ? 'medium' : 'long',
       intentType: 'commercial',
-      relevanceScore: 85,
+      relevanceScore: words === 1 ? 95 : 85, // Score mais alto para palavras únicas válidas
       sourceContext: {
         htmlTag: 'combined',
         frequency: 1,
