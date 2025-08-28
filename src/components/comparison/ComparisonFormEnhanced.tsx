@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, Plus, X, Edit3 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useProjects } from "@/contexts/ProjectContext";
 import { toast } from "sonner";
 
@@ -19,6 +20,8 @@ const ComparisonFormEnhanced = ({ onCompare }: ComparisonFormEnhancedProps) => {
   const [customKeywords, setCustomKeywords] = useState("");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isEditingKeywords, setIsEditingKeywords] = useState(false);
+  const [newKeyword, setNewKeyword] = useState("");
 
   useEffect(() => {
     if (selectedProject) {
@@ -87,6 +90,30 @@ const ComparisonFormEnhanced = ({ onCompare }: ComparisonFormEnhancedProps) => {
       setCustomKeywords(newKeywords.join(", "));
       setSelectedKeywords(newKeywords);
     }
+  };
+
+  const addNewKeyword = () => {
+    if (newKeyword.trim()) {
+      addSuggestedKeyword(newKeyword.trim());
+      setNewKeyword("");
+    }
+  };
+
+  const removeKeyword = (keywordToRemove: string) => {
+    const currentKeywords = customKeywords
+      .split(",")
+      .map(k => k.trim())
+      .filter(k => k.length > 0 && k !== keywordToRemove);
+    
+    setCustomKeywords(currentKeywords.join(", "));
+    setSelectedKeywords(currentKeywords);
+  };
+
+  const getKeywordsList = () => {
+    return customKeywords
+      .split(",")
+      .map(k => k.trim())
+      .filter(k => k.length > 0);
   };
 
   const competitorSuggestions = selectedProject
@@ -203,39 +230,122 @@ const ComparisonFormEnhanced = ({ onCompare }: ComparisonFormEnhancedProps) => {
             </div>
 
             {/* Palavras-chave */}
-            <div className="space-y-2">
-              <Label htmlFor="keywords">Palavras-chave para Comparação *</Label>
-              <textarea
-                id="keywords"
-                className="w-full min-h-[100px] p-3 border rounded-md resize-none"
-                placeholder="Digite as palavras-chave separadas por vírgula"
-                value={customKeywords}
-                onChange={(e) => setCustomKeywords(e.target.value)}
-                disabled={!selectedProject}
-              />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="keywords">Palavras-chave para Comparação *</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingKeywords(!isEditingKeywords)}
+                  className="text-xs"
+                >
+                  <Edit3 className="h-3 w-3 mr-1" />
+                  {isEditingKeywords ? "Modo Lista" : "Editar Manualmente"}
+                </Button>
+              </div>
+
+              {isEditingKeywords ? (
+                /* Modo de Edição Manual */
+                <textarea
+                  id="keywords"
+                  className="w-full min-h-[100px] p-3 border rounded-md resize-none"
+                  placeholder="Digite as palavras-chave separadas por vírgula"
+                  value={customKeywords}
+                  onChange={(e) => {
+                    setCustomKeywords(e.target.value);
+                    setSelectedKeywords(e.target.value.split(",").map(k => k.trim()).filter(k => k.length > 0));
+                  }}
+                  disabled={!selectedProject}
+                />
+              ) : (
+                /* Modo Visual com Tags */
+                <div className="space-y-3">
+                  {/* Keywords Selecionadas */}
+                  <div className="min-h-[80px] p-3 border rounded-md bg-background">
+                    {getKeywordsList().length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {getKeywordsList().map((keyword, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="flex items-center gap-1 text-sm py-1 px-2"
+                          >
+                            {keyword}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeKeyword(keyword)}
+                              className="h-4 w-4 p-0 hover:bg-destructive/20 hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        Selecione palavras-chave do projeto ou adicione manualmente
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Adicionar Nova Keyword */}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Adicionar nova palavra-chave"
+                      value={newKeyword}
+                      onChange={(e) => setNewKeyword(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addNewKeyword())}
+                      disabled={!selectedProject}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addNewKeyword}
+                      disabled={!selectedProject || !newKeyword.trim()}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              <Separator />
               
               {/* Sugestões de Palavras-chave do Projeto */}
               {selectedProject && selectedProject.keywords.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">
-                    Palavras-chave do seu projeto:
+                    Palavras-chave do seu projeto ({selectedProject.keywords.length}):
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedProject.keywords.map((keyword) => (
-                      <Button
-                        key={keyword.id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addSuggestedKeyword(keyword.keyword)}
-                        className="text-xs"
-                      >
-                        {keyword.keyword}
-                        <Badge variant="secondary" className="ml-2">
-                          {keyword.searchVolume.toLocaleString()}
-                        </Badge>
-                      </Button>
-                    ))}
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {selectedProject.keywords.map((keyword) => {
+                      const isSelected = getKeywordsList().includes(keyword.keyword);
+                      return (
+                        <Button
+                          key={keyword.id}
+                          type="button"
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => 
+                            isSelected 
+                              ? removeKeyword(keyword.keyword)
+                              : addSuggestedKeyword(keyword.keyword)
+                          }
+                          className="text-xs h-8"
+                        >
+                          {isSelected && <X className="h-3 w-3 mr-1" />}
+                          {!isSelected && <Plus className="h-3 w-3 mr-1" />}
+                          {keyword.keyword}
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            {keyword.searchVolume.toLocaleString()}
+                          </Badge>
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

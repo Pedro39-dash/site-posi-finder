@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { EnhancedChartContainer, CustomTooltip, CHART_COLORS, ChartGradients, formatPosition } from "@/components/ui/enhanced-chart";
+import { calculateAdvancedScore, calculateOverallScore, getPositionCategory } from "@/utils/seoScoring";
+import KeywordBattleMatrix from "./KeywordBattleMatrix";
+import OpportunityCategories from "./OpportunityCategories";
 
 export interface ComparisonResultEnhanced {
   keyword: string;
@@ -27,24 +30,14 @@ const ComparisonResultsEnhanced = ({ websites, results, projectName, onNewCompar
   const clientDomain = websites[0];
   const competitorDomain = websites[1];
 
-  // Cálculo do score geral
+  // Cálculo do score geral usando algoritmo aprimorado
   const calculateScore = (website: string) => {
     const websiteResults = results.map(r => r.results.find(res => res.website === website));
     const validPositions = websiteResults
       .filter(r => r?.position !== null)
       .map(r => r!.position!);
     
-    if (validPositions.length === 0) return 0;
-    
-    const totalScore = validPositions.reduce((acc, pos) => {
-      if (pos === 1) return acc + 100;
-      if (pos <= 3) return acc + 90;
-      if (pos <= 5) return acc + 80;
-      if (pos <= 10) return acc + 70;
-      return acc + 50;
-    }, 0);
-    
-    return Math.round(totalScore / validPositions.length);
+    return calculateOverallScore(validPositions, { useNonLinearFormula: true });
   };
 
   const clientScore = calculateScore(clientDomain);
@@ -86,10 +79,7 @@ const ComparisonResultsEnhanced = ({ websites, results, projectName, onNewCompar
   };
 
   const getPositionBadgeVariant = (position: number | null) => {
-    if (!position) return "secondary";
-    if (position <= 3) return "default";
-    if (position <= 10) return "secondary";
-    return "outline";
+    return getPositionCategory(position).badgeVariant;
   };
 
   const getPositionText = (position: number | null) => {
@@ -235,43 +225,11 @@ const ComparisonResultsEnhanced = ({ websites, results, projectName, onNewCompar
         </BarChart>
       </EnhancedChartContainer>
 
-      {/* Oportunidades de Melhoria */}
-      {opportunities.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-destructive" />
-              Oportunidades de Melhoria ({opportunities.length})
-            </CardTitle>
-            <CardDescription>
-              Palavras-chave onde seu concorrente está melhor posicionado
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {opportunities.slice(0, 5).map((opp) => {
-                const clientPos = opp.results.find(r => r.website === clientDomain)?.position;
-                const competitorPos = opp.results.find(r => r.website === competitorDomain)?.position;
-                const gap = clientPos && competitorPos ? clientPos - competitorPos : 0;
-                
-                return (
-                  <div key={opp.keyword} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <span className="font-medium">{opp.keyword}</span>
-                      <p className="text-sm text-muted-foreground">
-                        Concorrente: {getPositionText(competitorPos)} | Você: {getPositionText(clientPos)}
-                      </p>
-                    </div>
-                    <Badge variant="destructive">
-                      -{gap} posições
-                    </Badge>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Matriz de Batalha de Keywords */}
+      <KeywordBattleMatrix results={results} websites={websites} />
+
+      {/* Análise Estratégica de Oportunidades */}
+      <OpportunityCategories results={results} websites={websites} />
 
       {/* Tabela Detalhada */}
       <Card>
