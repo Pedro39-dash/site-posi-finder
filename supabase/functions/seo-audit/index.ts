@@ -371,62 +371,33 @@ interface SemanticAnalysis {
 }
 
 function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAnalysis {
-  console.log('🧠 Starting intelligent semantic analysis...');
+  console.log('🧠 Starting contextual semantic analysis...');
   
-  // ===== FASE 1: SISTEMA DE FILTROS SEMÂNTICOS ROBUSTOS =====
+  // ===== FASE 1: ENGINE DE ANÁLISE DE INTENÇÃO COMERCIAL REAL =====
   
-  // Expanded stop words (Portuguese & English) - Critical words to exclude
+  // CRÍTICO: Stop words expandidas - eliminar ruído máximo
   const stopWordsExpanded = new Set([
-    // Portuguese connectors & meaningless words
-    'para', 'com', 'por', 'sem', 'sobre', 'entre', 'contra', 'durante', 'desde', 'até',
-    'como', 'quando', 'onde', 'porque', 'quanto', 'qual', 'quem', 'que', 'uma', 'uns',
-    'mas', 'mais', 'muito', 'menos', 'ainda', 'então', 'assim', 'aqui', 'ali', 'lá',
-    'este', 'esta', 'esse', 'essa', 'aquele', 'aquela', 'seu', 'sua', 'nosso', 'nossa',
-    'todo', 'toda', 'todos', 'todas', 'cada', 'algum', 'alguns', 'nenhum', 'nenhuma',
-    // English connectors  
-    'with', 'from', 'into', 'during', 'before', 'after', 'above', 'below', 'between',
-    'through', 'during', 'before', 'after', 'above', 'below', 'under', 'over',
-    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'way', 'use', 'her', 'she', 'oil', 'sit', 'set'
+    // Palavras genéricas SEM valor comercial (principais culpadas do ruído)
+    'para', 'com', 'por', 'sem', 'sobre', 'entre', 'durante', 'desde', 'até', 'como', 'quando', 'onde', 
+    'porque', 'quanto', 'qual', 'quem', 'que', 'uma', 'uns', 'mas', 'mais', 'muito', 'menos', 'ainda',
+    'então', 'assim', 'aqui', 'ali', 'lá', 'este', 'esta', 'esse', 'essa', 'aquele', 'aquela', 'seu', 
+    'sua', 'nosso', 'nossa', 'todo', 'toda', 'todos', 'todas', 'cada', 'algum', 'alguns', 'nenhum', 
+    'nenhuma', 'empresa', 'empresas', 'serviços', 'serviço', 'produtos', 'produto', 'comercial', 'negócio',
+    'negócios', 'profissional', 'especializada', 'especializado', 'técnicos', 'técnico', 'técnica',
+    // English noise words
+    'with', 'from', 'into', 'during', 'before', 'after', 'above', 'below', 'between', 'through',
+    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our'
   ]);
 
-  // Enhanced commercial modifiers (context-aware)
-  const commercialModifiers = new Set([
-    'comprar', 'vender', 'preço', 'valor', 'custo', 'orçamento', 'cotação', 'promoção',
-    'desconto', 'oferta', 'melhor', 'top', 'premium', 'luxo', 'barato', 'económico',
-    'grátis', 'gratuito', 'pago', 'investimento', 'financiamento', 'parcelado',
-    'buy', 'sell', 'price', 'cost', 'budget', 'quote', 'deal', 'discount', 'offer',
-    'best', 'top', 'premium', 'luxury', 'cheap', 'affordable', 'free', 'paid'
-  ]);
-
-  // Enhanced entity indicators (business context)
-  const entityIndicators = new Set([
-    'software', 'sistema', 'serviço', 'serviços', 'produto', 'produtos', 'equipamento', 'equipamentos',
-    'curso', 'cursos', 'treinamento', 'consultoria', 'seguro', 'seguros', 'plano', 'planos',
-    'solução', 'soluções', 'ferramenta', 'ferramentas', 'aplicativo', 'aplicativos', 'app', 'apps',
-    'tecnologia', 'empresa', 'empresas', 'negócio', 'negócios', 'indústria', 'industrial',
-    'máquina', 'máquinas', 'device', 'devices', 'service', 'services', 'product', 'products',
-    'equipment', 'course', 'training', 'consulting', 'insurance', 'plan', 'solution', 'tool', 'tools'
-  ]);
-
-  // Enhanced attribute indicators (qualifying characteristics)
-  const attributeIndicators = new Set([
-    'digital', 'online', 'automático', 'inteligente', 'avançado', 'profissional', 'comercial',
-    'industrial', 'residencial', 'completo', 'personalizado', 'customizado', 'integrado',
-    'móvel', 'portátil', 'fixo', 'temporário', 'permanente', 'rápido', 'lento', 'grande', 'pequeno',
-    'automatic', 'intelligent', 'advanced', 'professional', 'commercial', 'complete', 'custom'
-  ]);
-
-  // Parse HTML and extract ONLY priority content for performance
+  // Parse HTML e extrair conteúdo prioritário
   const doc = new DOMParser().parseFromString(html, 'text/html');
   
-  // CRITICAL OPTIMIZATION: Only process high-priority elements
   const contentElements = [
-    { tag: 'title', weight: 4, elements: Array.from(doc.querySelectorAll('title')) },
+    { tag: 'title', weight: 5, elements: Array.from(doc.querySelectorAll('title')) },
     { tag: 'h1', weight: 4, elements: Array.from(doc.querySelectorAll('h1')) },
-    { tag: 'h2', weight: 3, elements: Array.from(doc.querySelectorAll('h2')).slice(0, 5) },
-    { tag: 'meta[name="description"]', weight: 3, elements: Array.from(doc.querySelectorAll('meta[name="description"]')) },
-    { tag: 'h3', weight: 2, elements: Array.from(doc.querySelectorAll('h3')).slice(0, 3) },
-    { tag: 'strong', weight: 1.5, elements: Array.from(doc.querySelectorAll('strong')).slice(0, 5) }
+    { tag: 'h2', weight: 3, elements: Array.from(doc.querySelectorAll('h2')).slice(0, 3) },
+    { tag: 'meta[name="description"]', weight: 4, elements: Array.from(doc.querySelectorAll('meta[name="description"]')) },
+    { tag: 'h3', weight: 2, elements: Array.from(doc.querySelectorAll('h3')).slice(0, 2) }
   ];
 
   const extractedTerms: SemanticTerm[] = [];
@@ -435,69 +406,97 @@ function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAn
   const foundAttributes = new Set<string>();
   const processedTerms = new Set<string>();
 
-  // ===== FASE 2: ENGINE DE CLASSIFICAÇÃO INTELIGENTE =====
+  // ===== FASE 2: DETECTORES DE PADRÕES COMERCIAIS REAIS =====
   
-  function isValidBusinessTerm(term: string): boolean {
-    // Filter meaningless isolated words
-    if (term.length < 3 || term.length > 80) return false;
+  function hasCommercialIntent(term: string, context: string): boolean {
+    const commercialPatterns = [
+      // Padrões de serviços específicos (verbo + substantivo)
+      /\w+\s+(inox|aço|metal|soldagem|usinagem|torneamento|fresamento)/i,
+      /\w+\s+(manutenção|reparo|conserto|instalação|montagem)/i,
+      /(polimento|tratamento|acabamento|revestimento|galvanização)\s+\w+/i,
+      // Padrões de produtos técnicos
+      /(equipamentos?|máquinas?|peças?|componentes?)\s+\w+/i,
+      /\w+\s+(industrial|comercial|profissional|especializado)/i,
+      // Padrões de negócio específico
+      /(reforma|renovação|restauração|recuperação)\s+\w+/i,
+      /\w+\s+(sob\s+medida|personalizado|customizado)/i
+    ];
     
-    // Skip pure stop words
-    if (stopWordsExpanded.has(term.toLowerCase())) return false;
+    return commercialPatterns.some(pattern => pattern.test(term));
+  }
+  
+  function isProbablySearchable(term: string): boolean {
+    // Verificar se é um termo que pessoas realmente pesquisam
+    const searchablePatterns = [
+      // Combinações naturais de produtos/serviços
+      /\w+\s+(inox|aço|metal|alumínio|ferro|cobre)/i,
+      /(polimento|soldagem|usinagem|torneamento|fresamento|tratamento)/i,
+      /manutenção\s+\w+/i,
+      /(equipamentos?|máquinas?|peças?)\s+\w+/i,
+      // Termos técnicos específicos (não genéricos)
+      /\w{6,}\s+\w{6,}/i, // Duas palavras longas juntas
+    ];
     
-    // Skip numbers-only terms
-    if (/^\d+$/.test(term)) return false;
+    // Rejeitar termos muito genéricos
+    const genericRejects = [
+      /^(serviços?|produtos?|empresa|comercial|profissional|técnico|especializada?)$/i,
+      /^(para|com|sobre|entre|durante|desde|até)$/i,
+      /^(muito|mais|menos|bem|já|ainda|então|assim)$/i
+    ];
     
-    // Skip single letters or very short meaningless terms
-    if (term.length < 4 && !entityIndicators.has(term) && !commercialModifiers.has(term)) return false;
+    if (genericRejects.some(pattern => pattern.test(term))) return false;
     
-    return true;
+    return searchablePatterns.some(pattern => pattern.test(term)) || 
+           (term.includes(' ') && term.length > 10 && term.length < 50);
+  }
+  
+  function hasBusinessValue(term: string): boolean {
+    // Verificar se tem valor real para SEO/Marketing
+    const valuablePatterns = [
+      // Serviços específicos
+      /(polimento|soldagem|usinagem|torneamento|fresamento|galvanização|anodização)/i,
+      /(manutenção|instalação|montagem|reparo|conserto|reforma|restauração)/i,
+      // Produtos técnicos
+      /(equipamentos?|máquinas?|peças?|componentes?|ferramentas?|implementos?)/i,
+      // Materiais específicos
+      /(inox|aço|alumínio|ferro|cobre|bronze|latão|titânio)/i,
+      // Setores específicos
+      /(industrial|naval|automotivo|aeronáutico|alimentício|farmacêutico)/i
+    ];
+    
+    return valuablePatterns.some(pattern => pattern.test(term));
   }
 
-  function analyzeSemanticRelationship(termWords: string[]): { 
-    isCommercial: boolean, 
-    isEntity: boolean, 
-    isAttribute: boolean,
-    semanticScore: number 
-  } {
-    let semanticScore = 0;
-    let isCommercial = false;
-    let isEntity = false;
-    let isAttribute = false;
-
-    // Check commercial modifiers with context awareness
-    const commercialCount = termWords.filter(word => commercialModifiers.has(word)).length;
-    if (commercialCount > 0) {
-      isCommercial = true;
-      semanticScore += commercialCount * 25; // Strong boost for commercial intent
-    }
-
-    // Check entity indicators with co-occurrence validation
-    const entityCount = termWords.filter(word => entityIndicators.has(word)).length;
-    if (entityCount > 0) {
-      isEntity = true;
-      semanticScore += entityCount * 20;
-      
-      // Bonus for entity + modifier combination (natural business language)
-      if (isCommercial) semanticScore += 15;
-    }
-
-    // Check attribute indicators
-    const attributeCount = termWords.filter(word => attributeIndicators.has(word)).length;
-    if (attributeCount > 0) {
-      isAttribute = true;
-      semanticScore += attributeCount * 15;
-    }
-
-    // Penalty for terms with too many stop words
-    const stopWordCount = termWords.filter(word => stopWordsExpanded.has(word)).length;
-    if (stopWordCount > 0) {
-      semanticScore -= stopWordCount * 10;
-    }
-
-    return { isCommercial, isEntity, isAttribute, semanticScore };
+  function calculateCommercialScore(term: string, termWords: string[], sourceTag: string, originalText: string): number {
+    let score = 0;
+    
+    // Score baseado em VALOR COMERCIAL REAL
+    if (hasCommercialIntent(term, originalText)) score += 40;
+    if (isProbablySearchable(term)) score += 30;
+    if (hasBusinessValue(term)) score += 25;
+    
+    // Bonus por fonte de alta prioridade
+    if (sourceTag === 'title') score += 20;
+    else if (sourceTag === 'h1') score += 15;
+    else if (sourceTag === 'meta[name="description"]') score += 15;
+    else if (sourceTag === 'h2') score += 10;
+    
+    // Bonus por combinação natural (2-3 palavras)
+    if (termWords.length === 2 && term.length > 8) score += 15;
+    if (termWords.length === 3 && term.length > 12) score += 10;
+    
+    // PENALIZAÇÕES SEVERAS para termos genéricos
+    if (stopWordsExpanded.has(term.toLowerCase())) score -= 50;
+    if (term.match(/^(serviços?|produtos?|empresa|comercial|técnico)$/i)) score -= 40;
+    if (term.length < 4) score -= 20;
+    
+    // Bonus por especificidade técnica
+    if (term.match(/\w{6,}/)) score += 10;
+    
+    return Math.max(0, score);
   }
 
-  // ===== FASE 3: GERAÇÃO INTELIGENTE DE N-GRAMS =====
+  // ===== FASE 3: SISTEMA DE COMBINAÇÕES SEMÂNTICAS INTELIGENTES =====
   
   contentElements.forEach(({ tag, weight, elements }) => {
     elements.forEach(element => {
@@ -510,49 +509,50 @@ function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAn
       
       if (!text || text.length < 5) return;
       
-      // Clean and normalize text with better preprocessing
+      // Limpeza e normalização avançada
       const cleanText = text
         .toLowerCase()
         .replace(/[^\w\sáéíóúâêîôûàèìòùãõç-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 
-      // Extract words and filter meaningless ones early
+      // Extrair palavras e filtrar ruído logo no início
       const words = cleanText.split(' ')
         .filter(word => word.length > 2)
         .filter(word => !stopWordsExpanded.has(word))
-        .slice(0, 15); // Limit word processing for performance
+        .slice(0, 20); // Limitar processamento para performance
 
-      // Generate semantically valid n-grams only
+      // ===== GERAÇÃO INTELIGENTE DE TERMOS COMERCIAIS =====
       for (let i = 0; i < words.length; i++) {
-        // Single words (only if they have business value)
+        // Palavras individuais (apenas se tiverem valor comercial claro)
         const singleWord = words[i];
-        if (!processedTerms.has(singleWord) && isValidBusinessTerm(singleWord)) {
-          analyzeAndClassifyTerm(singleWord, [singleWord], tag, weight, text);
-          processedTerms.add(singleWord);
+        if (!processedTerms.has(singleWord) && singleWord.length >= 4) {
+          const score = calculateCommercialScore(singleWord, [singleWord], tag, text);
+          if (score >= 60) { // Threshold mais alto para palavras individuais
+            analyzeAndClassifyTerm(singleWord, [singleWord], tag, weight, text, score);
+            processedTerms.add(singleWord);
+          }
         }
         
-        // 2-grams (semantic validation)
+        // 2-grams (combinações que fazem sentido comercial)
         if (i < words.length - 1) {
           const bigram = `${words[i]} ${words[i + 1]}`;
-          if (!processedTerms.has(bigram) && isValidBusinessTerm(bigram)) {
-            const bigramRelation = analyzeSemanticRelationship([words[i], words[i + 1]]);
-            // Only process if it has semantic value
-            if (bigramRelation.semanticScore > 0) {
-              analyzeAndClassifyTerm(bigram, [words[i], words[i + 1]], tag, weight, text);
+          if (!processedTerms.has(bigram) && bigram.length >= 6) {
+            const score = calculateCommercialScore(bigram, [words[i], words[i + 1]], tag, text);
+            if (score >= 50) { // Threshold menor para combinações
+              analyzeAndClassifyTerm(bigram, [words[i], words[i + 1]], tag, weight, text, score);
               processedTerms.add(bigram);
             }
           }
         }
         
-        // 3-grams (only if they form coherent business concepts)
+        // 3-grams (apenas se formarem conceitos comerciais coerentes)
         if (i < words.length - 2) {
           const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
-          if (!processedTerms.has(trigram) && isValidBusinessTerm(trigram)) {
-            const trigramRelation = analyzeSemanticRelationship([words[i], words[i + 1], words[i + 2]]);
-            // Higher threshold for 3-grams (must be meaningful)
-            if (trigramRelation.semanticScore > 15) {
-              analyzeAndClassifyTerm(trigram, [words[i], words[i + 1], words[i + 2]], tag, weight, text);
+          if (!processedTerms.has(trigram) && trigram.length >= 10) {
+            const score = calculateCommercialScore(trigram, [words[i], words[i + 1], words[i + 2]], tag, text);
+            if (score >= 45) { // Threshold ainda menor para 3-grams específicos
+              analyzeAndClassifyTerm(trigram, [words[i], words[i + 1], words[i + 2]], tag, weight, text, score);
               processedTerms.add(trigram);
             }
           }
@@ -561,75 +561,38 @@ function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAn
     });
   });
 
-  // ===== FASE 4: SISTEMA DE PONTUAÇÃO CONTEXTUAL =====
+  // ===== FASE 4: CLASSIFICAÇÃO BASEADA EM INTENÇÃO REAL =====
   
-  function analyzeAndClassifyTerm(term: string, termWords: string[], sourceTag: string, tagWeight: number, originalText: string) {
-    if (!isValidBusinessTerm(term)) return;
-    
-    const relationship = analyzeSemanticRelationship(termWords);
-    
-    // Skip terms with no semantic value
-    if (relationship.semanticScore <= 0) return;
-
-    // Determine term type based on intelligent analysis
+  function analyzeAndClassifyTerm(term: string, termWords: string[], sourceTag: string, tagWeight: number, originalText: string, commercialScore: number) {
+    // Classificação inteligente baseada no contexto real
     let termType: SemanticTerm['type'] = 'specifier';
-    if (relationship.isCommercial) {
+    let intentType: SemanticTerm['intentType'] = 'informational';
+    
+    // Detectar tipo baseado no CONTEÚDO REAL, não em listas
+    if (hasCommercialIntent(term, originalText)) {
       termType = 'commercial_modifier';
+      intentType = 'commercial';
       foundModifiers.add(term);
-    } else if (relationship.isEntity) {
+    } else if (hasBusinessValue(term)) {
       termType = 'main_entity';
+      intentType = 'commercial';
       foundEntities.add(term);
-    } else if (relationship.isAttribute) {
+    } else if (term.match(/(industrial|comercial|profissional|técnico|especializado)/i)) {
       termType = 'attribute';
       foundAttributes.add(term);
     }
 
-    // Determine tail type (semantic-based)
+    // Classificação de tail type baseada em semântica
     const wordCount = termWords.length;
     let tailType: SemanticTerm['tailType'] = 'short';
-    if (wordCount >= 3) tailType = 'medium';
-    if (wordCount >= 4) tailType = 'long';
+    if (wordCount >= 2 && term.length >= 12) tailType = 'medium';
+    if (wordCount >= 3 && term.length >= 18) tailType = 'long';
 
-    // Determine intent type with better logic
-    let intentType: SemanticTerm['intentType'] = 'informational';
-    if (relationship.isCommercial || (relationship.isEntity && relationship.isAttribute)) {
-      intentType = 'commercial';
-    } else if (term.includes(new URL(url).hostname.split('.')[0])) {
-      intentType = 'navigational';
-    }
+    // Usar o score comercial já calculado
+    const relevanceScore = Math.min(100, commercialScore);
 
-    // ===== SISTEMA DE PONTUAÇÃO CONTEXTUAL AVANÇADO =====
-    let relevanceScore = 30; // Lower base score
-    
-    // HTML source weight (priority elements get higher scores)
-    if (sourceTag === 'title') relevanceScore += 35;
-    else if (sourceTag === 'h1') relevanceScore += 30;
-    else if (sourceTag === 'meta[name="description"]') relevanceScore += 25;
-    else if (sourceTag === 'h2') relevanceScore += 20;
-    else if (sourceTag === 'h3') relevanceScore += 15;
-    else relevanceScore += 10;
-    
-    // Semantic relationship score (from intelligent analysis)
-    relevanceScore += Math.min(relationship.semanticScore, 30);
-    
-    // Commercial intent bonus (business value)
-    if (intentType === 'commercial') relevanceScore += 25;
-    
-    // Entity bonus (core business concepts)
-    if (termType === 'main_entity') relevanceScore += 20;
-    
-    // Verbatim match bonus (exact appearance in content)
-    if (originalText.toLowerCase().includes(term)) relevanceScore += 15;
-    
-    // Length optimization (penalize very long terms)
-    if (term.length > 50) relevanceScore -= 15;
-    if (term.length > 70) relevanceScore -= 25;
-    
-    // Cap at 100
-    relevanceScore = Math.min(100, relevanceScore);
-
-    // STRICT QUALITY THRESHOLD (only high-value terms)
-    if (relevanceScore >= 80) {
+    // FILTRO FINAL: Apenas termos com ALTO VALOR COMERCIAL
+    if (relevanceScore >= 45) { // Threshold reduzido mas ainda seletivo
       extractedTerms.push({
         term,
         type: termType,
@@ -645,46 +608,46 @@ function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAn
     }
   }
 
-  // ===== FASE 5: AGREGAÇÃO E FINALIZAÇÃO INTELIGENTE =====
+  // ===== FASE 5: AGREGAÇÃO E OTIMIZAÇÃO FINAL =====
   
-  // Aggregate and deduplicate terms with enhanced scoring
+  // Agregar termos duplicados com pontuação melhorada
   const termMap = new Map<string, SemanticTerm>();
   extractedTerms.forEach(term => {
     if (termMap.has(term.term)) {
       const existing = termMap.get(term.term)!;
       existing.sourceContext.frequency++;
-      // Use weighted average for score (frequency helps but doesn't dominate)
-      existing.relevanceScore = Math.min(100, existing.relevanceScore + (term.relevanceScore * 0.2));
+      // Boost por frequência, mas limitado
+      existing.relevanceScore = Math.min(100, existing.relevanceScore + 5);
     } else {
       termMap.set(term.term, term);
     }
   });
 
-  // Final terms sorted by relevance score (quality-first)
+  // Ordenar por valor comercial real e limitar quantidade
   const finalTerms = Array.from(termMap.values())
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 30); // Reduced to top 30 highest quality terms
+    .slice(0, 25); // Reduzido para apenas os 25 melhores termos
 
-  // Categorize by tail type with strict quality limits
-  const shortTailTerms = finalTerms.filter(t => t.tailType === 'short').slice(0, 8);
-  const mediumTailTerms = finalTerms.filter(t => t.tailType === 'medium').slice(0, 12); 
-  const longTailTerms = finalTerms.filter(t => t.tailType === 'long').slice(0, 10);
+  // Categorizar com limites mais rígidos
+  const shortTailTerms = finalTerms.filter(t => t.tailType === 'short').slice(0, 6);
+  const mediumTailTerms = finalTerms.filter(t => t.tailType === 'medium').slice(0, 10); 
+  const longTailTerms = finalTerms.filter(t => t.tailType === 'long').slice(0, 9);
 
-  // Generate intelligent prompts with business focus
+  // Gerar prompts baseados apenas em termos de ALTA QUALIDADE
   const intelligentPrompts = generateIntelligentBusinessPrompts(
-    Array.from(foundModifiers).slice(0, 3),
+    Array.from(foundModifiers).slice(0, 2),
     Array.from(foundEntities).slice(0, 3), 
-    Array.from(foundAttributes).slice(0, 3),
+    Array.from(foundAttributes).slice(0, 2),
     url
   );
 
-  console.log(`🧠 Intelligent semantic analysis complete: ${finalTerms.length} quality terms, ${intelligentPrompts.length} business prompts`);
+  console.log(`🧠 Contextual semantic analysis complete: ${finalTerms.length} quality commercial terms, ${intelligentPrompts.length} business prompts`);
   console.log(`📊 Categories: ${shortTailTerms.length} short, ${mediumTailTerms.length} medium, ${longTailTerms.length} long tail terms`);
 
   return {
-    commercialModifiers: Array.from(foundModifiers).slice(0, 6),
-    mainEntities: Array.from(foundEntities).slice(0, 6),
-    attributes: Array.from(foundAttributes).slice(0, 8),
+    commercialModifiers: Array.from(foundModifiers).slice(0, 4),
+    mainEntities: Array.from(foundEntities).slice(0, 4),
+    attributes: Array.from(foundAttributes).slice(0, 5),
     shortTailTerms,
     mediumTailTerms,
     longTailTerms,
@@ -696,40 +659,49 @@ function generateIntelligentBusinessPrompts(modifiers: string[], entities: strin
   const prompts: string[] = [];
   const domain = new URL(url).hostname.replace('www.', '');
   
-  // Focus on the most relevant entities and modifiers
-  const topEntity = entities[0];
-  const topModifier = modifiers[0];
-  const topAttribute = attributes[0];
+  // Focar apenas nos melhores termos comerciais identificados
+  const topEntity = entities.find(e => e.length > 3 && !e.match(/^(serviços?|produtos?|empresa)$/i));
+  const topModifier = modifiers.find(m => m.length > 3);
+  const topAttribute = attributes.find(a => a.length > 3);
 
   if (topEntity) {
-    // Core commercial prompts (direct business intent)
-    if (topModifier) {
+    // Prompts comerciais diretos (alta intenção de compra)
+    prompts.push(`${topEntity} preço`);
+    prompts.push(`orçamento ${topEntity}`);
+    prompts.push(`onde fazer ${topEntity}`);
+    
+    if (topModifier && topModifier !== topEntity) {
       prompts.push(`${topModifier} ${topEntity}`);
     }
     
-    // Essential buyer journey prompts
-    prompts.push(`${topEntity} preço`);
-    prompts.push(`onde comprar ${topEntity}`);
+    // Prompts informacionais com intenção comercial
     prompts.push(`como escolher ${topEntity}`);
+    prompts.push(`${topEntity} vale a pena`);
     
-    // Attribute combinations (quality-focused)
-    if (topAttribute) {
+    // Prompts com atributos específicos
+    if (topAttribute && topAttribute !== topEntity) {
       prompts.push(`${topEntity} ${topAttribute}`);
     }
     
-    // Informational with commercial intent
-    prompts.push(`o que é ${topEntity}`);
-    prompts.push(`${topEntity} vale a pena`);
+    // Prompts de qualidade e confiança
+    prompts.push(`melhor ${topEntity}`);
   }
 
-  // Domain authority prompts
-  if (domain) {
-    prompts.push(`${domain} é confiável`);
+  // Prompts de marca/autoridade (apenas se o domínio for relevante)
+  if (domain && domain.length > 4 && !domain.includes('www')) {
+    const brandName = domain.split('.')[0];
+    if (brandName.length > 3 && topEntity) {
+      prompts.push(`${brandName} ${topEntity}`);
+    }
   }
 
-  // Remove duplicates and return top prompts
-  const uniquePrompts = [...new Set(prompts)].filter(p => p.length > 5);
-  return uniquePrompts.slice(0, 8);
+  // Limpar e retornar apenas prompts únicos e de qualidade
+  const uniquePrompts = [...new Set(prompts)]
+    .filter(p => p && p.length > 5 && p.length < 60)
+    .filter(p => !p.match(/^(serviços?|produtos?|empresa|comercial)/i)) // Filtrar genéricos
+    .slice(0, 8);
+
+  return uniquePrompts;
 }
 
 function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticAnalysis?: SemanticAnalysis): AuditCategory[] {
