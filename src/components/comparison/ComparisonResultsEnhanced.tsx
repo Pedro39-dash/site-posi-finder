@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { EnhancedChartContainer, CustomTooltip, CHART_COLORS, ChartGradients, formatPosition } from "@/components/ui/enhanced-chart";
 
 export interface ComparisonResultEnhanced {
   keyword: string;
@@ -177,54 +178,62 @@ const ComparisonResultsEnhanced = ({ websites, results, projectName, onNewCompar
       </div>
 
       {/* Gráfico de Comparação */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart className="h-5 w-5" />
-            Posições por Palavra-chave (Top 10)
-          </CardTitle>
-          <CardDescription>
-            Quanto menor a barra, melhor a posição (1ª posição = topo do Google)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="keyword" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  fontSize={12}
-                />
-                <YAxis 
-                  reversed
-                  domain={[1, 100]}
-                  tickFormatter={(value) => `${value}ª`}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [`${value}ª posição`, ""]}
-                  labelFormatter={(label) => `Palavra: ${label}`}
-                />
-                <Bar 
-                  dataKey={clientDomain} 
-                  fill="hsl(var(--primary))" 
-                  name="Seu site"
-                  radius={4}
-                />
-                <Bar 
-                  dataKey={competitorDomain} 
-                  fill="hsl(var(--destructive))" 
-                  name="Concorrente"
-                  radius={4}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <EnhancedChartContainer
+        title="Posições por Palavra-chave (Top 10)"
+        description="Quanto menor a barra, melhor a posição (1ª posição = topo do Google)"
+        icon={<Target className="h-5 w-5" />}
+        badge={{
+          text: `${clientWins}/${results.length} vitórias`,
+          variant: clientWins > competitorWins ? "default" : "destructive"
+        }}
+        height={400}
+      >
+        <BarChart 
+          data={chartData} 
+          margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+        >
+          <ChartGradients />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+          <XAxis 
+            dataKey="keyword" 
+            angle={-45}
+            textAnchor="end"
+            height={90}
+            fontSize={11}
+            stroke="hsl(var(--muted-foreground))"
+          />
+          <YAxis 
+            reversed
+            domain={[1, 100]}
+            tickFormatter={(value) => `${value}ª`}
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={11}
+          />
+          <CustomTooltip 
+            formatter={(value: number, name: string) => [
+              formatPosition(value === 100 ? null : value),
+              name === clientDomain ? "Seu site" : "Concorrente"
+            ]}
+            labelFormatter={(label) => `Palavra: ${label}`}
+          />
+          <Bar 
+            dataKey={clientDomain} 
+            fill="url(#primaryGradient)"
+            name="Seu site"
+            radius={[6, 6, 0, 0]}
+            animationDuration={800}
+            animationBegin={0}
+          />
+          <Bar 
+            dataKey={competitorDomain} 
+            fill="url(#destructiveGradient)"
+            name="Concorrente"
+            radius={[6, 6, 0, 0]}
+            animationDuration={800}
+            animationBegin={200}
+          />
+        </BarChart>
+      </EnhancedChartContainer>
 
       {/* Oportunidades de Melhoria */}
       {opportunities.length > 0 && (

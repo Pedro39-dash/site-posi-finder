@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart } from 'recharts';
+import { EnhancedChartContainer, CustomTooltip, CHART_COLORS, ChartGradients } from "@/components/ui/enhanced-chart";
 import { useState } from "react";
 import { MonitoredSite, useMonitoring } from "@/contexts/MonitoringContext";
 import { format } from "date-fns";
@@ -70,99 +71,110 @@ const TrendChart = ({ site }: TrendChartProps) => {
   }
 
   return (
-    <Card className="shadow-card">
-      <CardHeader>
+    <div className="space-y-4">
+      {/* Seletor de Keyword */}
+      <Card className="p-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Evolução das Posições - {getDomainName(site.website)}
-          </CardTitle>
-          
-          {trend && (
-            <Badge 
-              variant={trend.direction === 'up' ? 'default' : trend.direction === 'down' ? 'destructive' : 'secondary'}
-              className={trend.direction === 'up' ? 'bg-accent text-accent-foreground' : ''}
-            >
-              {trend.direction === 'up' && `+${trend.percentage} posições`}
-              {trend.direction === 'down' && `-${trend.percentage} posições`}
-              {trend.direction === 'stable' && 'Estável'}
-            </Badge>
-          )}
+            <h3 className="font-medium">Monitoramento - {getDomainName(site.website)}</h3>
+          </div>
+          <div className="flex items-center gap-4">
+            <Select value={selectedKeyword} onValueChange={setSelectedKeyword}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Selecione uma palavra-chave" />
+              </SelectTrigger>
+              <SelectContent>
+                {site.keywords.map(keyword => (
+                  <SelectItem key={keyword} value={keyword}>
+                    {keyword}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {trend && (
+              <Badge 
+                variant={trend.direction === 'up' ? 'default' : trend.direction === 'down' ? 'destructive' : 'secondary'}
+                className={`animate-scale-in ${trend.direction === 'up' ? 'bg-accent text-accent-foreground' : ''}`}
+              >
+                {trend.direction === 'up' && `↗ +${trend.percentage}`}
+                {trend.direction === 'down' && `↘ -${trend.percentage}`}
+                {trend.direction === 'stable' && '→ Estável'}
+              </Badge>
+            )}
+          </div>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <Select value={selectedKeyword} onValueChange={setSelectedKeyword}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Selecione uma palavra-chave" />
-            </SelectTrigger>
-            <SelectContent>
-              {site.keywords.map(keyword => (
-                <SelectItem key={keyword} value={keyword}>
-                  {keyword}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-      
-      <CardContent>
+      </Card>
+
+      {/* Gráfico */}
+      <EnhancedChartContainer
+        title={`Evolução: ${selectedKeyword}`}
+        description="Histórico de posições nos últimos 30 monitoramentos"
+        height={380}
+        icon={<TrendingUp className="h-5 w-5" />}
+        badge={trend ? {
+          text: `${trend.direction === 'up' ? 'Melhorando' : trend.direction === 'down' ? 'Piorando' : 'Estável'}`,
+          variant: trend.direction === 'up' ? 'default' : trend.direction === 'down' ? 'destructive' : 'secondary'
+        } : undefined}
+      >
         {chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex items-center justify-center h-full">
             <p className="text-muted-foreground">
               Nenhum histórico disponível para "{selectedKeyword}"
             </p>
           </div>
         ) : (
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis 
-                  reversed
-                  domain={[1, 101]}
-                  tick={{ fontSize: 12 }}
-                  label={{ value: 'Posição', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip 
-                  formatter={(value: any, name: string) => [
-                    value === 101 ? 'Não encontrado' : `${value}ª posição`,
-                    'Posição'
-                  ]}
-                  labelFormatter={(label, payload) => {
-                    if (payload && payload[0]) {
-                      return `Data: ${payload[0].payload.fullDate}`;
-                    }
-                    return label;
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="displayPosition" 
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: "hsl(var(--primary))", strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <ChartGradients />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+            <XAxis 
+              dataKey="date" 
+              tick={{ fontSize: 11 }}
+              stroke="hsl(var(--muted-foreground))"
+            />
+            <YAxis 
+              reversed
+              domain={[1, 101]}
+              tick={{ fontSize: 11 }}
+              label={{ value: 'Posição', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+              stroke="hsl(var(--muted-foreground))"
+            />
+            <CustomTooltip 
+              formatter={(value: any) => [
+                value === 101 ? 'Não encontrado' : `${value}ª posição`,
+                'Posição'
+              ]}
+              labelFormatter={(label, payload) => {
+                if (payload && payload[0]) {
+                  return `Data: ${payload[0].payload.fullDate}`;
+                }
+                return label;
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="displayPosition"
+              stroke={CHART_COLORS.primary}
+              strokeWidth={3}
+              fill="url(#primaryGradient)"
+              dot={{ fill: CHART_COLORS.primary, strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: CHART_COLORS.primary, strokeWidth: 2, fill: "hsl(var(--background))" }}
+              animationDuration={1000}
+              animationBegin={0}
+            />
+          </AreaChart>
         )}
-        
-        {chartData.length > 0 && (
-          <div className="mt-4 text-sm text-muted-foreground">
-            <p>
-              Mostrando histórico de posições para "{selectedKeyword}" - 
-              Valores menores indicam melhores posições
-            </p>
+      </EnhancedChartContainer>
+      
+      {chartData.length > 0 && (
+        <Card className="p-4">
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>📊 Histórico de "{selectedKeyword}" - Valores menores = melhores posições</p>
+            <p>📈 Última verificação: {chartData[chartData.length - 1]?.fullDate}</p>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </Card>
+      )}
+    </div>
   );
 };
 

@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { CompetitorAnalysisService, CompetitiveAnalysisData } from "@/services/competitorAnalysisService";
+import { EnhancedChartContainer, CustomTooltip, CHART_PALETTE, ChartGradients, formatPosition, formatPercentage } from "@/components/ui/enhanced-chart";
 
 interface CompetitiveAnalysisResultsProps {
   analysisId: string;
@@ -188,8 +189,6 @@ const CompetitiveAnalysisResults = ({ analysisId, onBackToForm }: CompetitiveAna
     };
   });
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -266,83 +265,102 @@ const CompetitiveAnalysisResults = ({ analysisId, onBackToForm }: CompetitiveAna
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* Share of Voice Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Share of Voice</CardTitle>
-                <CardDescription>Participação de cada domínio nas palavras-chave analisadas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={competitorShareData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) => `${name}: ${value}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {competitorShareData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+            <EnhancedChartContainer
+              title="Share of Voice"
+              description="Participação de cada domínio nas palavras-chave analisadas"
+              icon={<Users className="h-5 w-5" />}
+              height={360}
+            >
+              <PieChart>
+                <ChartGradients />
+                <Pie
+                  data={competitorShareData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={120}
+                  paddingAngle={2}
+                  fill="#8884d8"
+                  dataKey="value"
+                  animationBegin={0}
+                  animationDuration={800}
+                >
+                  {competitorShareData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={CHART_PALETTE[index % CHART_PALETTE.length]} 
+                    />
+                  ))}
+                </Pie>
+                <CustomTooltip 
+                  formatter={(value: number, name: string) => [
+                    `${formatPercentage(value)}`,
+                    name
+                  ]}
+                  labelFormatter={(label, payload) => {
+                    const data = payload?.[0]?.payload;
+                    return `${label} (${data?.keywords || 0} keywords)`;
+                  }}
+                />
+              </PieChart>
+            </EnhancedChartContainer>
 
             {/* Keyword Positions Comparison */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Comparação de Posições</CardTitle>
-                <CardDescription>Suas posições vs melhor concorrente (top 10 keywords)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={keywordPositionsData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="keyword" 
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        fontSize={11}
-                      />
-                      <YAxis 
-                        reversed
-                        domain={[1, 100]}
-                        tickFormatter={(value) => `${value}ª`}
-                      />
-                      <Tooltip 
-                        formatter={(value: number, name: string, props: any) => [
-                          `${value}ª posição`,
-                          name
-                        ]}
-                        labelFormatter={(label) => `Palavra: ${keywordPositionsData.find(k => k.keyword === label)?.fullKeyword || label}`}
-                      />
-                      <Bar 
-                        dataKey="Seu Site" 
-                        fill="hsl(var(--primary))" 
-                        radius={[4, 4, 0, 0]}
-                      />
-                      <Bar 
-                        dataKey="Melhor Concorrente" 
-                        fill="hsl(var(--destructive))" 
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+            <EnhancedChartContainer
+              title="Comparação de Posições"
+              description="Suas posições vs melhor concorrente (top 10 keywords)"
+              icon={<BarChart3 className="h-5 w-5" />}
+              height={360}
+            >
+              <BarChart 
+                data={keywordPositionsData} 
+                margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+              >
+                <ChartGradients />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                <XAxis 
+                  dataKey="keyword" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={90}
+                  fontSize={11}
+                  stroke="hsl(var(--muted-foreground))"
+                />
+                <YAxis 
+                  reversed
+                  domain={[1, 100]}
+                  tickFormatter={(value) => `${value}ª`}
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={11}
+                />
+                <CustomTooltip 
+                  formatter={(value: number, name: string) => [
+                    formatPosition(value === 100 ? null : value),
+                    name
+                  ]}
+                  labelFormatter={(label) => {
+                    const data = keywordPositionsData.find(k => k.keyword === label);
+                    return `Palavra: ${data?.fullKeyword || label}`;
+                  }}
+                />
+                <Bar 
+                  dataKey="Seu Site" 
+                  fill="url(#primaryGradient)"
+                  radius={[6, 6, 0, 0]}
+                  animationDuration={800}
+                  animationBegin={0}
+                />
+                <Bar 
+                  dataKey="Melhor Concorrente" 
+                  fill="url(#destructiveGradient)"
+                  radius={[6, 6, 0, 0]}
+                  animationDuration={800}
+                  animationBegin={200}
+                />
+              </BarChart>
+            </EnhancedChartContainer>
           </div>
         </TabsContent>
 
