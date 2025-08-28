@@ -456,122 +456,181 @@ function identifyBusinessSector(text: string): string {
 }
 
 function extractMainConcepts(title: string, h1: string, h2: string, menu: string, meta: string): string[] {
-  // Combinar todo o texto relevante
-  const combinedText = [title, h1, h2, menu, meta].join(' ').toLowerCase();
+  console.log('🔍 Iniciando extração manual de conceitos principais...');
   
-  // Limpar e normalizar
-  const cleanText = combinedText
-    .replace(/[^\w\sáéíóúâêîôûàèìòùãõç-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // 1. EXTRAIR CONTEÚDO PRINCIPAL
+  const mainContent = {
+    title: title.toLowerCase().trim(),
+    h1: h1.toLowerCase().trim(),
+    h2: h2.toLowerCase().trim(), 
+    menu: menu.toLowerCase().trim(),
+    meta: meta.toLowerCase().trim()
+  };
 
-  // Lista de termos técnicos válidos (whitelist)
-  const validTechnicalTerms = [
-    'inox', 'polimento', 'soldagem', 'usinagem', 'torneamento', 'fresamento',
-    'manutenção', 'equipamentos', 'máquinas', 'peças', 'componentes',
-    'industrial', 'naval', 'automotivo', 'aeronáutico',
-    'galvanização', 'anodização', 'tratamento', 'acabamento',
-    'aço', 'alumínio', 'ferro', 'cobre', 'bronze'
-  ];
+  console.log('📝 Conteúdo extraído:', {
+    title: mainContent.title.substring(0, 100),
+    h1: mainContent.h1.substring(0, 100),
+    menu: mainContent.menu.substring(0, 100)
+  });
 
-  // Termos proibidos (blacklist total)
-  const forbiddenTerms = [
-    'serviços', 'serviço', 'produtos', 'produto', 'empresa', 'empresas', 
-    'comercial', 'negócio', 'negócios', 'profissional', 'especializada', 
-    'especializado', 'técnicos', 'técnico', 'técnica', 'ltda'
-  ];
-
-  const concepts = [];
-  const words = cleanText.split(' ').filter(word => word.length >= 3);
-
-  // Extrair palavras individuais técnicas
-  for (const word of words) {
-    if (validTechnicalTerms.includes(word) && !forbiddenTerms.includes(word)) {
-      concepts.push(word);
+  // 2. IDENTIFICAR SERVIÇOS/PRODUTOS PRINCIPAIS
+  const services = [];
+  const products = [];
+  
+  // Analisar menu (prioridade máxima - indicam serviços principais)
+  const menuItems = mainContent.menu.split(/[\n,|]/);
+  for (const item of menuItems) {
+    const cleanItem = item.trim();
+    if (cleanItem.length > 5 && !isGenericTerm(cleanItem)) {
+      services.push(cleanItem);
     }
   }
 
-  // Extrair combinações de 2-3 palavras naturais
-  for (let i = 0; i < words.length - 1; i++) {
-    const combination = `${words[i]} ${words[i + 1]}`;
-    
-    // Só aceitar se tiver pelo menos uma palavra técnica
-    if (validTechnicalTerms.some(term => combination.includes(term)) && 
-        !forbiddenTerms.some(term => combination.includes(term))) {
-      concepts.push(combination);
-    }
+  // Analisar título e H1 para produtos/serviços
+  const titleWords = mainContent.title.split(' ');
+  const h1Words = mainContent.h1.split(' ');
+  
+  // 3. EXTRAIR CONCEITOS TÉCNICOS ESPECÍFICOS
+  const technicalConcepts = [];
+  const allText = [mainContent.title, mainContent.h1, mainContent.h2].join(' ');
+  
+  // Lista branca de termos técnicos reais (baseada na análise manual)
+  const validTechnical = [
+    'polimento', 'eletropolimento', 'passivação', 'decapagem',
+    'soldagem', 'usinagem', 'torneamento', 'fresamento', 
+    'manutenção', 'restauração', 'recuperação', 'tratamento',
+    'limpeza química', 'acabamento', 'galvanização', 'anodização',
+    'inox', 'aço inoxidável', 'alumínio', 'ferro', 'cobre'
+  ];
 
-    // Trigrams
-    if (i < words.length - 2) {
-      const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
-      if (validTechnicalTerms.some(term => trigram.includes(term)) && 
-          !forbiddenTerms.some(term => trigram.includes(term))) {
-        concepts.push(trigram);
+  // Extrair termos técnicos do texto
+  for (const term of validTechnical) {
+    if (allText.includes(term)) {
+      technicalConcepts.push(term);
+    }
+  }
+
+  // 4. CONSTRUIR COMBINAÇÕES NATURAIS
+  const naturalCombinations = [];
+  
+  // Combinar material + processo
+  const materials = ['inox', 'aço inoxidável', 'alumínio', 'ferro'];
+  const processes = ['polimento', 'soldagem', 'tratamento', 'manutenção', 'acabamento'];
+  
+  for (const material of materials) {
+    for (const process of processes) {
+      if (allText.includes(material) && allText.includes(process)) {
+        naturalCombinations.push(`${process} ${material}`);
       }
     }
   }
 
-  // Remover duplicatas e ordenar por relevância
-  return [...new Set(concepts)]
-    .filter(concept => concept.length >= 4)
-    .slice(0, 20);
-}
-
-function buildCommercialTerms(concepts: string[], businessContext: string): string[] {
-  const commercialTerms = [];
-
-  // Manter apenas conceitos válidos
-  for (const concept of concepts) {
-    if (isValidCommercialConcept(concept, businessContext)) {
-      commercialTerms.push(concept);
+  // Adicionar modificadores industriais se relevantes
+  const industrialModifiers = ['industrial', 'equipamentos', 'superfícies'];
+  for (const concept of technicalConcepts) {
+    for (const modifier of industrialModifiers) {
+      if (allText.includes(modifier)) {
+        naturalCombinations.push(`${concept} ${modifier}`);
+      }
     }
   }
 
-  return commercialTerms;
-}
-
-function isValidCommercialConcept(concept: string, context: string): boolean {
-  // Rejeições imediatas
-  const immediateRejects = [
-    'serviços', 'serviço', 'produtos', 'produto', 'empresa', 'empresas',
-    'comercial', 'negócio', 'negócios', 'profissional', 'técnico', 'técnica'
+  // 5. CONSOLIDAR RESULTADOS
+  const allConcepts = [
+    ...services.slice(0, 3), // Máximo 3 serviços do menu
+    ...technicalConcepts,
+    ...naturalCombinations
   ];
 
-  if (immediateRejects.some(reject => concept.includes(reject))) {
-    console.log(`❌ Conceito rejeitado (termo proibido): "${concept}"`);
-    return false;
-  }
+  // Filtrar e validar
+  const validConcepts = allConcepts
+    .filter(concept => concept && concept.length >= 4)
+    .filter(concept => !isGenericTerm(concept))
+    .filter(concept => isCommerciallySearchable(concept))
+    .map(concept => concept.trim())
+    .filter((concept, index, array) => array.indexOf(concept) === index); // Remove duplicatas
 
-  // Deve ter pelo menos uma palavra técnica específica
-  const technicalWords = ['inox', 'polimento', 'soldagem', 'usinagem', 'manutenção', 'equipamentos', 'máquinas', 'peças', 'industrial'];
-  const hasTechnicalWord = technicalWords.some(tech => concept.includes(tech));
+  console.log('✅ Conceitos finais extraídos:', validConcepts.slice(0, 12));
+  return validConcepts.slice(0, 12); // Máximo 12 conceitos
+}
 
-  if (!hasTechnicalWord) {
-    console.log(`❌ Conceito rejeitado (sem palavra técnica): "${concept}"`);
-    return false;
-  }
+function isGenericTerm(term: string): boolean {
+  const genericTerms = [
+    'serviços', 'serviço', 'produtos', 'produto', 'empresa', 'empresas',
+    'comercial', 'negócio', 'negócios', 'profissional', 'qualidade',
+    'atendimento', 'contato', 'sobre', 'início', 'home', 'página'
+  ];
+  
+  return genericTerms.some(generic => term.includes(generic));
+}
 
-  console.log(`✅ Conceito aprovado: "${concept}"`);
+function isCommerciallySearchable(term: string): boolean {
+  // Teste mental: "Alguém pesquisaria isso no Google para contratar um serviço?"
+  
+  // Deve ter especificidade técnica
+  if (term.length < 4) return false;
+  
+  // Não pode ser muito genérico
+  if (isGenericTerm(term)) return false;
+  
+  // Deve soar natural (não forçado)
+  const unnaturalPatterns = [
+    /^(e|de|da|do|para|com|em|no|na)\s/,
+    /\s(e|de|da|do|para|com|em|no|na)$/
+  ];
+  
+  if (unnaturalPatterns.some(pattern => pattern.test(term))) return false;
+  
   return true;
 }
 
-function isSearchableTerm(term: string): boolean {
-  // Validação simples: termo deve ser específico e pesquisável
-  if (term.length < 4) return false;
+function buildCommercialTerms(concepts: string[], businessContext: string): string[] {
+  console.log('💼 Construindo termos comerciais finais...');
   
-  // Deve conter pelo menos uma palavra técnica
-  const technicalPattern = /(inox|polimento|soldagem|usinagem|manutenção|equipamentos|máquinas|peças|industrial|naval|automotivo)/i;
+  const commercialTerms = [];
   
-  const isSearchable = technicalPattern.test(term);
-  
-  if (!isSearchable) {
-    console.log(`❌ Termo não pesquisável: "${term}"`);
-  } else {
-    console.log(`✅ Termo pesquisável: "${term}"`);
+  // Filtrar apenas conceitos que passam no teste comercial
+  for (const concept of concepts) {
+    if (isCommercialTerm(concept)) {
+      commercialTerms.push(concept);
+      console.log(`✅ Termo comercial aprovado: "${concept}"`);
+    } else {
+      console.log(`❌ Termo rejeitado: "${concept}"`);
+    }
   }
+
+  // Limitar a 10 termos de alta qualidade
+  const finalTerms = commercialTerms.slice(0, 10);
   
-  return isSearchable;
+  console.log('💼 Termos comerciais finais:', finalTerms);
+  return finalTerms;
 }
+
+function isCommercialTerm(concept: string): boolean {
+  // 1. TESTE DE PESQUISABILIDADE: "Alguém pesquisaria isso para contratar?"
+  if (concept.length < 4) return false;
+  
+  // 2. TESTE DE ESPECIFICIDADE: Deve ser específico, não genérico
+  if (isGenericTerm(concept)) return false;
+  
+  // 3. TESTE DE NATURALIDADE: Deve soar natural
+  if (!isCommerciallySearchable(concept)) return false;
+  
+  // 4. TESTE DE VALOR COMERCIAL: Termos que geram leads/vendas
+  const commercialIndicators = [
+    'polimento', 'soldagem', 'manutenção', 'tratamento', 'acabamento',
+    'usinagem', 'restauração', 'limpeza', 'recuperação', 'eletropolimento',
+    'passivação', 'decapagem', 'galvanização', 'anodização'
+  ];
+  
+  const hasCommercialValue = commercialIndicators.some(indicator => 
+    concept.includes(indicator)
+  );
+  
+  return hasCommercialValue;
+}
+
+// Funções de análise semântica removidas - substituídas pela lógica manual simples
 
 function categorizeByLength(terms: string[]): any {
   const result = {
