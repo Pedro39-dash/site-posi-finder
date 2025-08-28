@@ -25,27 +25,53 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'commercial' | 'informational'>('overview');
 
-  // Extract semantic data from audit results
+  // Extract semantic data from audit results - Enhanced for intelligent analysis
   const extractSemanticData = () => {
-    if (!results) return { keywords: [], prompts: [], semanticTerms: [] };
+    if (!results) return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
 
+    // Look for enhanced semantic analysis data
     const aiOptimizationCategory = results.find(category => 
       category.category === 'ai_search_optimization'
     );
     
     if (aiOptimizationCategory?.issues) {
       for (const issue of aiOptimizationCategory.issues) {
+        // Check for new intelligent semantic analysis data
+        if (issue.metadata?.semanticAnalysis) {
+          const semantic = issue.metadata.semanticAnalysis;
+          
+          // Extract enhanced semantic terms with context
+          const allTerms = [
+            ...(semantic.shortTailTerms || []),
+            ...(semantic.mediumTailTerms || []),
+            ...(semantic.longTailTerms || [])
+          ];
+
+          return {
+            keywords: issue.metadata.keywords || [],
+            prompts: semantic.intelligentPrompts || issue.metadata.prompts || [],
+            semanticTerms: allTerms,
+            modifiers: semantic.commercialModifiers || [],
+            entities: semantic.mainEntities || [],
+            attributes: semantic.attributes || []
+          };
+        }
+        
+        // Fallback to legacy data
         if (issue.metadata?.keywords && issue.metadata?.prompts) {
           return {
             keywords: issue.metadata.keywords || [],
             prompts: issue.metadata.prompts || [],
-            semanticTerms: []
+            semanticTerms: [],
+            modifiers: [],
+            entities: [],
+            attributes: []
           };
         }
       }
     }
 
-    return { keywords: [], prompts: [], semanticTerms: [] };
+    return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
   };
 
   // Extract keywords - Fallback for backward compatibility
@@ -329,13 +355,80 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
 
   if (!results) return null;
 
-  const { keywords, prompts } = extractSemanticData();
+  const { keywords, prompts, semanticTerms, modifiers, entities, attributes } = extractSemanticData();
   const legacyKeywords = extractKeywords();
   const aiPrompts = generateAIPrompts();
   
   const finalKeywords = keywords.length > 0 ? keywords : legacyKeywords;
   const finalPrompts = prompts.length > 0 ? prompts : aiPrompts;
   const categorizedTerms = categorizeTerms(finalKeywords);
+
+  // Enhanced categorization for intelligent semantic terms
+  const enhancedCategorization = {
+    ...categorizedTerms,
+    byType: {
+      modifiers: semanticTerms.filter(t => t.type === 'commercial_modifier'),
+      entities: semanticTerms.filter(t => t.type === 'main_entity'),
+      attributes: semanticTerms.filter(t => t.type === 'attribute'),
+      specifiers: semanticTerms.filter(t => t.type === 'specifier')
+    },
+    highQuality: semanticTerms.filter(t => t.relevanceScore >= 85),
+    topTerms: semanticTerms
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, 12)
+  };
+
+  const renderSemanticTerm = (term: any, index: number) => {
+    const getScoreColor = (score: number) => {
+      if (score >= 90) return 'text-green-600';
+      if (score >= 80) return 'text-blue-600';
+      if (score >= 70) return 'text-yellow-600';
+      return 'text-gray-600';
+    };
+
+    const getTypeIcon = (type: string) => {
+      switch (type) {
+        case 'commercial_modifier': return '💰';
+        case 'main_entity': return '🎯';
+        case 'attribute': return '⚡';
+        default: return '📌';
+      }
+    };
+
+    return (
+      <div key={index} className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg hover:bg-secondary/30 transition-colors">
+        <div className="flex items-center gap-2 flex-1">
+          <span className="text-xs">{getTypeIcon(term.type)}</span>
+          <span className="font-medium">{term.term}</span>
+          <div className="flex gap-1">
+            <Badge variant={getTailTypeBadgeVariant(term.tailType)} className="text-xs px-1 py-0">
+              {term.tailType}
+            </Badge>
+            <Badge variant={getIntentBadgeVariant(term.intentType)} className="text-xs px-1 py-0">
+              {term.intentType}
+            </Badge>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger>
+              <div className={`text-xs font-bold ${getScoreColor(term.relevanceScore)}`}>
+                {term.relevanceScore}%
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-xs">
+                <p><strong>Score de Relevância:</strong> {term.relevanceScore}%</p>
+                <p><strong>Fonte:</strong> {term.sourceContext?.htmlTag || 'desconhecida'}</p>
+                <p><strong>Frequência:</strong> {term.sourceContext?.frequency || 1}x</p>
+                <p><strong>Verbatim:</strong> {term.sourceContext?.isVerbatim ? 'Sim' : 'Não'}</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <TooltipProvider>
@@ -474,6 +567,58 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
                   </div>
                 </div>
               </div>
+
+              {/* Enhanced Semantic Terms Section - Show if available */}
+              {semanticTerms.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Brain className="h-4 w-4" />
+                    Análise Semântica Inteligente
+                    <Badge variant="outline" className="text-xs ml-2">
+                      {enhancedCategorization.highQuality.length} alta qualidade
+                    </Badge>
+                  </h3>
+                  
+                  <div className="grid gap-3">
+                    {/* Top Quality Terms */}
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Target className="h-3 w-3" />
+                        Termos de Alta Relevância (Score ≥ 80%)
+                      </h4>
+                      <div className="space-y-2">
+                        {enhancedCategorization.topTerms.map((term, index) => 
+                          renderSemanticTerm(term, index)
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Semantic Categories Overview */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                        <div className="text-lg font-bold text-blue-600">💰</div>
+                        <div className="text-xs text-muted-foreground">Modificadores</div>
+                        <div className="text-sm font-semibold">{enhancedCategorization.byType.modifiers.length}</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                        <div className="text-lg font-bold text-green-600">🎯</div>
+                        <div className="text-xs text-muted-foreground">Entidades</div>
+                        <div className="text-sm font-semibold">{enhancedCategorization.byType.entities.length}</div>
+                      </div>
+                      <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                        <div className="text-lg font-bold text-purple-600">⚡</div>
+                        <div className="text-xs text-muted-foreground">Atributos</div>
+                        <div className="text-sm font-semibold">{enhancedCategorization.byType.attributes.length}</div>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 dark:bg-gray-950/20 rounded-lg">
+                        <div className="text-lg font-bold text-gray-600">📌</div>
+                        <div className="text-xs text-muted-foreground">Especificadores</div>
+                        <div className="text-sm font-semibold">{enhancedCategorization.byType.specifiers.length}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
