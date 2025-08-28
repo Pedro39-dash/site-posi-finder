@@ -22,7 +22,7 @@ const Comparison = () => {
   // State for real competitive analysis
   const [analysisId, setAnalysisId] = useState<string | null>(null);
 
-  // Enhanced mock function for domain comparison
+  // Enhanced mock function for domain comparison - CORRECTED DATA GENERATION
   const generateComparisonResults = (websites: string[], keywords: string[]): ComparisonResultEnhanced[] => {
     const cacheKey = `comparison_${websites.join('_')}_${keywords.join('_')}`;
     const cached = localStorage.getItem(cacheKey);
@@ -32,35 +32,35 @@ const Comparison = () => {
     }
 
     const results: ComparisonResultEnhanced[] = keywords.map(keyword => {
-      const keywordResults = websites.map((website, index) => {
-        // More realistic position distribution
+      // Distribuição mais realística de posições
+      const getRealisticPosition = () => {
         const rand = Math.random();
-        let position: number | null = null;
-        
-        // 20% not found, 15% in top 3, 25% in top 10, 40% beyond position 10
-        if (rand > 0.20) {
-          if (rand > 0.85) {
-            position = Math.floor(Math.random() * 3) + 1; // Top 3
-          } else if (rand > 0.60) {
-            position = Math.floor(Math.random() * 7) + 4; // 4-10
-          } else {
-            position = Math.floor(Math.random() * 90) + 11; // 11-100
-          }
-        }
+        if (rand < 0.15) return Math.floor(Math.random() * 3) + 1; // Top 3 (15%)
+        if (rand < 0.35) return Math.floor(Math.random() * 7) + 4; // 4-10 (20%)
+        if (rand < 0.55) return Math.floor(Math.random() * 10) + 11; // 11-20 (20%)
+        if (rand < 0.75) return Math.floor(Math.random() * 30) + 21; // 21-50 (20%)
+        return null; // Não ranqueia (25%)
+      };
 
+      const clientPosition = getRealisticPosition();
+      const competitorPosition = getRealisticPosition();
+      
+      // Criar resultados para ambos os websites
+      const websiteResults = websites.map((website, index) => {
+        const position = index === 0 ? clientPosition : competitorPosition;
         return {
           website,
           position,
-          isWinner: false, // Will be set below
-          isClient: index === 0, // First website is always the client
+          isWinner: false, // Será definido abaixo
+          isClient: index === 0,
         };
       });
 
-      // Determine winner (best position)
-      const validResults = keywordResults.filter(r => r.position !== null);
+      // Determinar vencedor
+      const validResults = websiteResults.filter(r => r.position !== null);
       if (validResults.length > 0) {
         const bestPosition = Math.min(...validResults.map(r => r.position!));
-        const winner = keywordResults.find(r => r.position === bestPosition);
+        const winner = websiteResults.find(r => r.position === bestPosition);
         if (winner) {
           winner.isWinner = true;
         }
@@ -68,7 +68,7 @@ const Comparison = () => {
 
       return {
         keyword,
-        results: keywordResults,
+        results: websiteResults,
       };
     });
 

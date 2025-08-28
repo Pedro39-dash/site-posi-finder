@@ -20,7 +20,7 @@ export const calculateAdvancedScore = (
   const {
     useNonLinearFormula = true,
     weightTop3 = 1.2,
-    weightTop10 = 1.1,
+    weightTop10 = 1.0,
     penaltyNotFound = 0
   } = config;
 
@@ -29,25 +29,20 @@ export const calculateAdvancedScore = (
   let baseScore: number;
 
   if (useNonLinearFormula) {
-    // Non-linear formula: gives more weight to top positions
-    baseScore = 100 / Math.pow(position, 0.5);
+    // Fórmula não-linear melhorada para dar mais peso às primeiras posições
+    if (position === 1) return 100;
+    if (position <= 3) return Math.max(75, 95 - (position - 1) * 8);
+    if (position <= 10) return Math.max(40, 75 - (position - 3) * 5);
+    if (position <= 20) return Math.max(15, 40 - (position - 10) * 2.5);
+    return Math.max(1, 15 - (position - 20) * 0.3);
   } else {
-    // Linear formula (legacy)
+    // Fórmula linear (legacy)
     if (position === 1) return 100;
     if (position <= 3) return 90;
     if (position <= 5) return 80;
     if (position <= 10) return 70;
     return 50;
   }
-
-  // Apply position-based weights
-  if (position <= 3) {
-    baseScore *= weightTop3;
-  } else if (position <= 10) {
-    baseScore *= weightTop10;
-  }
-
-  return Math.min(Math.round(baseScore), 100);
 };
 
 /**

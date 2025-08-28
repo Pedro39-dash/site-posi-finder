@@ -62,15 +62,22 @@ const ComparisonResultsEnhanced = ({ websites, results, projectName, onNewCompar
     return competitorPos < clientPos;
   });
 
-  // Dados para o gráfico
+  // Dados para o gráfico - CORRIGIDO para mostrar scores ao invés de posições
   const chartData = results.slice(0, 10).map(r => {
     const clientResult = r.results.find(res => res.website === clientDomain);
     const competitorResult = r.results.find(res => res.website === competitorDomain);
     
+    // Calcular scores baseados nas posições (scores maiores = melhores posições)
+    const clientScore = calculateAdvancedScore(clientResult?.position);
+    const competitorScore = calculateAdvancedScore(competitorResult?.position);
+    
     return {
       keyword: r.keyword.length > 15 ? r.keyword.substring(0, 15) + "..." : r.keyword,
-      [clientDomain]: clientResult?.position || 100,
-      [competitorDomain]: competitorResult?.position || 100
+      [clientDomain]: clientScore,
+      [competitorDomain]: competitorScore,
+      // Dados adicionais para tooltips
+      clientPosition: clientResult?.position,
+      competitorPosition: competitorResult?.position
     };
   });
 
@@ -167,10 +174,10 @@ const ComparisonResultsEnhanced = ({ websites, results, projectName, onNewCompar
         </div>
       </div>
 
-      {/* Gráfico de Comparação */}
+      {/* Gráfico de Comparação - CORRIGIDO */}
       <EnhancedChartContainer
-        title="Posições por Palavra-chave (Top 10)"
-        description="Quanto menor a barra, melhor a posição (1ª posição = topo do Google)"
+        title="Scores SEO por Palavra-chave (Top 10)"
+        description="Quanto maior a barra, melhor o desempenho (score baseado na posição no Google)"
         icon={<Target className="h-5 w-5" />}
         badge={{
           text: `${clientWins}/${results.length} vitórias`,
@@ -193,17 +200,23 @@ const ComparisonResultsEnhanced = ({ websites, results, projectName, onNewCompar
             stroke="hsl(var(--muted-foreground))"
           />
           <YAxis 
-            reversed
-            domain={[1, 100]}
-            tickFormatter={(value) => `${value}ª`}
+            domain={[0, 100]}
+            tickFormatter={(value) => `${value}`}
             stroke="hsl(var(--muted-foreground))"
             fontSize={11}
+            label={{ value: 'Score SEO', angle: -90, position: 'insideLeft' }}
           />
           <CustomTooltip 
-            formatter={(value: number, name: string) => [
-              formatPosition(value === 100 ? null : value),
-              name === clientDomain ? "Seu site" : "Concorrente"
-            ]}
+            formatter={(value: number, name: string, props: any) => {
+              const data = chartData.find(d => d.keyword === props.payload.keyword);
+              const isClient = name === clientDomain;
+              const position = isClient ? data?.clientPosition : data?.competitorPosition;
+              
+              return [
+                `Score: ${value.toFixed(1)} | Posição: ${position ? `${position}ª` : 'Não ranqueia'}`,
+                isClient ? "Seu site" : "Concorrente"
+              ];
+            }}
             labelFormatter={(label) => `Palavra: ${label}`}
           />
           <Bar 

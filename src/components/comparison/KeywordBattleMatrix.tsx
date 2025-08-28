@@ -17,21 +17,23 @@ const KeywordBattleMatrix = ({ results, websites }: KeywordBattleMatrixProps) =>
     return url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
   };
 
-  const getPositionColor = (position: number | null): string => {
-    if (!position) return "bg-muted";
-    if (position === 1) return "bg-accent";
-    if (position <= 3) return "bg-primary";
-    if (position <= 10) return "bg-secondary";
-    return "bg-destructive/30";
-  };
+const getPositionColor = (position: number | null): string => {
+  if (!position) return "bg-muted/50";
+  if (position === 1) return "bg-yellow-400"; // Ouro para 1ª posição
+  if (position <= 3) return "bg-green-500"; // Verde para top 3
+  if (position <= 10) return "bg-blue-500"; // Azul para top 10
+  if (position <= 20) return "bg-orange-500"; // Laranja para top 20
+  return "bg-red-500"; // Vermelho para demais
+};
 
-  const getPositionIntensity = (position: number | null): string => {
-    if (!position) return "opacity-20";
-    if (position === 1) return "opacity-100";
-    if (position <= 3) return "opacity-90";
-    if (position <= 10) return "opacity-70";
-    return "opacity-40";
-  };
+const getPositionIntensity = (position: number | null): string => {
+  if (!position) return "opacity-30";
+  if (position === 1) return "opacity-100 ring-2 ring-yellow-300 shadow-lg";
+  if (position <= 3) return "opacity-90 shadow-md";
+  if (position <= 10) return "opacity-80";
+  if (position <= 20) return "opacity-60";
+  return "opacity-50";
+};
 
   const getPositionIcon = (position: number | null) => {
     if (!position) return null;
@@ -40,12 +42,21 @@ const KeywordBattleMatrix = ({ results, websites }: KeywordBattleMatrixProps) =>
     return null;
   };
 
-  const getBattleResult = (clientPos: number | null, competitorPos: number | null) => {
-    if (!clientPos && !competitorPos) return "draw";
-    if (!clientPos) return "competitor";
-    if (!competitorPos) return "client";
-    return clientPos < competitorPos ? "client" : "competitor";
-  };
+const getBattleResult = (clientPos: number | null, competitorPos: number | null): "client" | "competitor" | "draw" => {
+  // Sem posições = empate
+  if (!clientPos && !competitorPos) return "draw";
+  // Apenas cliente tem posição = cliente vence
+  if (clientPos && !competitorPos) return "client";
+  // Apenas concorrente tem posição = concorrente vence
+  if (!clientPos && competitorPos) return "competitor";
+  // Ambos têm posições = menor posição vence (melhor ranking)
+  if (clientPos && competitorPos) {
+    if (clientPos < competitorPos) return "client";
+    if (competitorPos < clientPos) return "competitor";
+    return "draw"; // Posições iguais = empate
+  }
+  return "draw";
+};
 
   return (
     <Card>
@@ -152,26 +163,30 @@ const KeywordBattleMatrix = ({ results, websites }: KeywordBattleMatrixProps) =>
               })}
             </div>
 
-            {/* Legenda */}
+            {/* Legenda CORRIGIDA */}
             <div className="flex flex-wrap items-center gap-4 pt-4 border-t text-xs text-muted-foreground">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-accent"></div>
+                <div className="w-4 h-4 rounded bg-yellow-400 shadow-sm"></div>
                 <span>1ª posição</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-primary"></div>
+                <div className="w-4 h-4 rounded bg-green-500"></div>
                 <span>Top 3</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-secondary"></div>
+                <div className="w-4 h-4 rounded bg-blue-500"></div>
                 <span>Top 10</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-destructive/30"></div>
+                <div className="w-4 h-4 rounded bg-orange-500"></div>
+                <span>Top 20</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-red-500"></div>
                 <span>Página 2+</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-muted"></div>
+                <div className="w-4 h-4 rounded bg-muted/50"></div>
                 <span>Não encontrado</span>
               </div>
             </div>
