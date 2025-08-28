@@ -150,27 +150,40 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
       })
       .eq('id', auditId);
 
-    // Fetch webpage content
-    const html = await fetchWebpageContent(validation.normalizedUrl);
+    // OPTIMIZATION: Global timeout for entire audit (60 seconds max)
+    const auditPromise = (async () => {
+      // Fetch webpage content
+      const html = await fetchWebpageContent(validation.normalizedUrl);
 
-    // Perform semantic analysis
-    const semanticAnalysis = performSemanticAnalysis(html, validation.normalizedUrl);
+      // Parallel execution of analyses for performance optimization
+      console.log(`⚡ Starting parallel analyses...`);
+      const [semanticAnalysis, pageSpeedData] = await Promise.all([
+        // Optimized semantic analysis (limited scope)
+        performOptimizedSemanticAnalysis(html, validation.normalizedUrl),
+        // PageSpeed with timeout
+        getPageSpeedInsightsWithTimeout(validation.normalizedUrl, 8000)
+      ]);
 
-    // Analyze HTML content with semantic enrichment
-    const htmlAnalysis = analyzeHTML(html, validation.normalizedUrl, focusKeyword, semanticAnalysis);
+      // Analyze HTML content with semantic enrichment
+      const htmlAnalysis = analyzeHTML(html, validation.normalizedUrl, focusKeyword, semanticAnalysis);
+      
+      if (pageSpeedData.desktop || pageSpeedData.mobile) {
+        console.log(`✅ PageSpeed Insights data received successfully`);
+      } else {
+        console.log(`⚠️  PageSpeed Insights data not available, continuing with HTML analysis only`);
+      }
+      
+      // Combine all analyses
+      console.log(`🔄 Combining analyses...`);
+      return combineAnalyses(htmlAnalysis, pageSpeedData, url);
+    })();
 
-    // Get PageSpeed Insights data (desktop and mobile)
-    const pageSpeedData = await getPageSpeedInsights(validation.normalizedUrl);
-    
-    if (pageSpeedData.desktop || pageSpeedData.mobile) {
-      console.log(`✅ PageSpeed Insights data received successfully`);
-    } else {
-      console.log(`⚠️  PageSpeed Insights data not available, continuing with HTML analysis only`);
-    }
-    
-    // Combine all analyses
-    console.log(`🔄 Combining analyses...`);
-    const categories = combineAnalyses(htmlAnalysis, pageSpeedData, url);
+    // Race audit against 60-second timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Audit timeout: 60 seconds exceeded')), 60000);
+    });
+
+    const categories = await Promise.race([auditPromise, timeoutPromise]);
     
     // Calculate overall score
     const overallScore = Math.round(
@@ -357,51 +370,35 @@ interface SemanticAnalysis {
   intelligentPrompts: string[];
 }
 
-function performSemanticAnalysis(html: string, url: string): SemanticAnalysis {
-  console.log('🧠 Starting semantic analysis...');
+function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAnalysis {
+  console.log('🧠 Starting optimized semantic analysis...');
   
-  // Commercial modifiers dictionary (Brazilian Portuguese + English)
+  // Reduced commercial modifiers dictionary (core terms only)
   const commercialModifiers = [
-    'comprar', 'preço', 'custo', 'valor', 'orçamento', 'cotação', 'promoção', 'desconto', 'oferta',
-    'melhor', 'top', 'ranking', 'review', 'análise', 'avaliação', 'teste', 'comparação',
-    'barato', 'grátis', 'gratuito', 'premium', 'profissional', 'especializado',
-    'onde', 'como', 'qual', 'quando', 'porque', 'para que serve',
-    'buy', 'price', 'cost', 'budget', 'quote', 'sale', 'discount', 'offer',
-    'best', 'top', 'review', 'analysis', 'comparison', 'vs', 'versus',
-    'cheap', 'free', 'premium', 'professional', 'expert'
+    'comprar', 'preço', 'custo', 'melhor', 'top', 'review', 'análise', 'barato', 'grátis',
+    'buy', 'price', 'cost', 'best', 'review', 'cheap', 'free'
   ];
 
-  // Entity indicators (products, services, brands)
+  // Core entity indicators only
   const entityIndicators = [
-    'software', 'sistema', 'plataforma', 'ferramenta', 'aplicativo', 'app',
-    'serviço', 'consultoria', 'empresa', 'negócio', 'solução',
-    'produto', 'equipamento', 'máquina', 'dispositivo', 'aparelho',
-    'curso', 'treinamento', 'capacitação', 'workshop', 'seminário',
-    'seguro', 'plano', 'pacote', 'assinatura', 'licença'
+    'software', 'sistema', 'serviço', 'produto', 'equipamento', 'curso', 'seguro', 'plano'
   ];
 
-  // Attribute/Specifier indicators
+  // Core attribute indicators only
   const attributeIndicators = [
-    'digital', 'online', 'híbrido', 'automático', 'manual', 'inteligente',
-    'pequeno', 'médio', 'grande', 'industrial', 'comercial', 'residencial',
-    'novo', 'usado', 'premium', 'básico', 'avançado', 'completo',
-    'rápido', 'lento', 'eficiente', 'confiável', 'seguro', 'moderno'
+    'digital', 'online', 'automático', 'premium', 'profissional', 'novo', 'completo'
   ];
 
-  // Parse HTML and extract content with context
+  // Parse HTML and extract ONLY priority content for performance
   const doc = new DOMParser().parseFromString(html, 'text/html');
   
-  // Extract content with HTML context
+  // CRITICAL OPTIMIZATION: Only process high-priority elements
   const contentElements = [
     { tag: 'title', weight: 3, elements: Array.from(doc.querySelectorAll('title')) },
     { tag: 'h1', weight: 3, elements: Array.from(doc.querySelectorAll('h1')) },
-    { tag: 'h2', weight: 2, elements: Array.from(doc.querySelectorAll('h2')) },
-    { tag: 'h3', weight: 2, elements: Array.from(doc.querySelectorAll('h3')) },
+    { tag: 'h2', weight: 2, elements: Array.from(doc.querySelectorAll('h2')).slice(0, 5) }, // Limit h2s
     { tag: 'meta[name="description"]', weight: 2, elements: Array.from(doc.querySelectorAll('meta[name="description"]')) },
-    { tag: 'strong', weight: 1.5, elements: Array.from(doc.querySelectorAll('strong')) },
-    { tag: 'p', weight: 1, elements: Array.from(doc.querySelectorAll('p')) },
-    { tag: 'li', weight: 1, elements: Array.from(doc.querySelectorAll('li')) },
-    { tag: 'a', weight: 1, elements: Array.from(doc.querySelectorAll('a')) }
+    { tag: 'strong', weight: 1.5, elements: Array.from(doc.querySelectorAll('strong')).slice(0, 10) } // Limit strongs
   ];
 
   const extractedTerms: SemanticTerm[] = [];
@@ -409,7 +406,10 @@ function performSemanticAnalysis(html: string, url: string): SemanticAnalysis {
   const foundEntities = new Set<string>();
   const foundAttributes = new Set<string>();
 
-  // Phase 1: Extract and classify terms
+  // Cache for processed terms (performance optimization)
+  const processedTerms = new Set<string>();
+
+  // Phase 1: Extract and classify terms (OPTIMIZED)
   contentElements.forEach(({ tag, weight, elements }) => {
     elements.forEach(element => {
       let text = '';
@@ -428,39 +428,111 @@ function performSemanticAnalysis(html: string, url: string): SemanticAnalysis {
         .replace(/\s+/g, ' ')
         .trim();
 
-      // Extract n-grams (1-6 words)
+      // CRITICAL OPTIMIZATION: Extract n-grams (1-3 words ONLY)
       const words = cleanText.split(' ').filter(word => word.length > 2);
       
-      for (let i = 0; i < words.length; i++) {
+      for (let i = 0; i < Math.min(words.length, 20); i++) { // Limit word processing
         // Single words
-        analyzeAndClassifyTerm(words[i], [words[i]], tag, weight, text);
+        if (!processedTerms.has(words[i])) {
+          analyzeAndClassifyTerm(words[i], [words[i]], tag, weight, text);
+          processedTerms.add(words[i]);
+        }
         
         // 2-grams
         if (i < words.length - 1) {
           const bigram = `${words[i]} ${words[i + 1]}`;
-          analyzeAndClassifyTerm(bigram, [words[i], words[i + 1]], tag, weight, text);
+          if (!processedTerms.has(bigram)) {
+            analyzeAndClassifyTerm(bigram, [words[i], words[i + 1]], tag, weight, text);
+            processedTerms.add(bigram);
+          }
         }
         
-        // 3-grams
+        // 3-grams (LIMITED)
         if (i < words.length - 2) {
           const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
-          analyzeAndClassifyTerm(trigram, [words[i], words[i + 1], words[i + 2]], tag, weight, text);
-        }
-        
-        // 4-grams
-        if (i < words.length - 3) {
-          const fourgram = `${words[i]} ${words[i + 1]} ${words[i + 2]} ${words[i + 3]}`;
-          analyzeAndClassifyTerm(fourgram, [words[i], words[i + 1], words[i + 2], words[i + 3]], tag, weight, text);
-        }
-        
-        // 5+ grams (long tail)
-        if (i < words.length - 4) {
-          const longTerm = words.slice(i, Math.min(i + 6, words.length)).join(' ');
-          analyzeAndClassifyTerm(longTerm, words.slice(i, Math.min(i + 6, words.length)), tag, weight, text);
+          if (!processedTerms.has(trigram)) {
+            analyzeAndClassifyTerm(trigram, [words[i], words[i + 1], words[i + 2]], tag, weight, text);
+            processedTerms.add(trigram);
+          }
         }
       }
     });
   });
+
+  function analyzeAndClassifyTerm(term: string, termWords: string[], sourceTag: string, tagWeight: number, originalText: string) {
+    if (term.length < 3 || term.length > 100) return;
+    
+    // Classify term type
+    const hasCommercialModifier = commercialModifiers.some(mod => 
+      termWords.some(word => word.includes(mod) || mod.includes(word))
+    );
+    const hasEntityIndicator = entityIndicators.some(entity => 
+      termWords.some(word => word.includes(entity) || entity.includes(word))
+    );
+    const hasAttributeIndicator = attributeIndicators.some(attr => 
+      termWords.some(word => word.includes(attr) || attr.includes(word))
+    );
+
+    // Determine term type
+    let termType: SemanticTerm['type'] = 'specifier';
+    if (hasCommercialModifier) {
+      termType = 'commercial_modifier';
+      foundModifiers.add(term);
+    } else if (hasEntityIndicator) {
+      termType = 'main_entity';
+      foundEntities.add(term);
+    } else if (hasAttributeIndicator) {
+      termType = 'attribute';
+      foundAttributes.add(term);
+    }
+
+    // Determine tail type
+    const wordCount = termWords.length;
+    let tailType: SemanticTerm['tailType'] = 'short';
+    if (wordCount >= 3) tailType = 'medium'; // OPTIMIZED: Only 3 levels
+    if (wordCount >= 4) tailType = 'long';   // Reduced threshold
+
+    // Determine intent type
+    let intentType: SemanticTerm['intentType'] = 'informational';
+    if (hasCommercialModifier || (hasEntityIndicator && hasAttributeIndicator)) {
+      intentType = 'commercial';
+    } else if (term.includes(new URL(url).hostname.split('.')[0])) {
+      intentType = 'navigational';
+    }
+
+    // Calculate relevance score (OPTIMIZED - faster calculation)
+    let relevanceScore = 40; // Lower base score
+    
+    // HTML source weight (simplified)
+    if (sourceTag === 'title' || sourceTag === 'h1') relevanceScore += 30;
+    else if (sourceTag === 'h2' || sourceTag === 'meta[name="description"]') relevanceScore += 20;
+    else relevanceScore += 10;
+    
+    // Commercial intent bonus
+    if (intentType === 'commercial') relevanceScore += 20;
+    
+    // Entity bonus
+    if (termType === 'main_entity') relevanceScore += 15;
+    
+    // Cap at 100
+    relevanceScore = Math.min(100, relevanceScore);
+
+    // Higher threshold for better quality
+    if (relevanceScore >= 70) {
+      extractedTerms.push({
+        term,
+        type: termType,
+        tailType,
+        intentType,
+        relevanceScore,
+        sourceContext: {
+          htmlTag: sourceTag,
+          frequency: 1,
+          isVerbatim: originalText.toLowerCase().includes(term)
+        }
+      });
+    }
+  }
 
   function analyzeAndClassifyTerm(term: string, termWords: string[], sourceTag: string, tagWeight: number, originalText: string) {
     if (term.length < 3 || term.length > 100) return;
@@ -545,7 +617,7 @@ function performSemanticAnalysis(html: string, url: string): SemanticAnalysis {
     }
   }
 
-  // Phase 2: Aggregate and deduplicate terms
+  // Phase 2: Aggregate and deduplicate terms (OPTIMIZED)
   const termMap = new Map<string, SemanticTerm>();
   extractedTerms.forEach(term => {
     if (termMap.has(term.term)) {
@@ -559,27 +631,27 @@ function performSemanticAnalysis(html: string, url: string): SemanticAnalysis {
 
   const finalTerms = Array.from(termMap.values())
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 100); // Limit to top 100 terms
+    .slice(0, 50); // REDUCED: Limit to top 50 terms instead of 100
 
-  // Phase 3: Categorize by tail type
-  const shortTailTerms = finalTerms.filter(t => t.tailType === 'short').slice(0, 20);
-  const mediumTailTerms = finalTerms.filter(t => t.tailType === 'medium').slice(0, 30);
-  const longTailTerms = finalTerms.filter(t => t.tailType === 'long').slice(0, 50);
+  // Phase 3: Categorize by tail type (OPTIMIZED LIMITS)
+  const shortTailTerms = finalTerms.filter(t => t.tailType === 'short').slice(0, 10); // Reduced from 20
+  const mediumTailTerms = finalTerms.filter(t => t.tailType === 'medium').slice(0, 15); // Reduced from 30  
+  const longTailTerms = finalTerms.filter(t => t.tailType === 'long').slice(0, 25); // Reduced from 50
 
-  // Phase 4: Generate intelligent prompts
-  const intelligentPrompts = generateIntelligentPrompts(
-    Array.from(foundModifiers),
-    Array.from(foundEntities),
-    Array.from(foundAttributes),
+  // Phase 4: Generate optimized intelligent prompts
+  const intelligentPrompts = generateOptimizedIntelligentPrompts(
+    Array.from(foundModifiers).slice(0, 5), // Limit inputs
+    Array.from(foundEntities).slice(0, 5),
+    Array.from(foundAttributes).slice(0, 5),
     url
   );
 
-  console.log(`🧠 Semantic analysis complete: ${finalTerms.length} terms, ${intelligentPrompts.length} prompts`);
+  console.log(`🧠 Optimized semantic analysis complete: ${finalTerms.length} terms, ${intelligentPrompts.length} prompts`);
 
   return {
-    commercialModifiers: Array.from(foundModifiers).slice(0, 20),
-    mainEntities: Array.from(foundEntities).slice(0, 15),
-    attributes: Array.from(foundAttributes).slice(0, 25),
+    commercialModifiers: Array.from(foundModifiers).slice(0, 10), // Reduced from 20
+    mainEntities: Array.from(foundEntities).slice(0, 8), // Reduced from 15
+    attributes: Array.from(foundAttributes).slice(0, 12), // Reduced from 25
     shortTailTerms,
     mediumTailTerms,
     longTailTerms,
@@ -587,62 +659,45 @@ function performSemanticAnalysis(html: string, url: string): SemanticAnalysis {
   };
 }
 
-function generateIntelligentPrompts(modifiers: string[], entities: string[], attributes: string[], url: string): string[] {
+function generateOptimizedIntelligentPrompts(modifiers: string[], entities: string[], attributes: string[], url: string): string[] {
   const prompts: string[] = [];
   const domain = new URL(url).hostname.replace('www.', '');
   
-  // Get top entities and modifiers for prompt generation
-  const topEntities = entities.slice(0, 5);
-  const topModifiers = modifiers.slice(0, 5);
-  const topAttributes = attributes.slice(0, 5);
+  // OPTIMIZED: Limit to top 2 entities and modifiers for performance
+  const topEntities = entities.slice(0, 2);
+  const topModifiers = modifiers.slice(0, 2);
+  const topAttributes = attributes.slice(0, 2);
 
-  // Generate entity-based prompts
-  topEntities.forEach(entity => {
-    // Commercial prompts
+  // Generate core prompts only (REDUCED)
+  if (topEntities.length > 0) {
+    const entity = topEntities[0];
+    
+    // Essential commercial prompts
     prompts.push(`Onde comprar ${entity}?`);
     prompts.push(`${entity}: melhor preço`);
     prompts.push(`Como escolher ${entity}?`);
-    prompts.push(`${entity} profissional`);
     
-    // Informational prompts
+    // Essential informational prompts
     prompts.push(`O que é ${entity}?`);
     prompts.push(`Como funciona ${entity}?`);
-    prompts.push(`Vantagens do ${entity}`);
     
-    // Attribute combinations
-    topAttributes.forEach(attr => {
-      prompts.push(`${entity} ${attr}`);
-      prompts.push(`${attr} ${entity} no Brasil`);
-    });
-  });
-
-  // Generate modifier + entity combinations
-  topModifiers.forEach(modifier => {
-    topEntities.forEach(entity => {
-      prompts.push(`${modifier} ${entity}`);
-      if (modifier.includes('melhor') || modifier.includes('top')) {
-        prompts.push(`${modifier} ${entity} 2024`);
-      }
-    });
-  });
-
-  // Generate long-tail question prompts
-  if (topEntities.length > 0 && topModifiers.length > 0) {
-    const entity = topEntities[0];
-    prompts.push(`Qual o melhor ${entity} para empresas?`);
-    prompts.push(`Como implementar ${entity} na minha empresa?`);
-    prompts.push(`${entity}: vale a pena investir?`);
-    prompts.push(`Custo-benefício de ${entity}`);
+    // Core combinations with first attribute
+    if (topAttributes.length > 0) {
+      prompts.push(`${entity} ${topAttributes[0]}`);
+    }
   }
 
-  // Domain-specific prompts
-  prompts.push(`${domain} é confiável?`);
-  prompts.push(`Como usar o ${domain}`);
-  prompts.push(`Avaliação do ${domain}`);
+  // Generate core modifier + entity combinations (LIMITED)
+  if (topModifiers.length > 0 && topEntities.length > 0) {
+    prompts.push(`${topModifiers[0]} ${topEntities[0]}`);
+  }
 
-  // Remove duplicates and limit
+  // Domain-specific prompts (ESSENTIAL ONLY)
+  prompts.push(`${domain} é confiável?`);
+
+  // Remove duplicates and limit to 8 prompts maximum
   const uniquePrompts = [...new Set(prompts)];
-  return uniquePrompts.slice(0, 20);
+  return uniquePrompts.slice(0, 8);
 }
 
 function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticAnalysis?: SemanticAnalysis): AuditCategory[] {
@@ -1140,7 +1195,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
   return categories;
 }
 
-async function getPageSpeedInsights(url: string): Promise<{ desktop: PageSpeedInsightsResponse | null; mobile: PageSpeedInsightsResponse | null }> {
+async function getPageSpeedInsightsWithTimeout(url: string, timeoutMs: number = 8000): Promise<{ desktop: PageSpeedInsightsResponse | null; mobile: PageSpeedInsightsResponse | null }> {
   try {
     const apiKey = Deno.env.get('GOOGLE_PAGESPEED_API_KEY');
     if (!apiKey) {
@@ -1148,17 +1203,24 @@ async function getPageSpeedInsights(url: string): Promise<{ desktop: PageSpeedIn
       return { desktop: null, mobile: null };
     }
 
-    // Desktop analysis
-    const desktopUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=desktop&category=performance&category=accessibility&category=best-practices&category=seo`;
+    // OPTIMIZATION: Only check performance for speed
+    const desktopUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=desktop&category=performance`;
+    const mobileUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=mobile&category=performance&category=accessibility`;
     
-    // Mobile analysis
-    const mobileUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${apiKey}&strategy=mobile&category=performance&category=accessibility&category=best-practices&category=seo`;
+    console.log('Calling PageSpeed Insights API with timeout...');
     
-    console.log('Calling PageSpeed Insights API for desktop and mobile...');
+    // Create timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('PageSpeed API timeout')), timeoutMs);
+    });
     
-    const [desktopResponse, mobileResponse] = await Promise.all([
-      fetch(desktopUrl),
-      fetch(mobileUrl)
+    // Race against timeout
+    const [desktopResponse, mobileResponse] = await Promise.race([
+      Promise.all([
+        fetch(desktopUrl),
+        fetch(mobileUrl)
+      ]),
+      timeoutPromise
     ]);
     
     let desktopData = null;
@@ -1180,7 +1242,7 @@ async function getPageSpeedInsights(url: string): Promise<{ desktop: PageSpeedIn
     
     return { desktop: desktopData, mobile: mobileData };
   } catch (error) {
-    console.error('Error calling PageSpeed Insights:', error);
+    console.error('PageSpeed Insights error (with timeout):', error.message);
     return { desktop: null, mobile: null };
   }
 }
