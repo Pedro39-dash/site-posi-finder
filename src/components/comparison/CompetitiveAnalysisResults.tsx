@@ -23,15 +23,34 @@ const CompetitiveAnalysisResults = ({ analysisId, onBackToForm }: CompetitiveAna
   useEffect(() => {
     loadAnalysisData();
     
-    // Poll for updates if analysis is still running - more frequent polling for better UX
+    // FASE 3: Improved polling with timeout to prevent infinite loops
+    let pollCount = 0;
+    const maxPolls = 30; // Maximum 60 seconds of polling (30 * 2s)
+    
     const pollInterval = setInterval(() => {
-      if (analysisData?.analysis.status === 'analyzing' || analysisData?.analysis.status === 'pending') {
-        loadAnalysisData();
+      pollCount++;
+      
+      if (pollCount >= maxPolls) {
+        console.log('⏰ FASE 3: Polling timeout reached, stopping');
+        clearInterval(pollInterval);
+        setError('Análise demorou mais que o esperado. Tente novamente.');
+        return;
       }
-    }, 2000); // Reduced from 5000ms to 2000ms for more responsive updates
+      
+      // FASE 3: Stop polling when analysis is complete or failed
+      if (analysisData?.analysis.status === 'analyzing' || 
+          analysisData?.analysis.status === 'pending') {
+        console.log(`🔄 FASE 3: Polling attempt ${pollCount}/${maxPolls} - Status: ${analysisData?.analysis.status}`);
+        loadAnalysisData();
+      } else if (analysisData?.analysis.status === 'completed' || 
+                 analysisData?.analysis.status === 'failed') {
+        console.log(`✅ FASE 3: Analysis finished with status: ${analysisData?.analysis.status}`);
+        clearInterval(pollInterval);
+      }
+    }, 2000);
 
     return () => clearInterval(pollInterval);
-  }, [analysisId]);
+  }, [analysisId, analysisData?.analysis.status]); // FASE 3: Added status to dependencies
 
   const loadAnalysisData = async () => {
     try {

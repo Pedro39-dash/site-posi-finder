@@ -157,17 +157,57 @@ async function performCompetitiveAnalysis(
       return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
     }
 
-    // Phase 2: Get and filter keywords with improved strategy
-    const rawKeywords = await extractKeywordsFromAudit(supabase, auditReportId);
-    console.log(`🔍 FASE 4: Raw keywords extracted: [${rawKeywords.join(', ')}]`);
-    
-    const optimizedKeywords = optimizeKeywordsSmarter(rawKeywords);
-    console.log(`📝 FASE 1: Optimized ${rawKeywords.length} keywords to ${optimizedKeywords.length} for analysis`);
-    console.log(`🎯 FASE 4: Final selected keywords: [${optimizedKeywords.join(', ')}]`);
+    // Extract keywords from audit report
+    const keywordsResult = await extractKeywordsFromAudit(supabase, auditReportId);
+    if (!keywordsResult.success) {
+      throw new Error(`Failed to extract keywords: ${keywordsResult.error}`);
+    }
 
+    const rawKeywords = keywordsResult.keywords || [];
+    console.log(`📝 FASE 1: Raw keywords extracted: ${rawKeywords.length} - [${rawKeywords.slice(0, 5).join(', ')}...]`);
+
+    // FASE 1: Optimize keywords with much more flexible filtering
+    const optimizedKeywords = optimizeKeywordsSmarter(rawKeywords);
+    console.log(`🎯 FASE 1: Keywords after optimization: ${optimizedKeywords.length}`);
+
+    // FASE 2: Immediate fallback if no keywords (don't waste time on API test)
     if (optimizedKeywords.length === 0) {
-      console.warn('⚠️ No valid keywords found - using fallback analysis');
-      return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
+      console.log(`❌ FASE 2: No valid keywords found after filtering - immediate simulation fallback`);
+      
+      // Update metadata to show why simulation was used
+      await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
+        reason: 'no_valid_keywords',
+        raw_keywords_count: rawKeywords.length,
+        optimized_keywords_count: 0,
+        sample_raw_keywords: rawKeywords.slice(0, 5)
+      });
+      
+      const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
+      if (!simulationResult.success) {
+        throw new Error(`Simulation failed: ${simulationResult.error}`);
+      }
+      return { success: true };
+    }
+
+    // FASE 2: Test API connectivity with the actual keywords we'll use
+    try {
+      await testApiConnectivity(apiKey, cx, optimizedKeywords);
+      console.log(`✅ FASE 2: API connectivity confirmed for real analysis`);
+    } catch (error) {
+      console.log(`⚠️ FASE 2: API test failed, falling back to simulation: ${error.message}`);
+      
+      // Update metadata to show why simulation was used  
+      await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
+        reason: 'api_connectivity_failed',
+        api_error: error.message,
+        available_keywords: optimizedKeywords.length
+      });
+      
+      const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
+      if (!simulationResult.success) {
+        throw new Error(`Simulation failed: ${simulationResult.error}`);
+      }
+      return { success: true };
     }
 
     // Update status to show progress
@@ -340,7 +380,7 @@ async function performCompetitiveAnalysis(
   }
 }
 
-async function extractKeywordsFromAudit(supabase: any, auditReportId: string): Promise<string[]> {
+async function extractKeywordsFromAudit(supabase: any, auditReportId: string): Promise<{ success: boolean; keywords?: string[]; error?: string }> {
   try {
     // First get the audit category ID
     const { data: categories, error: categoryError } = await supabase
@@ -351,7 +391,7 @@ async function extractKeywordsFromAudit(supabase: any, auditReportId: string): P
 
     if (categoryError || !categories || categories.length === 0) {
       console.warn('Could not find audit category:', categoryError);
-      return [];
+      return { success: false, error: 'No audit category found', keywords: [] };
     }
 
     const categoryId = categories[0].id;
@@ -364,7 +404,7 @@ async function extractKeywordsFromAudit(supabase: any, auditReportId: string): P
 
     if (error) {
       console.warn('Could not fetch keywords from audit:', error);
-      return [];
+      return { success: false, error: 'Failed to fetch keywords from audit', keywords: [] };
     }
 
     const keywords = new Set<string>();
@@ -373,17 +413,20 @@ async function extractKeywordsFromAudit(supabase: any, auditReportId: string): P
     issues?.forEach(issue => {
       if (issue.metadata?.keywords) {
         issue.metadata.keywords.forEach((keyword: string) => {
-          if (keyword && keyword.length > 2) {
+          if (keyword && keyword.length > 1) { // FASE 1: More lenient minimum length
             keywords.add(keyword.toLowerCase().trim());
           }
         });
       }
     });
 
-    return Array.from(keywords);
+    const keywordArray = Array.from(keywords);
+    console.log(`🔍 FASE 4: Extracted ${keywordArray.length} keywords from audit issues`);
+    
+    return { success: true, keywords: keywordArray };
   } catch (error) {
     console.warn('Error extracting keywords from audit:', error);
-    return [];
+    return { success: false, error: 'Unexpected error during keyword extraction', keywords: [] };
   }
 }
 
@@ -589,63 +632,67 @@ function calculateOverallCompetitivenessScore(keywordAnalyses: KeywordAnalysis[]
   return scoredKeywords > 0 ? Math.round(totalScore / scoredKeywords) : 0;
 }
 
-// FASE 1: Smarter keyword optimization - accept 2-3 words with proper filtering
+// FASE 1: Much more flexible keyword optimization - accept 1-4 words
 function optimizeKeywordsSmarter(keywords: string[]): string[] {
-  // Blacklist of generic words that cause API issues
-  const blacklistedWords = [
-    'empresa', 'empresas', 'especializada', 'servicos', 'solucoes', 'produtos', 'comercio'
-  ];
-
-  // Common connector words to clean from multi-word keywords
-  const connectorWords = [
-    'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com', 'para', 'por', 'sobre', 'entre'
-  ];
+  console.log(`🔍 FASE 1: Starting with ${keywords.length} raw keywords`);
+  
+  // Only remove truly problematic connector words, keep meaningful ones
+  const minimalConnectors = ['de', 'da', 'do', 'e', 'em'];
+  
+  // Very minimal blacklist - only truly generic/problematic terms
+  const blacklistedWords = ['empresa', 'empresas'];
 
   const optimized = keywords
     .filter(keyword => {
-      if (!keyword || keyword.length < 3 || keyword.length > 50) return false;
+      if (!keyword || keyword.length < 2 || keyword.length > 60) return false;
       
-      // Remove blacklisted generic terms
+      // Only filter out truly generic terms
       const lowerKeyword = keyword.toLowerCase();
-      if (blacklistedWords.some(word => lowerKeyword.includes(word))) return false;
+      if (blacklistedWords.some(word => lowerKeyword === word)) return false;
       
-      // FASE 1: Accept 2-3 words instead of only single words
+      // FASE 1: Accept 1-4 words - much more flexible
       const wordCount = keyword.trim().split(/\s+/).length;
-      if (wordCount > 3) return false;
+      if (wordCount > 4) return false;
       
-      // Remove keywords with numbers or special characters (except spaces and accents)
-      if (/[0-9!@#$%^&*()_+=\[\]{}|\\:";'<>?,./]/.test(keyword)) return false;
+      // Only remove keywords with special characters that break API calls
+      if (/[!@#$%^&*()_+=\[\]{}|\\:";'<>?]/.test(keyword)) return false;
       
       return true;
     })
     .map(keyword => {
       let cleaned = keyword.toLowerCase().trim();
       
-      // FASE 1: Clean connector words from multi-word keywords
-      const words = cleaned.split(/\s+/);
-      const cleanedWords = words.filter(word => !connectorWords.includes(word));
-      cleaned = cleanedWords.join(' ');
+      // Only clean minimal connector words for multi-word keywords
+      if (cleaned.includes(' ')) {
+        const words = cleaned.split(/\s+/);
+        const cleanedWords = words.filter(word => !minimalConnectors.includes(word));
+        if (cleanedWords.length > 0) {
+          cleaned = cleanedWords.join(' ');
+        }
+      }
       
-      // Normalize for API compatibility
+      // Light normalization - keep most characters for relevance
       return cleaned
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove accents
         .replace(/\s+/g, ' ')
         .trim();
     })
-    .filter(keyword => keyword.length >= 3) // Ensure still valid after cleaning
+    .filter(keyword => keyword.length >= 2) // Very lenient minimum
     .filter((keyword, index, arr) => arr.indexOf(keyword) === index) // Remove duplicates
     .sort((a, b) => {
-      // Prioritize by word count (1 word first, then 2, then 3), then by length
+      // Prioritize single words, then multi-word terms
       const aWords = a.split(' ').length;
       const bWords = b.split(' ').length;
       if (aWords !== bWords) return aWords - bWords;
       return a.length - b.length;
     })
-    .slice(0, 5); // FASE 1: Allow up to 5 keywords for better coverage
+    .slice(0, 8); // Allow more keywords for better coverage
 
-  console.log(`🎯 FASE 1: Keyword filtering: ${keywords.length} → ${optimized.length} keywords`);
-  console.log(`📋 FASE 1: Selected keywords: [${optimized.join(', ')}]`);
+  console.log(`✅ FASE 1: Filtered keywords: ${keywords.length} → ${optimized.length}`);
+  console.log(`📝 FASE 1: Final keywords: [${optimized.join(', ')}]`);
+  
+  if (optimized.length === 0) {
+    console.log(`⚠️ FASE 1: No valid keywords found! Original list: [${keywords.slice(0, 10).join(', ')}...]`);
+  }
   
   return optimized;
 }
@@ -660,77 +707,88 @@ function optimizeKeywords(keywords: string[]): string[] {
   return optimizeKeywordsAggressively(keywords);
 }
 
-// FASE 2: Test API connectivity with a real search query instead of "test"
-async function testApiConnectivity(apiKey: string, cx: string): Promise<void> {
-  const testKeyword = 'marketing'; // Use a more realistic keyword
+// FASE 2: Test API connectivity with extracted keywords or fallback
+async function testApiConnectivity(apiKey: string, cx: string, availableKeywords: string[] = []): Promise<void> {
+  // Use a real keyword from the available list, or fallback to a generic one
+  const testKeyword = availableKeywords.length > 0 ? availableKeywords[0] : 'web design';
   const testUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(testKeyword)}&num=1`;
   
-  console.log(`🧪 FASE 2: Testing API with keyword "${testKeyword}"`);
+  console.log(`🧪 FASE 2: Testing API with keyword "${testKeyword}" (from ${availableKeywords.length} available)`);
   
-  const response = await fetch(testUrl);
+  const response = await fetch(testUrl, { 
+    signal: AbortSignal.timeout(5000) // Quick timeout for connectivity test
+  });
   const data = await response.json();
   
   if (!response.ok) {
-    console.error(`❌ FASE 2: API test failed with status ${response.status}:`, data);
-    throw new Error(`API test failed: ${response.status} - ${JSON.stringify(data)}`);
+    console.error(`❌ FASE 2: API test failed with status ${response.status}:`, JSON.stringify(data).slice(0, 200));
+    throw new Error(`API test failed: ${response.status} - ${data.error?.message || 'Unknown error'}`);
   }
   
-  console.log(`✅ FASE 2: API test successful - found ${data.items?.length || 0} results`);
+  console.log(`✅ FASE 2: API test successful - found ${data.items?.length || 0} results for "${testKeyword}"`);
 }
 
-// Simulated analysis when API fails
+//FASE 4: Enhanced simulated analysis with metadata about why it was used
 async function performSimulatedAnalysis(
   supabase: any,
   analysisId: string,
   targetDomain: string,
   additionalCompetitors: string[]
-): Promise<void> {
-  console.log('🎮 Starting simulated competitive analysis...');
+): Promise<{ success: boolean; error?: string }> {
+  console.log('🎮 FASE 4: Starting simulated competitive analysis...');
   
-  // Simulate some processing time - much faster
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Create simulated competitors
-  const simulatedCompetitors = [
-    'competitor1.com', 'competitor2.com', 'competitor3.com',
-    ...additionalCompetitors
-  ].slice(0, 5);
-  
-  // Save simulated competitor domains
-  for (const domain of simulatedCompetitors) {
-    await supabase
-      .from('competitor_domains')
-      .insert({
-        analysis_id: analysisId,
-        domain: domain,
-        relevance_score: Math.floor(Math.random() * 50) + 50,
-        total_keywords_found: Math.floor(Math.random() * 5) + 3,
-        average_position: Math.floor(Math.random() * 5) + 2,
-        share_of_voice: Math.floor(Math.random() * 20) + 10,
-        detected_automatically: true
-      });
-  }
-  
-  // Update analysis as completed
-  await supabase
-    .from('competitor_analyses')
-    .update({
-      status: 'completed',
-      total_keywords: 5,
-      total_competitors: simulatedCompetitors.length,
-      overall_competitiveness_score: 65,
-      completed_at: new Date().toISOString(),
-      metadata: {
-        simulation_mode: true,
-        reason: 'API connectivity issues or keyword analysis failures',
-        keywords_analyzed: 3,
-        competitors_found: simulatedCompetitors.length,
-        fallback_activated: true
-      }
-    })
-    .eq('id', analysisId);
+  try {
+    // Simulate some processing time - much faster
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-  console.log('✅ Simulated analysis completed');
+    // Create simulated competitors
+    const simulatedCompetitors = [
+      'competitor1.com', 'competitor2.com', 'competitor3.com',
+      ...additionalCompetitors
+    ].slice(0, 5);
+    
+    // Save simulated competitor domains
+    for (const domain of simulatedCompetitors) {
+      await supabase
+        .from('competitor_domains')
+        .insert({
+          analysis_id: analysisId,
+          domain: domain,
+          relevance_score: Math.floor(Math.random() * 50) + 50,
+          total_keywords_found: Math.floor(Math.random() * 5) + 3,
+          average_position: Math.floor(Math.random() * 5) + 2,
+          share_of_voice: Math.floor(Math.random() * 20) + 10,
+          detected_automatically: true
+        });
+    }
+    
+    // Update analysis as completed with simulation metadata
+    await supabase
+      .from('competitor_analyses')
+      .update({
+        status: 'completed',
+        total_keywords: 5,
+        total_competitors: simulatedCompetitors.length,
+        overall_competitiveness_score: 65,
+        completed_at: new Date().toISOString(),
+        metadata: {
+          simulation_mode: true,
+          reason: 'API connectivity issues or insufficient valid keywords',
+          keywords_analyzed: 3,
+          competitors_found: simulatedCompetitors.length,
+          fallback_activated: true,
+          completion_time: new Date().toISOString()
+        }
+      })
+      .eq('id', analysisId);
+      
+    console.log('✅ FASE 4: Simulated analysis completed successfully');
+    return { success: true };
+    
+  } catch (error) {
+    console.error('❌ FASE 4: Simulated analysis failed:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 // FASE 2: Retry logic with exponential backoff
