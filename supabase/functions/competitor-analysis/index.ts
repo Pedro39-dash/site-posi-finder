@@ -71,8 +71,13 @@ serve(async (req) => {
 
     console.log(`✅ Created analysis with ID: ${analysisData.id}`);
 
-    // Start background analysis
-    performCompetitiveAnalysis(supabase, analysisData.id, auditReportId, targetDomain, additionalCompetitors);
+    // Start background analysis with proper error handling
+    EdgeRuntime.waitUntil(
+      performCompetitiveAnalysis(supabase, analysisData.id, auditReportId, targetDomain, additionalCompetitors)
+        .catch(error => {
+          console.error('❌ Background analysis failed:', error);
+        })
+    );
 
     return new Response(JSON.stringify({ 
       success: true, 
@@ -99,7 +104,8 @@ async function performCompetitiveAnalysis(
   additionalCompetitors: string[]
 ) {
   const analysisStartTime = Date.now();
-  const ANALYSIS_TIMEOUT = 30000; // 30 seconds timeout
+  const ANALYSIS_TIMEOUT = 15000; // 15 seconds timeout
+  const KEYWORD_TIMEOUT = 3000; // 3 seconds per keyword
   let shouldUseFallback = false;
 
   try {
@@ -150,7 +156,7 @@ async function performCompetitiveAnalysis(
     const keywordAnalyses: KeywordAnalysis[] = [];
     const competitorDomains = new Set<string>();
     let consecutiveFailures = 0;
-    const MAX_CONSECUTIVE_FAILURES = 3;
+    const MAX_CONSECUTIVE_FAILURES = 1; // Fail fast - switch to simulation after first failure
     
     for (let i = 0; i < optimizedKeywords.length; i++) {
       // Check timeout
@@ -163,7 +169,13 @@ async function performCompetitiveAnalysis(
       console.log(`🔍 [${i + 1}/${optimizedKeywords.length}] Analyzing: "${keyword}"`);
       
       try {
-        const analysis = await analyzeKeywordPositionsWithRetry(keyword, targetDomain, 2);
+        // Individual keyword timeout
+        const keywordPromise = analyzeKeywordPositionsWithRetry(keyword, targetDomain, 1);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Keyword timeout')), KEYWORD_TIMEOUT)
+        );
+        
+        const analysis = await Promise.race([keywordPromise, timeoutPromise]) as KeywordAnalysis;
         
         // Collect competitor domains
         analysis.competitor_positions.forEach(pos => {
@@ -179,9 +191,9 @@ async function performCompetitiveAnalysis(
         consecutiveFailures++;
         console.warn(`⚠️ Failed to analyze keyword "${keyword}":`, error.message);
         
-        // If too many consecutive failures, switch to fallback
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          console.error('❌ Too many consecutive failures - switching to simulation mode');
+        // If first keyword fails, switch to fallback immediately
+        if (i === 0 || consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          console.error('❌ First keyword failed or too many failures - switching to simulation mode');
           return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
         }
       }
@@ -195,7 +207,7 @@ async function performCompetitiveAnalysis(
       });
       
       // Brief delay between requests
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     // Check if we have enough successful analyses
@@ -554,9 +566,9 @@ function optimizeKeywordsAggressively(keywords: string[]): string[] {
       const lowerKeyword = keyword.toLowerCase();
       if (blacklistedWords.some(word => lowerKeyword.includes(word))) return false;
       
-      // Only allow 1-2 word keywords for better API success
+      // Ultra-aggressive: prefer single words only
       const wordCount = keyword.trim().split(/\s+/).length;
-      if (wordCount > 2) return false;
+      if (wordCount > 1) return false;
       
       // Remove keywords with numbers or special characters
       if (/[0-9]/.test(keyword) || /[^\w\s]/.test(keyword)) return false;
@@ -573,8 +585,14 @@ function optimizeKeywordsAggressively(keywords: string[]): string[] {
         .replace(/\s+/g, ' ');
     })
     .filter((keyword, index, arr) => arr.indexOf(keyword) === index) // Remove duplicates
-    .sort((a, b) => a.length - b.length) // Prioritize shorter keywords
-    .slice(0, 8); // Limit to only 8 best keywords
+    .sort((a, b) => {
+      // Prioritize single words, then by length
+      const aWords = a.split(' ').length;
+      const bWords = b.split(' ').length;
+      if (aWords !== bWords) return aWords - bWords;
+      return a.length - b.length;
+    })
+    .slice(0, 3); // Ultra-aggressive: only 3 best keywords
 
   console.log(`🎯 Keyword filtering: ${keywords.length} → ${optimized.length} keywords`);
   console.log(`📋 Selected keywords: ${optimized.join(', ')}`);
@@ -609,8 +627,8 @@ async function performSimulatedAnalysis(
 ): Promise<void> {
   console.log('🎮 Starting simulated competitive analysis...');
   
-  // Simulate some processing time
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // Simulate some processing time - much faster
+  await new Promise(resolve => setTimeout(resolve, 1000));
   
   // Create simulated competitors
   const simulatedCompetitors = [
@@ -644,9 +662,10 @@ async function performSimulatedAnalysis(
       completed_at: new Date().toISOString(),
       metadata: {
         simulation_mode: true,
-        reason: 'API connectivity issues',
-        keywords_analyzed: 5,
-        competitors_found: simulatedCompetitors.length
+        reason: 'API connectivity issues or keyword analysis failures',
+        keywords_analyzed: 3,
+        competitors_found: simulatedCompetitors.length,
+        fallback_activated: true
       }
     })
     .eq('id', analysisId);
@@ -654,11 +673,11 @@ async function performSimulatedAnalysis(
   console.log('✅ Simulated analysis completed');
 }
 
-// Retry logic for API calls with reduced attempts
+// Retry logic for API calls - ultra-fast failure detection
 async function analyzeKeywordPositionsWithRetry(
   keyword: string, 
   targetDomain: string, 
-  maxRetries: number = 2
+  maxRetries: number = 1 // Only 1 retry for ultra-fast failure
 ): Promise<KeywordAnalysis> {
   let lastError: Error | null = null;
   
@@ -667,19 +686,14 @@ async function analyzeKeywordPositionsWithRetry(
       console.log(`🔄 Attempt ${attempt}/${maxRetries} for keyword: "${keyword}"`);
       const result = await analyzeKeywordPositions(keyword, targetDomain);
       
-      // Brief delay after successful request
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       return result;
     } catch (error) {
       lastError = error as Error;
       console.warn(`⚠️ Attempt ${attempt} failed for keyword "${keyword}":`, error.message);
       
-      // Shorter retry delays for faster failure detection
+      // No retry delays - fail fast
       if (attempt < maxRetries) {
-        const delay = 500 * attempt; // 500ms, 1000ms
-        console.log(`⏳ Waiting ${delay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
   }
