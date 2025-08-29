@@ -2235,14 +2235,14 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
     });
   }
   
-  // Add summary of keywords and prompts
-  issues.push({
-    type: 'success' as const,
-    message: `${prompts.length} prompts de IA gerados com base no conteúdo`,
-    priority: 'low' as const,
-    recommendation: `Revise os termos e prompts identificados nos cards separados`,
-    metadata: { keywords: keywords.slice(0, 60), prompts: prompts } // Increased from 15 to 60
-  });
+    // Add summary of keywords and prompts
+    issues.push({
+      type: 'success' as const,
+      message: `${prompts.length} prompts de IA gerados com base no conteúdo`,
+      priority: 'low' as const,
+      recommendation: `Revise os termos e prompts identificados nos cards separados`,
+      metadata: { keywords: keywords, prompts: prompts } // ALL keywords, no limits
+    });
   
   return {
     category: 'ai_search_optimization',
@@ -2282,9 +2282,9 @@ function extractKeywords(textContent: string, title: string, metaDesc: string): 
   const words = combinedText
     .replace(/[^\p{L}\s]/gu, ' ') // Keep only letters and spaces (Unicode aware)
     .split(/\s+/)
-    .filter(word => word.length >= 2 && !stopWords.has(word)) // Reduced minimum length
+    .filter(word => word.length >= 2 && !stopWords.has(word)) // Allow shorter technical terms
     .filter(word => !/^\d+$/.test(word)) // Remove pure numbers
-    .filter(word => word.length <= 30); // Allow longer technical terms
+    .filter(word => word.length <= 50); // Allow even longer technical terms
   
   console.log('📝 Found words after filtering:', words.length);
   
@@ -2376,23 +2376,49 @@ function extractKeywords(textContent: string, title: string, metaDesc: string): 
     termScores.set(compound, score);
   });
   
-  // Get top scored terms (significantly increased limit)
+  // Get ALL scored terms without artificial limits
   const topTerms = Array.from(termScores.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 100) // Increased from 20 to 100 terms
     .map(([term]) => term);
   
-  // Remove duplicates and short unimportant terms
+  // Remove duplicates and improve validation for real searchability
   const finalKeywords = topTerms
     .filter((keyword, index, arr) => arr.indexOf(keyword) === index)
     .filter(keyword => {
-      // Keep if it's a meaningful single word (>= 4 chars) or any compound
-      return keyword.includes(' ') || keyword.length >= 4;
-    })
-    .slice(0, 80); // Final limit of 80 keywords
+      // More inclusive validation - accept meaningful terms
+      if (keyword.includes(' ')) {
+        // For compound terms: accept if meaningful length
+        return keyword.length >= 6 && keyword.length <= 70;
+      } else {
+        // For single words: accept if >= 3 chars and potentially searchable
+        if (keyword.length < 3) return false;
+        
+        // Accept technical/commercial terms even if short
+        const commercialPatterns = [
+          /^[a-z]{3,}ção$/i, // Terms ending in -ção (like "soldação")
+          /^[a-z]{3,}gem$/i,  // Terms ending in -gem (like "soldagem")
+          /^[a-z]{3,}mento$/i, // Terms ending in -mento
+          /^[a-z]{4,}al$/i,    // Terms ending in -al (like "industrial")
+          /^[a-z]{4,}ico$/i,   // Terms ending in -ico (like "hidráulico")
+          /^[a-z]{4,}ada$/i,   // Terms ending in -ada
+          /^[a-z]{4,}ado$/i,   // Terms ending in -ado (like "polimento")
+        ];
+        
+        // Accept if matches commercial patterns or is long enough
+        return keyword.length >= 4 || commercialPatterns.some(pattern => pattern.test(keyword));
+      }
+    });
   
-  console.log('🎯 Advanced extraction complete:', finalKeywords.length, 'keywords');
-  console.log('🔝 Top 20 scored keywords:', finalKeywords.slice(0, 20));
+  console.log('🎯 Advanced extraction complete:', finalKeywords.length, 'keywords (NO LIMITS)');
+  console.log('🔝 Top 30 scored keywords:', finalKeywords.slice(0, 30));
+  console.log('📊 Score distribution:', {
+    'Score > 20': finalKeywords.filter(k => (termScores.get(k) || 0) > 20).length,
+    'Score 10-20': finalKeywords.filter(k => {
+      const score = termScores.get(k) || 0;
+      return score >= 10 && score <= 20;
+    }).length,
+    'Score < 10': finalKeywords.filter(k => (termScores.get(k) || 0) < 10).length
+  });
   
   return finalKeywords;
 }
