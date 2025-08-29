@@ -980,51 +980,6 @@ function extractKeywordsFromIssue(issue: any, category: any, htmlContent: string
   
   return keywords;
 }
-    
-    // FALLBACK 1: Extract basic keywords from issue message
-    if (keywords.length === 0) {
-      console.log('🔧 FALLBACK: Extracting keywords from issue message');
-      const messageKeywords = extractBasicKeywordsFromText(issue.message);
-      messageKeywords.forEach(keyword => {
-        keywords.push({
-          audit_report_id: auditId,
-          category: category.category,
-          keyword: keyword,
-          relevance_score: 50,
-          keyword_type: 'basic'
-        });
-      });
-    }
-    
-    // FALLBACK 2: Generate category-based keywords
-    if (keywords.length === 0) {
-      console.log('🔧 FALLBACK: Generating category-based keywords');
-      const categoryKeywords = generateCategoryKeywords(category.category);
-      categoryKeywords.forEach(keyword => {
-        keywords.push({
-          audit_report_id: auditId,
-          category: category.category,
-          keyword: keyword,
-          relevance_score: 40,
-          keyword_type: 'category'
-        });
-      });
-    }
-    
-  } catch (error) {
-    console.error('❌ Keyword extraction error:', error);
-    // EMERGENCY FALLBACK: Always ensure at least one keyword
-    keywords.push({
-      audit_report_id: auditId,
-      category: category.category,
-      keyword: category.category.replace('_', ' '),
-      relevance_score: 30,
-      keyword_type: 'emergency'
-    });
-  }
-  
-  return keywords;
-}
 
 // CRITICAL: Background keyword processing with independent timeout - IMPROVED
 async function processKeywordsInBackground(supabase: any, auditId: string, allKeywords: any[]) {
