@@ -638,6 +638,30 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
       .eq('id', auditId);
   }
 }
+    
+    if (error.message.includes('timeout') || error.message.includes('45 seconds')) {
+      userFriendlyError = 'Auditoria interrompida por timeout otimizado (45s). Site muito complexo - tente uma página mais simples.';
+    } else if (error.message.includes('CPU Time exceeded')) {
+      userFriendlyError = 'Processamento intensivo detectado. As otimizações foram aplicadas - tente novamente.';
+    } else if (error.message.includes('Failed to fetch')) {
+      userFriendlyError = 'Site inacessível. Verifique se o site está online.';
+    } else if (error.message.includes('Invalid URL')) {
+      userFriendlyError = 'URL inválida. Verifique o formato da URL.';
+    }
+    
+    // Update audit report with error status
+    await supabase
+      .from('audit_reports')
+      .update({ 
+        status: 'failed',
+        metadata: { 
+          error: userFriendlyError,
+          technical_error: error.message
+        }
+      })
+      .eq('id', auditId);
+  }
+}
 
 // OPTIMIZATION: Batch save audit results for better performance
 async function batchSaveAuditResults(supabase: any, auditId: string, categories: any[], htmlContent: string) {
@@ -799,43 +823,6 @@ function getDefaultSemanticAnalysis() {
     intelligentPrompts: []
   };
 }
-    console.error(`❌ Error performing SEO audit for ${url}:`, error);
-    console.log('🔍 Error details:', JSON.stringify({
-      message: error.message,
-      stack: error.stack,
-      url,
-      auditId
-    }, null, 2));
-    
-    // Provide more specific error messages
-    let userFriendlyError = error.message;
-    
-    if (error.message.includes('Invalid URL')) {
-      userFriendlyError = 'URL inválida. Verifique o formato da URL.';
-    } else if (error.message.includes('Failed to fetch')) {
-      userFriendlyError = 'Não foi possível acessar o site. Verifique se o site está online e acessível.';
-    } else if (error.message.includes('HTTP 403')) {
-      userFriendlyError = 'Acesso negado pelo site. O site pode estar bloqueando auditorias automatizadas.';
-    } else if (error.message.includes('HTTP 404')) {
-      userFriendlyError = 'Página não encontrada. Verifique se a URL está correta.';
-    } else if (error.message.includes('HTTP 500')) {
-      userFriendlyError = 'Erro interno do servidor do site. Tente novamente mais tarde.';
-    } else if (error.message.includes('timeout') || error.message.includes('TIMEOUT')) {
-      userFriendlyError = 'Tempo limite excedido. O site demorou muito para responder.';
-    }
-    
-    // Update audit report with error status
-    await supabase
-      .from('audit_reports')
-      .update({ 
-        status: 'failed',
-        metadata: { 
-          error: userFriendlyError,
-          technical_error: error.message
-        }
-      })
-      .eq('id', auditId);
-  }
 }
 
 
