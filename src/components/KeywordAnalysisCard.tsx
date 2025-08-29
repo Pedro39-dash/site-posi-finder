@@ -34,89 +34,96 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   // Extract semantic data from audit results - Enhanced for dedicated keywords table
   const extractSemanticData = () => {
     if (!results) return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
-
-    console.log('🔍 EXTRACTING SEMANTIC DATA FROM RESULTS:', results.length, 'categories');
-
-    // Look for enhanced semantic analysis data first
-    const aiOptimizationCategory = results.find(category => 
-      category.category === 'ai_search_optimization'
-    );
     
-    if (aiOptimizationCategory?.issues) {
-      for (const issue of aiOptimizationCategory.issues) {
-        // Check for keywords from dedicated audit_keywords table
-        if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
-          console.log('✅ FOUND KEYWORDS IN METADATA:', issue.metadata.keywords.length);
-          
-          const dedicatedKeywords = issue.metadata.keywords.map((kw: any) => 
-            typeof kw === 'object' ? kw.keyword : kw
-          );
-
-          return {
-            keywords: dedicatedKeywords,
-            prompts: issue.metadata.prompts || [],
-            semanticTerms: [],
-            modifiers: [],
-            entities: [],
-            attributes: []
-          };
-        }
-
-        // Check for new intelligent semantic analysis data
-        if (issue.metadata?.semanticAnalysis) {
-          const semantic = issue.metadata.semanticAnalysis;
-          
-          // Extract enhanced semantic terms with context
-          const allTerms = [
-            ...(semantic.shortTailTerms || []),
-            ...(semantic.mediumTailTerms || []),
-            ...(semantic.longTailTerms || [])
-          ];
-
-          return {
-            keywords: issue.metadata.keywords || [],
-            prompts: semantic.intelligentPrompts || issue.metadata.prompts || [],
-            semanticTerms: allTerms,
-            modifiers: semantic.commercialModifiers || [],
-            entities: semantic.mainEntities || [],
-            attributes: semantic.attributes || []
-          };
-        }
-        
-        // Fallback to legacy data - prioritize issues with more keywords
-        if (issue.metadata?.keywords) {
-          return {
-            keywords: issue.metadata.keywords || [],
-            prompts: issue.metadata.prompts || [],
-            semanticTerms: [],
-            modifiers: [],
-            entities: [],
-            attributes: []
-          };
-        }
-      }
-    }
-
-    // Fallback: Search all categories for keywords
-    console.log('🔄 Searching ALL categories for keywords...');
+    console.log('🔍 EXTRACTING SEMANTIC DATA - Total categories:', results.length);
+    
+    // Collect ALL issues with keywords from ALL categories
+    const allIssuesWithKeywords: Array<{
+      issue: any;
+      category: string;
+      keywordCount: number;
+      message: string;
+    }> = [];
     
     for (const category of results) {
       if (category.issues) {
+        console.log(`📂 Checking category: ${category.category} (${category.issues.length} issues)`);
+        
         for (const issue of category.issues) {
-          if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords) && issue.metadata.keywords.length > 10) {
-            console.log(`✅ FOUND KEYWORDS IN ${category.category.toUpperCase()}:`, issue.metadata.keywords.length);
+          if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+            const keywordCount = issue.metadata.keywords.length;
+            console.log(`  ✅ Found ${keywordCount} keywords in issue: ${issue.message?.substring(0, 50)}...`);
             
-            return {
-              keywords: issue.metadata.keywords || [],
-              prompts: issue.metadata.prompts || [],
-              semanticTerms: [],
-              modifiers: [],
-              entities: [],
-              attributes: []
-            };
+            allIssuesWithKeywords.push({
+              issue,
+              category: category.category,
+              keywordCount,
+              message: issue.message || ''
+            });
           }
         }
       }
+    }
+    
+    // Sort by keyword count (descending) to prioritize issues with more keywords
+    allIssuesWithKeywords.sort((a, b) => b.keywordCount - a.keywordCount);
+    
+    console.log(`📊 Found ${allIssuesWithKeywords.length} issues with keywords:`);
+    allIssuesWithKeywords.forEach((item, index) => {
+      console.log(`  ${index + 1}. ${item.category}: ${item.keywordCount} keywords - "${item.message.substring(0, 60)}..."`);
+    });
+    
+    // Prioritize issues that contain semantic analysis indicators
+    const semanticAnalysisIssue = allIssuesWithKeywords.find(item => 
+      item.message.includes('keywords identificadas') || 
+      item.message.includes('keywords identified') ||
+      item.message.includes('prompts de IA') ||
+      item.message.includes('AI prompts') ||
+      item.keywordCount >= 50 // Issues with 50+ keywords are likely the main semantic analysis
+    );
+    
+    const selectedIssue = semanticAnalysisIssue || allIssuesWithKeywords[0];
+    
+    if (selectedIssue) {
+      console.log(`🎯 SELECTED ISSUE: ${selectedIssue.category} with ${selectedIssue.keywordCount} keywords`);
+      console.log(`   Message: "${selectedIssue.message}"`);
+      
+      const issue = selectedIssue.issue;
+      
+      // Check for new intelligent semantic analysis data first
+      if (issue.metadata?.semanticAnalysis) {
+        const semantic = issue.metadata.semanticAnalysis;
+        console.log('🧠 Using intelligent semantic analysis data');
+        
+        const allTerms = [
+          ...(semantic.shortTailTerms || []),
+          ...(semantic.mediumTailTerms || []),
+          ...(semantic.longTailTerms || [])
+        ];
+
+        return {
+          keywords: issue.metadata.keywords || [],
+          prompts: semantic.intelligentPrompts || issue.metadata.prompts || [],
+          semanticTerms: allTerms,
+          modifiers: semantic.commercialModifiers || [],
+          entities: semantic.mainEntities || [],
+          attributes: semantic.attributes || []
+        };
+      }
+      
+      // Use keywords from the selected issue
+      const dedicatedKeywords = issue.metadata.keywords.map((kw: any) => 
+        typeof kw === 'object' ? kw.keyword : kw
+      );
+
+      return {
+        keywords: dedicatedKeywords,
+        prompts: issue.metadata.prompts || [],
+        semanticTerms: [],
+        modifiers: [],
+        entities: [],
+        attributes: []
+      };
     }
 
     console.log('❌ NO KEYWORDS FOUND IN ANY CATEGORY');
