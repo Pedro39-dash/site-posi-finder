@@ -6,10 +6,14 @@ import SearchForm from "@/components/SearchForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
 import SimulationNotice from "@/components/SimulationNotice";
 import HowItWorks from "@/components/HowItWorks";
-import DashboardOverview from "@/components/dashboard/DashboardOverview";
+import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
+import { ClientDashboard } from "@/components/dashboard/ClientDashboard";
+import { DisplayDashboard } from "@/components/dashboard/DisplayDashboard";
 import WelcomeOnboarding from "@/components/WelcomeOnboarding";
 import ProjectSelectionModal from "@/components/onboarding/ProjectSelectionModal";
 import { useProjects } from "@/contexts/ProjectContext";
+import { useRole } from "@/hooks/useRole";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SearchResult {
   keyword: string;
@@ -25,6 +29,8 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<'dashboard' | 'search'>('dashboard');
   
   const { activeProject } = useProjects();
+  const { isAdmin, isClient, isDisplay } = useRole();
+  const { isAuthenticated } = useAuth();
 
   // Check if user is new or needs project selection
   useEffect(() => {
@@ -125,6 +131,27 @@ const Index = () => {
     setSearchResults(null);
   };
 
+  const renderDashboardByRole = () => {
+    if (!isAuthenticated) {
+      return <DisplayDashboard onViewModeChange={setViewMode} />;
+    }
+
+    if (isAdmin) {
+      return <AdminDashboard onViewModeChange={setViewMode} />;
+    }
+
+    if (isClient) {
+      return <ClientDashboard onViewModeChange={setViewMode} />;
+    }
+
+    if (isDisplay) {
+      return <DisplayDashboard onViewModeChange={setViewMode} />;
+    }
+
+    // Fallback para usuários não autenticados ou sem role definido
+    return <DisplayDashboard onViewModeChange={setViewMode} />;
+  };
+
   return (
     <>
       <Helmet>
@@ -142,7 +169,7 @@ const Index = () => {
           {viewMode === 'dashboard' && !showDashboard ? (
             <main className="py-8">
               <div className="container mx-auto px-4">
-                <DashboardOverview onViewModeChange={setViewMode} />
+                {renderDashboardByRole()}
               </div>
             </main>
           ) : viewMode === 'search' && !showDashboard ? (
