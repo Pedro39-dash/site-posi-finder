@@ -638,30 +638,6 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
       .eq('id', auditId);
   }
 }
-    
-    if (error.message.includes('timeout') || error.message.includes('45 seconds')) {
-      userFriendlyError = 'Auditoria interrompida por timeout otimizado (45s). Site muito complexo - tente uma página mais simples.';
-    } else if (error.message.includes('CPU Time exceeded')) {
-      userFriendlyError = 'Processamento intensivo detectado. As otimizações foram aplicadas - tente novamente.';
-    } else if (error.message.includes('Failed to fetch')) {
-      userFriendlyError = 'Site inacessível. Verifique se o site está online.';
-    } else if (error.message.includes('Invalid URL')) {
-      userFriendlyError = 'URL inválida. Verifique o formato da URL.';
-    }
-    
-    // Update audit report with error status
-    await supabase
-      .from('audit_reports')
-      .update({ 
-        status: 'failed',
-        metadata: { 
-          error: userFriendlyError,
-          technical_error: error.message
-        }
-      })
-      .eq('id', auditId);
-  }
-}
 
 // OPTIMIZATION: Batch save audit results for better performance
 async function batchSaveAuditResults(supabase: any, auditId: string, categories: any[], htmlContent: string) {
