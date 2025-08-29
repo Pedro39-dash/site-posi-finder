@@ -536,6 +536,78 @@ function extractBasicKeywordsFromText(text: string): string[] {
   }
 }
 
+// Helper function to identify business context from HTML content
+function identifyBusinessContext(htmlContent: string): string {
+  try {
+    const content = htmlContent.toLowerCase();
+    
+    const contextPatterns = {
+      'technology': ['software', 'tecnologia', 'sistema', 'app', 'digital', 'tech'],
+      'commerce': ['loja', 'produto', 'venda', 'comprar', 'ecommerce', 'shop'],
+      'services': ['serviço', 'consultoria', 'atendimento', 'solução', 'service'],
+      'manufacturing': ['indústria', 'fábrica', 'produção', 'máquina', 'equipamento'],
+      'healthcare': ['saúde', 'médico', 'clínica', 'hospital', 'tratamento'],
+      'education': ['educação', 'curso', 'escola', 'ensino', 'treinamento'],
+      'finance': ['financeiro', 'investimento', 'banco', 'crédito', 'dinheiro']
+    };
+    
+    for (const [context, keywords] of Object.entries(contextPatterns)) {
+      if (keywords.some(keyword => content.includes(keyword))) {
+        return context;
+      }
+    }
+    
+    return 'geral';
+  } catch (error) {
+    console.error('❌ Business context identification error:', error);
+    return 'geral';
+  }
+}
+
+// Helper function to calculate contextual relevance of keywords
+function calculateContextualRelevance(keyword: string, context: string, businessContext: string): number {
+  try {
+    let score = 30; // Base score
+    
+    // Business context bonus
+    const contextBonuses = {
+      'technology': ['sistema', 'digital', 'tech', 'software'],
+      'commerce': ['produto', 'venda', 'loja'],
+      'services': ['serviço', 'consultoria', 'atendimento'],
+      'manufacturing': ['máquina', 'equipamento', 'produção'],
+      'healthcare': ['saúde', 'médico', 'tratamento'],
+      'education': ['curso', 'ensino', 'educação'],
+      'finance': ['financeiro', 'investimento', 'crédito']
+    };
+    
+    const bonusKeywords = contextBonuses[businessContext] || [];
+    if (bonusKeywords.some(bonus => keyword.includes(bonus))) {
+      score += 25;
+    }
+    
+    // Keyword length bonus (medium-tail keywords are valuable)
+    if (keyword.length >= 8 && keyword.length <= 20) {
+      score += 15;
+    }
+    
+    // Context relevance (appears in main content areas)
+    const keywordInContext = context.includes(keyword);
+    if (keywordInContext) {
+      score += 20;
+    }
+    
+    // Multi-word keywords are more specific and valuable
+    if (keyword.includes(' ')) {
+      score += 10;
+    }
+    
+    return Math.min(Math.max(score, 15), 95);
+  } catch (error) {
+    console.error('❌ Contextual relevance calculation error:', error);
+    return 40; // Safe default score
+  }
+}
+
 // EMERGENCY: Generate keywords based on category
 function generateCategoryKeywords(category: string): string[] {
   const categoryMap: Record<string, string[]> = {
@@ -780,7 +852,7 @@ async function batchSaveAuditResults(supabase: any, auditId: string, categories:
   }
 }
 
-// CRITICAL: Extract keywords from issue with multiple fallbacks
+// CRITICAL: Extract keywords from issue with multiple fallbacks - FIXED  
 function extractKeywordsFromIssue(issue: any, category: any, htmlContent: string): any[] {
   const keywords: any[] = [];
   const auditId = issue.audit_report_id || category.audit_report_id;
@@ -790,18 +862,124 @@ function extractKeywordsFromIssue(issue: any, category: any, htmlContent: string
     if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
       console.log(`🔑 Found ${issue.metadata.keywords.length} keywords in issue metadata`);
       
-      // Quick contextual analysis with reduced timeout
+      // FIXED: Now properly handles synchronous return from extractContextualKeywordsWithTimeout
       const contextualKeywords = extractContextualKeywordsWithTimeout(issue.metadata.keywords, htmlContent, 5000);
-      contextualKeywords.forEach((keywordData) => {
+      
+      // Validation: Ensure contextualKeywords is an array before using forEach
+      if (Array.isArray(contextualKeywords)) {
+        contextualKeywords.forEach((keywordData) => {
+          if (keywordData && keywordData.keyword) {
+            keywords.push({
+              audit_report_id: auditId,
+              category: category.category,
+              keyword: keywordData.keyword,
+              relevance_score: keywordData.score || 30,
+              keyword_type: 'contextual'
+            });
+          }
+        });
+      } else {
+        console.log('⚠️ Contextual keywords not an array, using fallback');
+        // Fallback: Use original keywords directly
+        issue.metadata.keywords.slice(0, 10).forEach((keyword: string, index: number) => {
+          if (keyword && typeof keyword === 'string') {
+            keywords.push({
+              audit_report_id: auditId,
+              category: category.category,
+              keyword: keyword.toLowerCase().trim(),
+              relevance_score: 40 - index * 2,
+              keyword_type: 'fallback'
+            });
+          }
+        });
+      }
+    }
+    
+    // FALLBACK 1: Extract basic keywords from issue message
+    if (keywords.length === 0) {
+      console.log('🔧 FALLBACK: Extracting keywords from issue message');
+      const messageKeywords = extractBasicKeywordsFromText(issue.message);
+      messageKeywords.forEach(keyword => {
+        if (keyword && typeof keyword === 'string') {
+          keywords.push({
+            audit_report_id: auditId,
+            category: category.category,
+            keyword: keyword.trim(),
+            relevance_score: 50,
+            keyword_type: 'basic'
+          });
+        }
+      });
+    }
+    
+    // FALLBACK 2: Generate category-based keywords
+    if (keywords.length === 0) {
+      console.log('🔧 FALLBACK: Generating category-based keywords');
+      const categoryKeywords = generateCategoryKeywords(category.category);
+      categoryKeywords.forEach(keyword => {
+        if (keyword && typeof keyword === 'string') {
+          keywords.push({
+            audit_report_id: auditId,
+            category: category.category,
+            keyword: keyword.trim(),
+            relevance_score: 40,
+            keyword_type: 'category'
+          });
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Keyword extraction error:', error);
+    console.log('🔧 FALLBACK: Extracting keywords from issue message');
+    
+    // EMERGENCY FALLBACK: Always ensure at least one keyword
+    try {
+      const messageText = issue.message || issue.type || category.category || 'default';
+      const emergencyKeywords = extractBasicKeywordsFromText(messageText);
+      if (emergencyKeywords.length > 0) {
+        emergencyKeywords.slice(0, 5).forEach((keyword, index) => {
+          if (keyword && typeof keyword === 'string') {
+            keywords.push({
+              audit_report_id: auditId,
+              category: category.category,
+              keyword: keyword.trim(),
+              relevance_score: 30,
+              keyword_type: 'emergency'
+            });
+          }
+        });
+      } else {
+        // Last resort: Add category name as keyword
+        const fallbackKeyword = (category.category || 'seo').replace('_', ' ').trim();
+        if (fallbackKeyword) {
+          keywords.push({
+            audit_report_id: auditId,
+            category: category.category,
+            keyword: fallbackKeyword,
+            relevance_score: 30,
+            keyword_type: 'emergency'
+          });
+        }
+      }
+    } catch (emergencyError) {
+      console.error('❌ Emergency keyword extraction failed:', emergencyError);
+      // Ultimate fallback: Add category name as keyword
+      const fallbackKeyword = (category.category || 'seo').replace('_', ' ').trim();
+      if (fallbackKeyword) {
         keywords.push({
           audit_report_id: auditId,
           category: category.category,
-          keyword: keywordData.keyword,
-          relevance_score: keywordData.score,
-          keyword_type: 'contextual'
+          keyword: fallbackKeyword,
+          relevance_score: 30,
+          keyword_type: 'emergency'
         });
-      });
+      }
     }
+  }
+  
+  return keywords;
+}
     
     // FALLBACK 1: Extract basic keywords from issue message
     if (keywords.length === 0) {
@@ -848,41 +1026,84 @@ function extractKeywordsFromIssue(issue: any, category: any, htmlContent: string
   return keywords;
 }
 
-// CRITICAL: Background keyword processing with independent timeout
+// CRITICAL: Background keyword processing with independent timeout - IMPROVED
 async function processKeywordsInBackground(supabase: any, auditId: string, allKeywords: any[]) {
   console.log(`🔑 BACKGROUND: Processing ${allKeywords.length} keywords...`);
   
   try {
-    if (allKeywords.length === 0) {
-      console.log('⚠️ No keywords to process');
+    if (!Array.isArray(allKeywords) || allKeywords.length === 0) {
+      console.log('⚠️ No valid keywords to process');
       return;
     }
 
-    // Remove duplicates more efficiently
-    const uniqueKeywords = Array.from(
-      new Map(
-        allKeywords.map(k => [`${k.audit_report_id}_${k.keyword}`, k])
-      ).values()
-    );
+    // Remove duplicates more efficiently with better validation  
+    const uniqueKeywords = [];
+    const seen = new Set();
+    
+    for (const keywordData of allKeywords) {
+      // Robust validation of keyword data
+      if (!keywordData || typeof keywordData !== 'object') continue;
+      
+      const keyword = String(keywordData.keyword || '').trim();
+      const category = String(keywordData.category || 'general').trim();
+      
+      if (!keyword || keyword.length < 2) continue;
+      
+      const key = `${auditId}_${keyword}_${category}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueKeywords.push({
+          audit_report_id: auditId,
+          keyword: keyword.slice(0, 100), // Prevent overly long keywords
+          category: category,
+          relevance_score: Math.min(Math.max(Number(keywordData.relevance_score) || 30, 1), 100),
+          keyword_type: String(keywordData.keyword_type || 'processed')
+        });
+      }
+    }
     
     console.log(`🔑 Processing ${uniqueKeywords.length} unique keywords`);
 
-    // Try direct insert first (faster than upsert)
+    if (uniqueKeywords.length === 0) {
+      console.log('⚠️ No valid keywords after processing');
+      return;
+    }
+
+    // Try direct insert first (faster than upsert) with improved timeout
     const { error: keywordsError } = await Promise.race([
-      supabase.from('audit_keywords').insert(uniqueKeywords),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Keywords timeout')), 15000))
+      supabase.from('audit_keywords').insert(uniqueKeywords.slice(0, 150)), // Increased limit but safe
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Keywords timeout')), 20000))
     ]);
     
     if (keywordsError) {
       console.error('⚠️ Keywords insert failed, trying individual saves:', keywordsError);
-      await saveKeywordsIndividually(supabase, uniqueKeywords.slice(0, 20)); // Limit to top 20
+      await saveKeywordsIndividually(supabase, uniqueKeywords.slice(0, 30)); // Increased limit
     } else {
       console.log(`✅ BACKGROUND SUCCESS: Saved ${uniqueKeywords.length} keywords`);
     }
     
   } catch (error) {
     console.error('❌ Background keyword processing failed:', error);
-    // Still update audit as completed - keywords are supplementary
+    // Emergency fallback: save at least some keywords
+    try {
+      const emergencyKeywords = allKeywords
+        .filter(k => k && k.keyword && typeof k.keyword === 'string')
+        .slice(0, 20)
+        .map(k => ({
+          audit_report_id: auditId,
+          keyword: String(k.keyword).trim().slice(0, 50),
+          category: String(k.category || 'general'),
+          relevance_score: Math.min(Math.max(Number(k.relevance_score) || 25, 1), 100),
+          keyword_type: 'emergency'
+        }));
+      
+      if (emergencyKeywords.length > 0) {
+        await supabase.from('audit_keywords').insert(emergencyKeywords);
+        console.log(`🚨 Emergency keyword save completed: ${emergencyKeywords.length} keywords`);
+      }
+    } catch (emergencyError) {
+      console.error('❌ Emergency keyword save failed:', emergencyError);
+    }
   }
 }
 
