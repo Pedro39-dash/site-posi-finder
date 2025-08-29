@@ -90,6 +90,11 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       
       const issue = selectedIssue.issue;
       
+      // Debug the issue metadata
+      console.log('🔍 Issue metadata:', issue.metadata);
+      console.log('📝 Keywords available:', issue.metadata?.keywords);
+      console.log('💡 Prompts available:', issue.metadata?.prompts);
+      
       // Check for new intelligent semantic analysis data first
       if (issue.metadata?.semanticAnalysis) {
         const semantic = issue.metadata.semanticAnalysis;
@@ -111,19 +116,44 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
         };
       }
       
-      // Use keywords from the selected issue
-      const dedicatedKeywords = issue.metadata.keywords.map((kw: any) => 
-        typeof kw === 'object' ? kw.keyword : kw
-      );
+      // Use keywords from the selected issue with better error handling
+      let dedicatedKeywords: string[] = [];
+      
+      if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+        console.log('🔧 Processing keywords:', issue.metadata.keywords);
+        
+        try {
+          dedicatedKeywords = issue.metadata.keywords.map((kw: any) => {
+            if (typeof kw === 'string') {
+              return kw;
+            } else if (typeof kw === 'object' && kw.keyword) {
+              return kw.keyword;
+            } else {
+              console.warn('⚠️ Unknown keyword format:', kw);
+              return String(kw);
+            }
+          });
+          
+          console.log('✅ Successfully processed keywords:', dedicatedKeywords.length, 'items');
+        } catch (error) {
+          console.error('❌ Error processing keywords:', error);
+          dedicatedKeywords = issue.metadata.keywords.map(String);
+        }
+      } else {
+        console.warn('⚠️ No keywords array found in metadata');
+      }
 
-      return {
+      const result = {
         keywords: dedicatedKeywords,
-        prompts: issue.metadata.prompts || [],
+        prompts: issue.metadata?.prompts || [],
         semanticTerms: [],
         modifiers: [],
         entities: [],
         attributes: []
       };
+      
+      console.log('📊 Final result:', result);
+      return result;
     }
 
     console.log('❌ NO KEYWORDS FOUND IN ANY CATEGORY');
