@@ -56,14 +56,15 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
             const keywordCount = issue.metadata.keywords.length;
             const message = issue.message || '';
             
-            // Check if this is the PRIMARY ANALYSIS with 52 keywords + 25 prompts
+            // Check if this is the PRIMARY ANALYSIS with prompts and keywords
             const isPrimaryAnalysis = (
-              message.includes('52 keywords identificadas') ||
-              message.includes('52 keywords identified') ||
-              message.includes('25 prompts de IA gerados') ||
-              message.includes('25 AI prompts generated') ||
-              (keywordCount >= 50 && message.includes('prompts')) ||
-              keywordCount >= 52
+              message.includes('prompts de IA gerados') ||
+              message.includes('AI prompts generated') ||
+              message.includes('keywords identificadas') ||
+              message.includes('keywords identified') ||
+              (keywordCount >= 15 && message.includes('prompts')) ||
+              keywordCount >= 19 ||
+              issue.metadata?.prompts?.length > 0
             );
             
             console.log(`  ${isPrimaryAnalysis ? '🎯 PRIMARY' : '📝'} Found ${keywordCount} keywords in: "${message.substring(0, 80)}..."`);
@@ -88,24 +89,38 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     if (selectedIssue) {
       console.log(`🎯 USING PRIMARY ANALYSIS: ${selectedIssue.keywordCount} keywords from "${selectedIssue.message.substring(0, 60)}..."`);
     } else {
-      // PRIORITY 2: Sort by keyword count and take the largest
-      allIssuesWithKeywords.sort((a, b) => b.keywordCount - a.keywordCount);
+      // PRIORITY 2: Sort by prompts first, then by keyword count
+      allIssuesWithKeywords.sort((a, b) => {
+        const aHasPrompts = (a.issue.metadata?.prompts?.length || 0) > 0;
+        const bHasPrompts = (b.issue.metadata?.prompts?.length || 0) > 0;
+        
+        // First priority: issues with prompts
+        if (aHasPrompts && !bHasPrompts) return -1;
+        if (!aHasPrompts && bHasPrompts) return 1;
+        
+        // Second priority: keyword count
+        return b.keywordCount - a.keywordCount;
+      });
+      
       selectedIssue = allIssuesWithKeywords[0];
       
       if (selectedIssue) {
-        console.log(`📊 USING LARGEST ISSUE: ${selectedIssue.keywordCount} keywords from "${selectedIssue.message.substring(0, 60)}..."`);
+        const hasPrompts = (selectedIssue.issue.metadata?.prompts?.length || 0) > 0;
+        console.log(`📊 USING BEST ISSUE: ${selectedIssue.keywordCount} keywords ${hasPrompts ? '+ prompts' : ''} from "${selectedIssue.message.substring(0, 60)}..."`);
       }
     }
     
     // Display all available options for debugging
     console.log('📋 ALL AVAILABLE ISSUES:');
     allIssuesWithKeywords.forEach((item, index) => {
-      console.log(`  ${index + 1}. [${item.isPrimaryAnalysis ? 'PRIMARY' : 'REGULAR'}] ${item.category}: ${item.keywordCount} keywords`);
+      const hasPrompts = (item.issue.metadata?.prompts?.length || 0) > 0;
+      console.log(`  ${index + 1}. [${item.isPrimaryAnalysis ? 'PRIMARY' : 'REGULAR'}] ${item.category}: ${item.keywordCount} keywords ${hasPrompts ? '+ ' + item.issue.metadata.prompts.length + ' prompts' : ''}`);
       console.log(`      "${item.message.substring(0, 100)}..."`);
     });
     
     if (selectedIssue) {
-      console.log(`🎯 FINAL SELECTED ISSUE: ${selectedIssue.category} with ${selectedIssue.keywordCount} keywords`);
+      const hasPrompts = (selectedIssue.issue.metadata?.prompts?.length || 0) > 0;
+      console.log(`🎯 FINAL SELECTED ISSUE: ${selectedIssue.category} with ${selectedIssue.keywordCount} keywords ${hasPrompts ? '+ ' + selectedIssue.issue.metadata.prompts.length + ' prompts' : ''}`);
       console.log(`   Message: "${selectedIssue.message}"`);
       console.log(`   Is Primary: ${selectedIssue.isPrimaryAnalysis}`);
       
@@ -115,6 +130,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       console.log('🔍 Issue metadata:', issue.metadata);
       console.log('📝 Keywords available:', issue.metadata?.keywords?.length || 0);
       console.log('💡 Prompts available:', issue.metadata?.prompts?.length || 0);
+      console.log('🔤 First 10 keywords preview:', issue.metadata?.keywords?.slice(0, 10) || []);
       
       // Check for new intelligent semantic analysis data first
       if (issue.metadata?.semanticAnalysis) {
@@ -176,12 +192,29 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       console.log('📊 Final extraction result:', {
         keywordsCount: result.keywords.length,
         promptsCount: result.prompts.length,
-        firstFewKeywords: result.keywords.slice(0, 5)
+        firstFewKeywords: result.keywords.slice(0, 10),
+        actualKeywords: result.keywords
       });
       return result;
     }
 
-    console.log('❌ NO SUITABLE ISSUE FOUND - Will try fallback methods');
+    console.log('❌ NO SUITABLE ISSUE FOUND - Trying fallback methods');
+    
+    // FALLBACK 1: Extract using legacy method
+    const legacyKeywords = extractKeywords();
+    if (legacyKeywords.length > 0) {
+      console.log(`✅ USING LEGACY EXTRACTION: ${legacyKeywords.length} keywords`);
+      return {
+        keywords: legacyKeywords,
+        prompts: [],
+        semanticTerms: [],
+        modifiers: [],
+        entities: [],
+        attributes: []
+      };
+    }
+    
+    console.log('❌ ALL EXTRACTION METHODS FAILED');
     return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
   };
   
