@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Brain, Search, Copy, CheckCircle, TrendingUp, Target, Zap, Info, Filter, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface KeywordAnalysisCardProps {
   url: string;
@@ -31,7 +32,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // Extract semantic data from audit results - Enhanced for dedicated keywords table
+  // Extract semantic data from audit results - PRIORITY SYSTEM
   const extractSemanticData = () => {
     if (!results) return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
     
@@ -43,6 +44,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       category: string;
       keywordCount: number;
       message: string;
+      isPrimaryAnalysis: boolean;
     }> = [];
     
     for (const category of results) {
@@ -52,48 +54,67 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
         for (const issue of category.issues) {
           if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
             const keywordCount = issue.metadata.keywords.length;
-            console.log(`  ✅ Found ${keywordCount} keywords in issue: ${issue.message?.substring(0, 50)}...`);
+            const message = issue.message || '';
+            
+            // Check if this is the PRIMARY ANALYSIS with 52 keywords + 25 prompts
+            const isPrimaryAnalysis = (
+              message.includes('52 keywords identificadas') ||
+              message.includes('52 keywords identified') ||
+              message.includes('25 prompts de IA gerados') ||
+              message.includes('25 AI prompts generated') ||
+              (keywordCount >= 50 && message.includes('prompts')) ||
+              keywordCount >= 52
+            );
+            
+            console.log(`  ${isPrimaryAnalysis ? '🎯 PRIMARY' : '📝'} Found ${keywordCount} keywords in: "${message.substring(0, 80)}..."`);
             
             allIssuesWithKeywords.push({
               issue,
               category: category.category,
               keywordCount,
-              message: issue.message || ''
+              message,
+              isPrimaryAnalysis
             });
           }
         }
       }
     }
     
-    // Sort by keyword count (descending) to prioritize issues with more keywords
-    allIssuesWithKeywords.sort((a, b) => b.keywordCount - a.keywordCount);
+    console.log(`📊 Found ${allIssuesWithKeywords.length} issues with keywords total`);
     
-    console.log(`📊 Found ${allIssuesWithKeywords.length} issues with keywords:`);
-    allIssuesWithKeywords.forEach((item, index) => {
-      console.log(`  ${index + 1}. ${item.category}: ${item.keywordCount} keywords - "${item.message.substring(0, 60)}..."`);
-    });
-    
-    // Prioritize issues that contain semantic analysis indicators
-    const semanticAnalysisIssue = allIssuesWithKeywords.find(item => 
-      item.message.includes('keywords identificadas') || 
-      item.message.includes('keywords identified') ||
-      item.message.includes('prompts de IA') ||
-      item.message.includes('AI prompts') ||
-      item.keywordCount >= 50 // Issues with 50+ keywords are likely the main semantic analysis
-    );
-    
-    const selectedIssue = semanticAnalysisIssue || allIssuesWithKeywords[0];
+    // PRIORITY 1: Find the PRIMARY ANALYSIS (52 keywords + 25 prompts)
+    let selectedIssue = allIssuesWithKeywords.find(item => item.isPrimaryAnalysis);
     
     if (selectedIssue) {
-      console.log(`🎯 SELECTED ISSUE: ${selectedIssue.category} with ${selectedIssue.keywordCount} keywords`);
+      console.log(`🎯 USING PRIMARY ANALYSIS: ${selectedIssue.keywordCount} keywords from "${selectedIssue.message.substring(0, 60)}..."`);
+    } else {
+      // PRIORITY 2: Sort by keyword count and take the largest
+      allIssuesWithKeywords.sort((a, b) => b.keywordCount - a.keywordCount);
+      selectedIssue = allIssuesWithKeywords[0];
+      
+      if (selectedIssue) {
+        console.log(`📊 USING LARGEST ISSUE: ${selectedIssue.keywordCount} keywords from "${selectedIssue.message.substring(0, 60)}..."`);
+      }
+    }
+    
+    // Display all available options for debugging
+    console.log('📋 ALL AVAILABLE ISSUES:');
+    allIssuesWithKeywords.forEach((item, index) => {
+      console.log(`  ${index + 1}. [${item.isPrimaryAnalysis ? 'PRIMARY' : 'REGULAR'}] ${item.category}: ${item.keywordCount} keywords`);
+      console.log(`      "${item.message.substring(0, 100)}..."`);
+    });
+    
+    if (selectedIssue) {
+      console.log(`🎯 FINAL SELECTED ISSUE: ${selectedIssue.category} with ${selectedIssue.keywordCount} keywords`);
       console.log(`   Message: "${selectedIssue.message}"`);
+      console.log(`   Is Primary: ${selectedIssue.isPrimaryAnalysis}`);
       
       const issue = selectedIssue.issue;
       
       // Debug the issue metadata
       console.log('🔍 Issue metadata:', issue.metadata);
-      console.log('📝 Keywords available:', issue.metadata?.keywords);
-      console.log('💡 Prompts available:', issue.metadata?.prompts);
+      console.log('📝 Keywords available:', issue.metadata?.keywords?.length || 0);
+      console.log('💡 Prompts available:', issue.metadata?.prompts?.length || 0);
       
       // Check for new intelligent semantic analysis data first
       if (issue.metadata?.semanticAnalysis) {
@@ -120,7 +141,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       let dedicatedKeywords: string[] = [];
       
       if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
-        console.log('🔧 Processing keywords:', issue.metadata.keywords);
+        console.log('🔧 Processing keywords from selected issue:', issue.metadata.keywords.length);
         
         try {
           dedicatedKeywords = issue.metadata.keywords.map((kw: any) => {
@@ -140,7 +161,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
           dedicatedKeywords = issue.metadata.keywords.map(String);
         }
       } else {
-        console.warn('⚠️ No keywords array found in metadata');
+        console.warn('⚠️ No keywords array found in selected issue metadata');
       }
 
       const result = {
@@ -152,12 +173,68 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
         attributes: []
       };
       
-      console.log('📊 Final result:', result);
+      console.log('📊 Final extraction result:', {
+        keywordsCount: result.keywords.length,
+        promptsCount: result.prompts.length,
+        firstFewKeywords: result.keywords.slice(0, 5)
+      });
       return result;
     }
 
-    console.log('❌ NO KEYWORDS FOUND IN ANY CATEGORY');
+    console.log('❌ NO SUITABLE ISSUE FOUND - Will try fallback methods');
     return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
+  };
+  
+  // FALLBACK: Direct database query for audit keywords
+  const fetchAuditKeywordsDirectly = async () => {
+    try {
+      // Extract audit ID from results metadata or URL params
+      let auditId = null;
+      
+      // Try to find audit ID in the results metadata
+      if (results && results.length > 0) {
+        for (const category of results) {
+          if (category.issues) {
+            for (const issue of category.issues) {
+              if (issue.metadata?.auditId) {
+                auditId = issue.metadata.auditId;
+                break;
+              }
+            }
+          }
+          if (auditId) break;
+        }
+      }
+      
+      if (!auditId) {
+        console.log('⚠️ No audit ID found for direct keyword lookup');
+        return [];
+      }
+      
+      console.log('🔄 Attempting direct database lookup for audit:', auditId);
+      
+      const { data: keywords, error } = await supabase
+        .from('audit_keywords')
+        .select('keyword, category, relevance_score, keyword_type')
+        .eq('audit_report_id', auditId)
+        .order('relevance_score', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error fetching keywords directly:', error);
+        return [];
+      }
+
+      if (keywords && keywords.length > 0) {
+        console.log(`✅ Found ${keywords.length} keywords via direct database lookup`);
+        return keywords.map((kw: any) => kw.keyword);
+      }
+      
+      console.log('📭 No keywords found in direct database lookup');
+      return [];
+    } catch (error) {
+      console.error('❌ Error in direct keyword fetch:', error);
+      return [];
+    }
   };
 
   // Extract keywords - Enhanced multi-strategy extraction for robustness
@@ -514,7 +591,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
 
   if (!results) return null;
 
-  // Extract data with detailed logging
+  // Extract data with comprehensive fallback system
   const extractedData = extractSemanticData();
   console.log('🚀 EXTRACTED DATA RESULT:', extractedData);
   
@@ -526,38 +603,67 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   
   const aiPrompts = generateAIPrompts();
   
-  // PRIORITY: Use extracted keywords if they exist, otherwise fallback
-  // Force the use of keywords if they were successfully extracted from the database
-  let finalKeywords: string[] = [];
+  // COMPREHENSIVE FALLBACK SYSTEM WITH PRIORITIES
+  const [finalKeywords, setFinalKeywords] = useState<string[]>([]);
   
-  if (keywords && keywords.length > 0) {
+  // Immediate synchronous fallback
+  let immediateFinalKeywords: string[] = [];
+  
+  if (keywords && keywords.length >= 50) {
+    console.log('✅ USING PRIMARY EXTRACTED KEYWORDS (50+):', keywords.length);
+    immediateFinalKeywords = keywords;
+  } else if (keywords && keywords.length > 0) {
     console.log('✅ USING EXTRACTED KEYWORDS:', keywords.length);
-    finalKeywords = keywords;
+    immediateFinalKeywords = keywords;
   } else if (legacyKeywords && legacyKeywords.length > 0) {
     console.log('📜 FALLING BACK TO LEGACY KEYWORDS:', legacyKeywords.length);
-    finalKeywords = legacyKeywords;
+    immediateFinalKeywords = legacyKeywords;
   } else {
-    console.log('❌ NO KEYWORDS FOUND AT ALL');
-    finalKeywords = [];
+    console.log('🔄 NO KEYWORDS FOUND - Will attempt database fallback');
+    immediateFinalKeywords = [];
+    
+    // Asynchronous database fallback (for future renders)
+    fetchAuditKeywordsDirectly().then(dbKeywords => {
+      if (dbKeywords.length > 0) {
+        console.log('🎯 DATABASE FALLBACK SUCCESS:', dbKeywords.length, 'keywords');
+        setFinalKeywords(dbKeywords);
+      }
+    }).catch(error => {
+      console.error('❌ Database fallback failed:', error);
+    });
   }
+  
+  // Use immediate keywords or state keywords
+  const keywordsToUse = finalKeywords.length > 0 ? finalKeywords : immediateFinalKeywords;
   const finalPrompts = prompts.length > 0 ? prompts : aiPrompts;
-  const categorizedTerms = categorizeTerms(finalKeywords);
+  const categorizedTerms = categorizeTerms(keywordsToUse);
+  
+  console.log('🎯 FINAL SYSTEM STATE:');
+  console.log(`   Keywords to display: ${keywordsToUse.length}`);
+  console.log(`   Prompts to display: ${finalPrompts.length}`);
+  console.log(`   First 5 keywords: ${keywordsToUse.slice(0, 5)}`);
+  
+  if (keywordsToUse.length === 0) {
+    console.log('⚠️ WARNING: NO KEYWORDS WILL BE DISPLAYED - Check extraction logic');
+  } else if (keywordsToUse.length >= 50) {
+    console.log('🎉 SUCCESS: Large keyword set found - Primary analysis working correctly');
+  }
 
   // Filter keywords based on search term with performance optimization
   const filteredKeywords = useMemo(() => {
     console.log('🔍 FILTERING KEYWORDS:', { 
-      total: finalKeywords.length, 
+      total: keywordsToUse.length, 
       searchTerm: searchTerm || 'none' 
     });
     
-    if (!searchTerm) return finalKeywords;
-    const filtered = finalKeywords.filter(keyword => 
+    if (!searchTerm) return keywordsToUse;
+    const filtered = keywordsToUse.filter(keyword => 
       keyword.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     console.log('🎯 FILTERED RESULTS:', filtered.length);
     return filtered;
-  }, [finalKeywords, searchTerm]);
+  }, [keywordsToUse, searchTerm]);
 
   // Filter categorized terms based on search
   const filteredCategorizedTerms = useMemo(() => {
@@ -583,8 +689,8 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
 
   // Statistics
   const stats = {
-    total: finalKeywords.length,
-    unique: new Set(finalKeywords).size,
+    total: keywordsToUse.length,
+    unique: new Set(keywordsToUse).size,
     commercial: categorizedTerms.commercial.length,
     informational: categorizedTerms.informational.length,
     shortTail: categorizedTerms.shortTail.length,
