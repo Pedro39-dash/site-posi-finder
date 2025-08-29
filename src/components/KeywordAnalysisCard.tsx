@@ -45,10 +45,10 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     if (aiOptimizationCategory?.issues) {
       for (const issue of aiOptimizationCategory.issues) {
         // Check for keywords from dedicated audit_keywords table
-        if (issue.metadata?.auditKeywords && Array.isArray(issue.metadata.auditKeywords)) {
-          console.log('✅ FOUND AUDIT_KEYWORDS:', issue.metadata.auditKeywords.length);
+        if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+          console.log('✅ FOUND KEYWORDS IN METADATA:', issue.metadata.keywords.length);
           
-          const dedicatedKeywords = issue.metadata.auditKeywords.map((kw: any) => 
+          const dedicatedKeywords = issue.metadata.keywords.map((kw: any) => 
             typeof kw === 'object' ? kw.keyword : kw
           );
 
@@ -97,7 +97,29 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       }
     }
 
-    console.log('❌ NO KEYWORDS FOUND IN AI_OPTIMIZATION CATEGORY');
+    // Fallback: Search all categories for keywords
+    console.log('🔄 Searching ALL categories for keywords...');
+    
+    for (const category of results) {
+      if (category.issues) {
+        for (const issue of category.issues) {
+          if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords) && issue.metadata.keywords.length > 10) {
+            console.log(`✅ FOUND KEYWORDS IN ${category.category.toUpperCase()}:`, issue.metadata.keywords.length);
+            
+            return {
+              keywords: issue.metadata.keywords || [],
+              prompts: issue.metadata.prompts || [],
+              semanticTerms: [],
+              modifiers: [],
+              entities: [],
+              attributes: []
+            };
+          }
+        }
+      }
+    }
+
+    console.log('❌ NO KEYWORDS FOUND IN ANY CATEGORY');
     return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
   };
 
