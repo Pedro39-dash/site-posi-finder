@@ -1,348 +1,214 @@
-import { useState, useEffect } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { useProjects, Project, Competitor, ProjectKeyword } from "@/contexts/ProjectContext";
-import { toast } from "sonner";
+import React, { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useProject } from '@/hooks/useProject';
+import { ProjectService } from '@/services/projectService';
+import { toast } from 'sonner';
 
 interface ProjectModalProps {
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
-  project?: Project | null;
+  projectId?: string; // For editing existing project
 }
 
-const SECTORS = [
-  "E-commerce",
-  "Serviços",
-  "Conteúdo",
-  "SaaS",
-  "Educação",
-  "Saúde",
-  "Imobiliário",
-  "Tecnologia",
-  "Alimentação",
-  "Moda",
-  "Outros"
+const MARKET_SEGMENTS = [
+  'E-commerce',
+  'Saúde e Bem-estar',
+  'Educação',
+  'Tecnologia',
+  'Serviços Financeiros',
+  'Imobiliário',
+  'Turismo e Viagem',
+  'Alimentação e Bebidas',
+  'Moda e Beleza',
+  'Consultoria',
+  'Outro'
 ];
 
-const PRIORITIES = [
-  { value: "high", label: "Alta", color: "destructive" },
-  { value: "medium", label: "Média", color: "secondary" },
-  { value: "low", label: "Baixa", color: "outline" }
-] as const;
+export const ProjectModal: React.FC<ProjectModalProps> = ({ 
+  open, 
+  onClose,
+  projectId
+}) => {
+  const { createProject, updateProject } = useProject();
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Form data
+  const [projectName, setProjectName] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [marketSegment, setMarketSegment] = useState('');
+  const [focusKeywords, setFocusKeywords] = useState('');
+  const [competitorDomains, setCompetitorDomains] = useState('');
 
-const ProjectModal = ({ isOpen, onClose, project }: ProjectModalProps) => {
-  const { createProject, updateProject, deleteProject } = useProjects();
-  const [formData, setFormData] = useState({
-    name: "",
-    mainDomain: "",
-    sector: ""
-  });
-  const [competitors, setCompetitors] = useState<Competitor[]>([]);
-  const [keywords, setKeywords] = useState<ProjectKeyword[]>([]);
-  const [newCompetitor, setNewCompetitor] = useState({ domain: "", name: "" });
-  const [newKeyword, setNewKeyword] = useState({ 
-    keyword: "", 
-    searchVolume: "", 
-    priority: "medium" as const 
-  });
+  const isEdit = Boolean(projectId);
 
-  useEffect(() => {
-    if (project) {
-      setFormData({
-        name: project.name,
-        mainDomain: project.mainDomain,
-        sector: project.sector
-      });
-      setCompetitors(project.competitors);
-      setKeywords(project.keywords);
-    } else {
-      setFormData({ name: "", mainDomain: "", sector: "" });
-      setCompetitors([]);
-      setKeywords([]);
-    }
-    setNewCompetitor({ domain: "", name: "" });
-    setNewKeyword({ keyword: "", searchVolume: "", priority: "medium" });
-  }, [project, isOpen]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name || !formData.mainDomain || !formData.sector) {
-      toast.error("Preencha todos os campos obrigatórios");
+  const handleSubmit = async () => {
+    if (!projectName || !websiteUrl) {
+      toast.error('Nome do projeto e URL são obrigatórios');
       return;
     }
 
-    // Valida domínio
-    const domainRegex = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!domainRegex.test(formData.mainDomain)) {
-      toast.error("Digite um domínio válido (ex: exemplo.com.br)");
-      return;
-    }
-
-    const projectData = {
-      ...formData,
-      competitors,
-      keywords
-    };
-
-    if (project) {
-      updateProject(project.id, projectData);
-      toast.success("Projeto atualizado com sucesso!");
-    } else {
-      createProject(projectData);
-      toast.success("Projeto criado com sucesso!");
-    }
+    setIsLoading(true);
     
+    try {
+      const cleanDomain = ProjectService.cleanDomain(websiteUrl);
+      const keywordsArray = focusKeywords
+        .split(',')
+        .map(k => k.trim())
+        .filter(k => k.length > 0);
+      const competitorsArray = competitorDomains
+        .split(',')
+        .map(d => ProjectService.cleanDomain(d.trim()))
+        .filter(d => d.length > 0);
+
+      const projectData = {
+        name: projectName,
+        domain: cleanDomain,
+        market_segment: marketSegment || undefined,
+        focus_keywords: keywordsArray,
+        competitor_domains: competitorsArray
+      };
+
+      let result;
+      if (isEdit) {
+        result = await updateProject(projectId!, projectData);
+      } else {
+        result = await createProject(projectData);
+      }
+
+      if (result.success) {
+        toast.success(isEdit ? 'Projeto atualizado!' : 'Projeto criado!');
+        handleClose();
+      } else {
+        toast.error(result.error || 'Erro ao salvar projeto');
+      }
+    } catch (error) {
+      toast.error('Erro ao salvar projeto');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setProjectName('');
+    setWebsiteUrl('');
+    setMarketSegment('');
+    setFocusKeywords('');
+    setCompetitorDomains('');
     onClose();
   };
 
-  const handleDelete = () => {
-    if (project && window.confirm("Tem certeza que deseja excluir este projeto?")) {
-      deleteProject(project.id);
-      toast.success("Projeto excluído com sucesso!");
-      onClose();
-    }
-  };
-
-  const addCompetitor = () => {
-    if (!newCompetitor.domain || !newCompetitor.name) {
-      toast.error("Preencha o domínio e nome do concorrente");
-      return;
-    }
-
-    const domainRegex = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!domainRegex.test(newCompetitor.domain)) {
-      toast.error("Digite um domínio válido");
-      return;
-    }
-
-    const competitor: Competitor = {
-      id: Date.now().toString(),
-      domain: newCompetitor.domain,
-      name: newCompetitor.name,
-      addedAt: new Date()
-    };
-
-    setCompetitors([...competitors, competitor]);
-    setNewCompetitor({ domain: "", name: "" });
-  };
-
-  const removeCompetitor = (id: string) => {
-    setCompetitors(competitors.filter(c => c.id !== id));
-  };
-
-  const addKeyword = () => {
-    if (!newKeyword.keyword || !newKeyword.searchVolume) {
-      toast.error("Preencha a palavra-chave e volume de busca");
-      return;
-    }
-
-    const volume = parseInt(newKeyword.searchVolume);
-    if (isNaN(volume) || volume < 0) {
-      toast.error("Volume de busca deve ser um número válido");
-      return;
-    }
-
-    const keyword: ProjectKeyword = {
-      id: Date.now().toString(),
-      keyword: newKeyword.keyword,
-      searchVolume: volume,
-      priority: newKeyword.priority
-    };
-
-    setKeywords([...keywords, keyword]);
-    setNewKeyword({ keyword: "", searchVolume: "", priority: "medium" });
-  };
-
-  const removeKeyword = (id: string) => {
-    setKeywords(keywords.filter(k => k.id !== id));
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {project ? "Editar Projeto" : "Novo Projeto"}
+            {isEdit ? 'Editar Projeto' : 'Novo Projeto'}
           </DialogTitle>
+          <DialogDescription>
+            {isEdit 
+              ? 'Atualize as informações do seu projeto'
+              : 'Configure um novo projeto para monitoramento SEO'
+            }
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Informações Básicas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome do Projeto *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: Site Principal da Empresa"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="domain">Domínio Principal *</Label>
-              <Input
-                id="domain"
-                value={formData.mainDomain}
-                onChange={(e) => setFormData({ ...formData, mainDomain: e.target.value })}
-                placeholder="exemplo.com.br"
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="sector">Setor *</Label>
-              <Select
-                value={formData.sector}
-                onValueChange={(value) => setFormData({ ...formData, sector: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o setor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SECTORS.map((sector) => (
-                    <SelectItem key={sector} value={sector}>
-                      {sector}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="projectName">Nome do Projeto *</Label>
+            <Input
+              id="projectName"
+              placeholder="Meu Site Principal"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+            />
           </div>
 
-          {/* Concorrentes */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Concorrentes</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <Input
-                placeholder="Domínio do concorrente"
-                value={newCompetitor.domain}
-                onChange={(e) => setNewCompetitor({ ...newCompetitor, domain: e.target.value })}
-              />
-              <Input
-                placeholder="Nome do concorrente"
-                value={newCompetitor.name}
-                onChange={(e) => setNewCompetitor({ ...newCompetitor, name: e.target.value })}
-              />
-              <Button type="button" onClick={addCompetitor} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Adicionar
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {competitors.map((competitor) => (
-                <Badge key={competitor.id} variant="secondary" className="gap-2">
-                  {competitor.name}
-                  <button
-                    type="button"
-                    onClick={() => removeCompetitor(competitor.id)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="website">URL do Site *</Label>
+            <Input
+              id="website"
+              placeholder="https://meusite.com.br"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+            />
           </div>
 
-          {/* Palavras-chave */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Palavras-chave</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <Input
-                placeholder="Palavra-chave"
-                value={newKeyword.keyword}
-                onChange={(e) => setNewKeyword({ ...newKeyword, keyword: e.target.value })}
-              />
-              <Input
-                type="number"
-                placeholder="Volume de busca"
-                value={newKeyword.searchVolume}
-                onChange={(e) => setNewKeyword({ ...newKeyword, searchVolume: e.target.value })}
-              />
-              <Select
-                value={newKeyword.priority}
-                onValueChange={(value: any) => setNewKeyword({ ...newKeyword, priority: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map((priority) => (
-                    <SelectItem key={priority.value} value={priority.value}>
-                      {priority.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button type="button" onClick={addKeyword} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Adicionar
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              {keywords.map((keyword) => (
-                <div key={keyword.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium">{keyword.keyword}</span>
-                    <Badge variant="outline">{keyword.searchVolume.toLocaleString()} buscas</Badge>
-                    <Badge 
-                      variant={PRIORITIES.find(p => p.value === keyword.priority)?.color || "secondary"}
-                    >
-                      {PRIORITIES.find(p => p.value === keyword.priority)?.label}
-                    </Badge>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeKeyword(keyword.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="segment">Segmento de Mercado</Label>
+            <Select value={marketSegment} onValueChange={setMarketSegment}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o segmento" />
+              </SelectTrigger>
+              <SelectContent>
+                {MARKET_SEGMENTS.map((segment) => (
+                  <SelectItem key={segment} value={segment}>
+                    {segment}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Ações */}
-          <div className="flex justify-between pt-4">
-            <div>
-              {project && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={handleDelete}
-                  className="gap-2"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Excluir Projeto
-                </Button>
-              )}
-            </div>
-            
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                {project ? "Atualizar" : "Criar"} Projeto
-              </Button>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="keywords">Palavras-chave Principais</Label>
+            <Input
+              id="keywords"
+              placeholder="seo, marketing digital, otimização"
+              value={focusKeywords}
+              onChange={(e) => setFocusKeywords(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Separe as palavras-chave por vírgula
+            </p>
           </div>
-        </form>
+
+          <div className="space-y-2">
+            <Label htmlFor="competitors">Domínios Concorrentes</Label>
+            <Input
+              id="competitors"
+              placeholder="concorrente1.com, concorrente2.com"
+              value={competitorDomains}
+              onChange={(e) => setCompetitorDomains(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Separe os domínios por vírgula
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <Button 
+              onClick={handleClose} 
+              variant="outline"
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSubmit}
+              disabled={!projectName || !websiteUrl || isLoading}
+              className="flex-1"
+            >
+              {isLoading ? 'Salvando...' : (isEdit ? 'Atualizar' : 'Criar')}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
 };
-
-export default ProjectModal;

@@ -1,6 +1,7 @@
-import { BarChart3, Search, FolderOpen, GitCompare, Monitor, LogOut, User } from "lucide-react";
+import { BarChart3, Search, FolderOpen, GitCompare, Monitor, LogOut, User, FileSearch, TrendingUp, Home, Zap } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRole } from "@/hooks/useRole";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   Sidebar,
@@ -18,22 +19,63 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 
-const navItems = [
-  { title: "Dashboard", path: "/", icon: Search },
-  { title: "Projetos", path: "/projects", icon: FolderOpen },
-  { title: "Comparação", path: "/comparison", icon: GitCompare },
-  { title: "Monitoramento", path: "/monitoring", icon: Monitor },
+// Navigation items based on user role
+const getNavItems = (isAdmin: boolean, isClient: boolean) => [
+  {
+    title: "Página Inicial",
+    path: "/",
+    icon: Home,
+  },
+  {
+    title: "Auditoria do Site",
+    path: "/audit",
+    icon: FileSearch,
+  },
+  {
+    title: "Análise de Concorrentes", 
+    path: "/comparison",
+    icon: TrendingUp,
+  },
+  {
+    title: "Monitoramento",
+    path: "/monitoring",
+    icon: BarChart3,
+  },
+  {
+    title: "Rankings",
+    path: "/rankings", 
+    icon: Search,
+  },
+  // Show Projects only for clients
+  ...(isClient ? [{
+    title: "Projetos",
+    path: "/projects",
+    icon: Zap,
+  }] : []),
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { isAdmin, isClient, isLoading: roleLoading } = useRole();
+  
+  const navItems = getNavItems(isAdmin, isClient);
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path);
   };
+
+  if (roleLoading) {
+    return (
+      <Sidebar className={state === "collapsed" ? "w-14" : "w-80"}>
+        <div className="flex h-full items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      </Sidebar>
+    );
+  }
 
   return (
     <Sidebar 

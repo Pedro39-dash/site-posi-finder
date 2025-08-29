@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,9 +9,13 @@ import { HelmetProvider } from "react-helmet-async";
 import { MonitoringProvider } from "@/contexts/MonitoringContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
+import { ProjectSelector } from "@/components/projects/ProjectSelector";
+import { ProjectModal } from "@/components/projects/ProjectModal";
+import { useProject } from "@/hooks/useProject";
 import Index from "./pages/Index";
 import Projects from "./pages/Projects";
 import Rankings from "./pages/Rankings";
@@ -22,24 +27,69 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const AppLayout = ({ children }: { children: React.ReactNode }) => (
-  <SidebarProvider defaultOpen={false}>
-    <div className="min-h-screen flex w-full">
-      <AppSidebar />
-      <div className="flex-1 flex flex-col">
-        <header className="h-12 flex items-center border-b bg-background px-4 sticky top-0 z-40">
-          <SidebarTrigger className="mr-3 hover:bg-accent" />
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-foreground">SEO Dashboard</span>
-          </div>
-        </header>
-        <main className="flex-1 p-4">
-          {children}
-        </main>
+// Layout component with integrated onboarding and project management
+const AppLayout = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading: authLoading } = useAuth();
+  const { projects, isLoading: projectsLoading } = useProject();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+
+  useEffect(() => {
+    // Check if user needs onboarding (first time user with no projects)
+    if (user && !authLoading && !projectsLoading && projects.length === 0) {
+      setShowOnboarding(true);
+    }
+  }, [user, authLoading, projectsLoading, projects]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+  };
+
+  const handleCreateProject = () => {
+    setShowProjectModal(true);
+  };
+
+  if (authLoading || projectsLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
-    </div>
-  </SidebarProvider>
-);
+    );
+  }
+
+  return (
+    <SidebarProvider defaultOpen={false}>
+      <div className="min-h-screen flex w-full">
+        <AppSidebar />
+        <div className="flex-1 flex flex-col">
+          <header className="h-12 flex items-center justify-between border-b bg-background px-4 sticky top-0 z-40">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="hover:bg-accent" />
+              <span className="font-semibold text-foreground">SEO Dashboard</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <ProjectSelector onCreateProject={handleCreateProject} />
+            </div>
+          </header>
+          <main className="flex-1 p-4">
+            {children}
+          </main>
+        </div>
+      </div>
+      
+      {/* Modals */}
+      <OnboardingFlow 
+        open={showOnboarding} 
+        onComplete={handleOnboardingComplete} 
+      />
+      
+      <ProjectModal 
+        open={showProjectModal}
+        onClose={() => setShowProjectModal(false)}
+      />
+    </SidebarProvider>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
