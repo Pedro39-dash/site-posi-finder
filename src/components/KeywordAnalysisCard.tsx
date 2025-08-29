@@ -95,11 +95,15 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       // Look for the most recent issue with keywords
       for (const issue of aiOptimizationCategory.issues) {
         if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
-          const existingKeywords = issue.metadata.keywords
-            .filter((keyword: string) => keyword && typeof keyword === 'string' && keyword.length > 1) // Reduced minimum length
-            // REMOVED: .slice(0, 100) - No more artificial limits!
+          const rawKeywords = issue.metadata.keywords;
+          console.log('📊 RAW KEYWORDS FOUND:', rawKeywords.length);
           
-          console.log('✅ Found existing keywords:', existingKeywords.length, 'keywords (ALL TERMS)');
+          const existingKeywords = rawKeywords
+            .filter((keyword: string) => keyword && typeof keyword === 'string' && keyword.trim().length > 0)
+            .map((keyword: string) => keyword.trim())
+          
+          console.log('✅ PROCESSED KEYWORDS:', existingKeywords.length, 'total terms extracted');
+          console.log('📋 SAMPLE TERMS:', existingKeywords.slice(0, 10));
           return existingKeywords;
         }
       }
@@ -118,12 +122,15 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     });
 
     if (allKeywords.length > 0) {
-      // Remove duplicates and filter with less restrictive criteria
-      const uniqueKeywords = [...new Set(allKeywords)]
-        .filter(keyword => keyword && typeof keyword === 'string' && keyword.length > 1) // Reduced minimum length
-        // REMOVED: .slice(0, 100) - No more artificial limits!
+      console.log('📊 ALL KEYWORDS FROM CATEGORIES:', allKeywords.length);
       
-      console.log('✅ Found keywords from categories:', uniqueKeywords.length, 'keywords (ALL TERMS)');
+      // Remove duplicates with minimal filtering
+      const uniqueKeywords = [...new Set(allKeywords)]
+        .filter(keyword => keyword && typeof keyword === 'string' && keyword.trim().length > 0)
+        .map(keyword => keyword.trim())
+      
+      console.log('✅ FINAL PROCESSED KEYWORDS:', uniqueKeywords.length, 'unique terms');
+      console.log('📋 SAMPLE FROM CATEGORIES:', uniqueKeywords.slice(0, 10));
       return uniqueKeywords;
     }
 
@@ -364,12 +371,20 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const finalPrompts = prompts.length > 0 ? prompts : aiPrompts;
   const categorizedTerms = categorizeTerms(finalKeywords);
 
-  // Filter keywords based on search term
+  // Filter keywords based on search term with performance optimization
   const filteredKeywords = useMemo(() => {
+    console.log('🔍 FILTERING KEYWORDS:', { 
+      total: finalKeywords.length, 
+      searchTerm: searchTerm || 'none' 
+    });
+    
     if (!searchTerm) return finalKeywords;
-    return finalKeywords.filter(keyword => 
+    const filtered = finalKeywords.filter(keyword => 
       keyword.toLowerCase().includes(searchTerm.toLowerCase())
     );
+    
+    console.log('🎯 FILTERED RESULTS:', filtered.length);
+    return filtered;
   }, [finalKeywords, searchTerm]);
 
   // Filter categorized terms based on search
