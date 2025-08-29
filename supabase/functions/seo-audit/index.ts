@@ -615,34 +615,80 @@ function isSearchableTerm(term: string): boolean {
 function isValidSingleWord(word: string, sector: string, mainConcepts: string[]): boolean {
   const cleanWord = word.toLowerCase().trim();
   
-  // 1. Verificar se é marca/modelo específico do setor
-  const isBrandOrModel = cleanWord.length >= 4 && /^[a-zA-ZáéíóúâêîôûàèìòùãõçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ0-9]+$/.test(cleanWord);
+  // ========== CATEGORIAS SEMÂNTICAS ==========
   
-  // 2. Verificar se aparece nos conceitos principais (alta relevância no contexto)
+  // 1. PROCESSOS COMPLETOS - Pesquisáveis sozinhos
+  const completeProcesses: Record<string, string[]> = {
+    metalurgia: ['eletropolimento', 'passivação', 'anodização', 'galvanização', 'cromagem', 'decapagem'],
+    construção: ['impermeabilização', 'demolição', 'escavação', 'terraplanagem'],
+    automotivo: ['alinhamento', 'balanceamento', 'geometria', 'suspensão'],
+    tecnologia: ['desenvolvimento', 'programação', 'consultoria', 'automação'],
+    saúde: ['ortodontia', 'implante', 'endodontia', 'periodontia', 'prótese', 'clareamento'],
+    alimentício: ['pasteurização', 'liofilização', 'fermentação']
+  };
+  
+  // 2. PRODUTOS/MODELOS ESPECÍFICOS - Pesquisáveis sozinhos
+  const specificProducts: Record<string, string[]> = {
+    automotivo: ['tcross', 'golf', 'civic', 'corolla', 'onix', 'hb20', 'kwid', 'ecosport', 'compass'],
+    tecnologia: ['iphone', 'macbook', 'android', 'windows', 'linux', 'nodejs', 'react', 'angular'],
+    construção: ['porcelanato', 'drywall'],
+    alimentício: ['orgânico', 'vegano', 'kosher', 'halal']
+  };
+  
+  // 3. SERVIÇOS ESPECIALIZADOS - Pesquisáveis sozinhos
+  const specializedServices: Record<string, string[]> = {
+    saúde: ['fisioterapia', 'pilates', 'acupuntura', 'psicoterapia'],
+    tecnologia: ['seo', 'marketing', 'design', 'branding'],
+    construção: ['arquitetura', 'engenharia', 'topografia']
+  };
+  
+  // 4. MODIFICADORES - SEMPRE precisam complemento (NUNCA aceitar sozinhos)
+  const modifiersOnly: Record<string, string[]> = {
+    metalurgia: ['inox', 'aço', 'alumínio', 'bronze', 'latão', 'titânio'],
+    construção: ['granito', 'mármore', 'madeira', 'cerâmica', 'vidro', 'concreto'],
+    automotivo: ['diesel', 'flex', 'manual', 'automático'],
+    tecnologia: ['digital', 'online', 'mobile', 'web'],
+    alimentício: ['integral', 'light', 'diet', 'natural']
+  };
+  
+  // ========== VALIDAÇÃO RIGOROSA ==========
+  
+  // 1. REJEITAR IMEDIATAMENTE se é modificador
+  const isModifier = Object.values(modifiersOnly).flat().includes(cleanWord);
+  if (isModifier) {
+    console.log(`❌ "${word}" é MODIFICADOR - sempre precisa complemento`);
+    return false;
+  }
+  
+  // 2. ACEITAR se é processo completo
+  const isCompleteProcess = Object.values(completeProcesses).flat().includes(cleanWord);
+  if (isCompleteProcess) {
+    console.log(`✅ "${word}" é PROCESSO COMPLETO - pesquisável sozinho`);
+    return true;
+  }
+  
+  // 3. ACEITAR se é produto específico
+  const isSpecificProduct = Object.values(specificProducts).flat().includes(cleanWord);
+  if (isSpecificProduct) {
+    console.log(`✅ "${word}" é PRODUTO ESPECÍFICO - pesquisável sozinho`);
+    return true;
+  }
+  
+  // 4. ACEITAR se é serviço especializado
+  const isSpecializedService = Object.values(specializedServices).flat().includes(cleanWord);
+  if (isSpecializedService) {
+    console.log(`✅ "${word}" é SERVIÇO ESPECIALIZADO - pesquisável sozinho`);
+    return true;
+  }
+  
+  // 5. TESTE DE INTENÇÃO REAL - "Alguém pesquisaria APENAS essa palavra para contratar?"
   const isMainConcept = mainConcepts.some(concept => 
     concept.toLowerCase().includes(cleanWord) && concept.split(' ').includes(cleanWord)
   );
   
-  // 3. Verificar se é termo técnico específico do setor
-  const sectorTerms: Record<string, string[]> = {
-    metalurgia: ['inox', 'eletropolimento', 'passivação', 'anodização', 'galvanização', 'cromagem'],
-    construção: ['granito', 'mármore', 'porcelanato', 'gesso', 'drywall', 'argamassa'],
-    automotivo: ['tcross', 'golf', 'civic', 'corolla', 'onix', 'hb20', 'kwid'],
-    tecnologia: ['iphone', 'macbook', 'android', 'windows', 'linux', 'nodejs'],
-    saúde: ['ortodontia', 'implante', 'endodontia', 'periodontia', 'prótese'],
-    alimentício: ['orgânico', 'vegano', 'lactose', 'glúten', 'kosher']
-  };
-  
-  const sectorSpecific = (sectorTerms[sector] || []).includes(cleanWord);
-  
-  // 4. Critério de pesquisabilidade individual
-  const isSearchableAlone = cleanWord.length >= 4 && (sectorSpecific || isBrandOrModel);
-  
-  const isValid = (isMainConcept || sectorSpecific) && isSearchableAlone;
-  
-  console.log(`🔍 Palavra única "${word}": ${isValid ? '✅ ACEITA' : '❌ REJEITADA'} (setor: ${sector}, conceito principal: ${isMainConcept}, específica do setor: ${sectorSpecific}, pesquisável sozinha: ${isSearchableAlone})`);
-  
-  return isValid;
+  // 6. REJEITAR tudo que não passou nos critérios acima
+  console.log(`❌ "${word}" rejeitada - não é pesquisável sozinha (modificador: ${isModifier}, conceito principal: ${isMainConcept})`);
+  return false;
 }
 
 function isCommercialTerm(concept: string): boolean {
