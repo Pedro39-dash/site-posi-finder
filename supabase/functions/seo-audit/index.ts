@@ -550,8 +550,8 @@ function extractMainConcepts(title: string, h1: string, h2: string, menu: string
     .map(concept => concept.trim())
     .filter((concept, index, array) => array.indexOf(concept) === index); // Remove duplicatas
 
-  console.log('✅ Conceitos finais extraídos:', validConcepts.slice(0, 12));
-  return validConcepts.slice(0, 12); // Máximo 12 conceitos
+  console.log('✅ Conceitos finais extraídos:', validConcepts.slice(0, 20));
+  return validConcepts.slice(0, 20); // Máximo 20 conceitos para maior cobertura
 }
 
 function isGenericTerm(term: string): boolean {
@@ -599,8 +599,8 @@ function buildCommercialTerms(concepts: string[], businessContext: string): stri
     }
   }
 
-  // Limitar a 10 termos de alta qualidade
-  const finalTerms = commercialTerms.slice(0, 10);
+  // Limitar a 18 termos para maior cobertura
+  const finalTerms = commercialTerms.slice(0, 18);
   
   console.log('💼 Termos comerciais finais:', finalTerms);
   return finalTerms;
@@ -615,13 +615,13 @@ function isSearchableTerm(term: string): boolean {
 function isValidSingleWord(word: string, sector: string, mainConcepts: string[]): boolean {
   const cleanWord = word.toLowerCase().trim();
   
-  // ========== CATEGORIAS SEMÂNTICAS ==========
+  // ========== CATEGORIAS SEMÂNTICAS EXPANDIDAS ==========
   
   // 1. PROCESSOS COMPLETOS - Pesquisáveis sozinhos
   const completeProcesses: Record<string, string[]> = {
-    metalurgia: ['eletropolimento', 'passivação', 'anodização', 'galvanização', 'cromagem', 'decapagem'],
-    construção: ['impermeabilização', 'demolição', 'escavação', 'terraplanagem'],
-    automotivo: ['alinhamento', 'balanceamento', 'geometria', 'suspensão'],
+    metalurgia: ['eletropolimento', 'passivação', 'anodização', 'galvanização', 'cromagem', 'decapagem', 'polimento', 'soldagem', 'usinagem', 'torneamento', 'fresagem', 'retífica', 'dobramento', 'corte', 'estampagem', 'funilaria'],
+    construção: ['impermeabilização', 'demolição', 'escavação', 'terraplanagem', 'reforma', 'pintura', 'gesso', 'drywall', 'hidráulica', 'elétrica', 'alvenaria', 'reboco', 'azulejista', 'pedreiro'],
+    automotivo: ['alinhamento', 'balanceamento', 'geometria', 'suspensão', 'freios', 'embreagem', 'transmissão', 'motor', 'injeção', 'escapamento', 'ar-condicionado', 'elétrica'],
     tecnologia: ['desenvolvimento', 'programação', 'consultoria', 'automação'],
     saúde: ['ortodontia', 'implante', 'endodontia', 'periodontia', 'prótese', 'clareamento'],
     alimentício: ['pasteurização', 'liofilização', 'fermentação']
@@ -701,18 +701,65 @@ function isCommercialTerm(concept: string): boolean {
   // 3. TESTE DE NATURALIDADE: Deve soar natural
   if (!isCommerciallySearchable(concept)) return false;
   
-  // 4. TESTE DE VALOR COMERCIAL: Termos que geram leads/vendas
-  const commercialIndicators = [
-    'polimento', 'soldagem', 'manutenção', 'tratamento', 'acabamento',
-    'usinagem', 'restauração', 'limpeza', 'recuperação', 'eletropolimento',
-    'passivação', 'decapagem', 'galvanização', 'anodização'
+  // 4. VALIDAÇÃO CONTEXTUAL - MUITO MAIS FLEXÍVEL
+  const cleanConcept = concept.toLowerCase();
+  
+  // Aceitar automaticamente combinações naturais (serviço + material/local)
+  const naturalCombinationPatterns = [
+    /\w+(ção|mento|gem|agem|eria|ura|ização)$/,  // Sufixos de processos
+    /^(reforma|restauração|manutenção|limpeza|tratamento|acabamento|reparo)/,
+    /\s+(inox|aço|alumínio|ferro|madeira|concreto|vidro|granito|mármore|metal)/,
+    /(polimento|soldagem|usinagem|pintura|instalação|montagem|fabricação)/
   ];
   
-  const hasCommercialValue = commercialIndicators.some(indicator => 
-    concept.includes(indicator)
+  // Aceitar produtos/modelos específicos
+  const specificProductPatterns = [
+    /^[a-z]+\d+/,  // Como "tcross", "golf1"
+    /\d+[a-z]/,    // Como "320i", "a3"
+    /(premium|plus|max|pro|standard|básico|completo)$/
+  ];
+  
+  // Aceitar serviços por padrões comuns
+  const servicePatterns = [
+    /(ção|mento|gem|agem|eria)$/,  // Terminações de serviços
+    /(consulta|atendimento|projeto|orçamento)/,
+    /(especializado|personalizado|profissional)$/
+  ];
+  
+  // Testar todos os padrões
+  const isValidByPattern = [
+    ...naturalCombinationPatterns,
+    ...specificProductPatterns, 
+    ...servicePatterns
+  ].some(pattern => pattern.test(cleanConcept));
+  
+  if (isValidByPattern) {
+    console.log(`✅ Termo aprovado por padrão: "${concept}"`);
+    return true;
+  }
+  
+  // Aceitar termos que contêm palavras-chave do contexto industrial
+  const industrialKeywords = [
+    'inox', 'aço', 'metal', 'ferro', 'alumínio', 'soldagem', 'polimento',
+    'usinagem', 'montagem', 'fabricação', 'manutenção', 'reforma', 'instalação',
+    'acabamento', 'tratamento', 'limpeza', 'restauração', 'reparo', 'conserto',
+    'eletropolimento', 'passivação', 'galvanização', 'anodização', 'cromagem',
+    'pintura', 'verniz', 'tinta', 'proteção', 'revestimento', 'superfície',
+    'técnico', 'especializado', 'profissional', 'certificado', 'qualidade'
+  ];
+  
+  const hasIndustrialContext = industrialKeywords.some(keyword => 
+    cleanConcept.includes(keyword)
   );
   
-  return hasCommercialValue;
+  if (hasIndustrialContext) {
+    console.log(`✅ Termo aprovado por contexto industrial: "${concept}"`);
+    return true;
+  }
+  
+  // Log de rejeição para debug
+  console.log(`❌ Termo rejeitado: "${concept}" - não passou em nenhum filtro`);
+  return false;
 }
 
 // Funções de análise semântica removidas - substituídas pela lógica manual simples
