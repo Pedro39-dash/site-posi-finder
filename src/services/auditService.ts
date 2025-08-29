@@ -75,11 +75,22 @@ export class AuditService {
 
       if (report.status === 'completed') {
         // Fetch categories and issues
+        // Fetch categories and issues with proper JSONB handling for large data
         const { data: categories, error: categoriesError } = await supabase
           .from('audit_categories')
           .select(`
-            *,
-            audit_issues (*)
+            id,
+            category,
+            score,
+            status,
+            audit_issues (
+              id,
+              type,
+              message,
+              priority,
+              recommendation,
+              metadata
+            )
           `)
           .eq('audit_report_id', auditId);
 
