@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Brain, Search, Copy, CheckCircle, TrendingUp, Target, Zap, Info, Filter, BarChart3 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Brain, Search, Copy, CheckCircle, TrendingUp, Target, Zap, Info, Filter, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,18 +28,40 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'commercial' | 'informational'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [showStats, setShowStats] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  // Extract semantic data from audit results - Enhanced for intelligent analysis
+  // Extract semantic data from audit results - Enhanced for dedicated keywords table
   const extractSemanticData = () => {
     if (!results) return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
 
-    // Look for enhanced semantic analysis data
+    console.log('🔍 EXTRACTING SEMANTIC DATA FROM RESULTS:', results.length, 'categories');
+
+    // Look for enhanced semantic analysis data first
     const aiOptimizationCategory = results.find(category => 
       category.category === 'ai_search_optimization'
     );
     
     if (aiOptimizationCategory?.issues) {
       for (const issue of aiOptimizationCategory.issues) {
+        // Check for keywords from dedicated audit_keywords table
+        if (issue.metadata?.auditKeywords && Array.isArray(issue.metadata.auditKeywords)) {
+          console.log('✅ FOUND AUDIT_KEYWORDS:', issue.metadata.auditKeywords.length);
+          
+          const dedicatedKeywords = issue.metadata.auditKeywords.map((kw: any) => 
+            typeof kw === 'object' ? kw.keyword : kw
+          );
+
+          return {
+            keywords: dedicatedKeywords,
+            prompts: issue.metadata.prompts || [],
+            semanticTerms: [],
+            modifiers: [],
+            entities: [],
+            attributes: []
+          };
+        }
+
         // Check for new intelligent semantic analysis data
         if (issue.metadata?.semanticAnalysis) {
           const semantic = issue.metadata.semanticAnalysis;
@@ -74,6 +97,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       }
     }
 
+    console.log('❌ NO KEYWORDS FOUND IN AI_OPTIMIZATION CATEGORY');
     return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
   };
 
@@ -787,6 +811,181 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
                   </div>
                 </div>
               )}
+
+              {/* Keywords Table Section */}
+              <div className="space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Tabela de Keywords Detalhada
+                  <Badge variant="secondary" className="ml-2">
+                    {filteredKeywords.length} de {stats.total} termos
+                  </Badge>
+                </h3>
+
+                {(() => {
+                  const startIndex = (currentPage - 1) * pageSize;
+                  const endIndex = startIndex + pageSize;
+                  const paginatedKeywords = filteredKeywords.slice(startIndex, endIndex);
+                  const totalPages = Math.ceil(filteredKeywords.length / pageSize);
+
+                  return (
+                    <>
+                      {/* Table Controls */}
+                      <div className="flex justify-between items-center text-sm text-muted-foreground">
+                        <div>
+                          Mostrando {startIndex + 1}-{Math.min(endIndex, filteredKeywords.length)} de {filteredKeywords.length} termos
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>Por página:</span>
+                          <select 
+                            value={pageSize} 
+                            onChange={(e) => {
+                              setPageSize(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded px-2 py-1 bg-background"
+                          >
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Keywords Table */}
+                      <div className="border rounded-md">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-8">#</TableHead>
+                              <TableHead>Termo</TableHead>
+                              <TableHead className="w-24">Palavras</TableHead>
+                              <TableHead className="w-32">Tipo</TableHead>
+                              <TableHead className="w-32">Intenção</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {paginatedKeywords.length > 0 ? (
+                              paginatedKeywords.map((keyword, index) => {
+                                const globalIndex = startIndex + index + 1;
+                                const wordCount = keyword.split(' ').length;
+                                const tailType = wordCount <= 2 ? 'short' : wordCount <= 4 ? 'medium' : 'long';
+                                const isCommercial = /comprar|preço|custo|valor|orçamento|cotação|melhor|top|ranking/.test(keyword.toLowerCase());
+
+                                return (
+                                  <TableRow key={index} className="hover:bg-muted/50">
+                                    <TableCell className="font-mono text-xs text-muted-foreground">
+                                      {globalIndex}
+                                    </TableCell>
+                                    <TableCell className="font-medium">
+                                      <div className="flex items-center gap-2">
+                                        <span>{keyword}</span>
+                                        {hasBusinessContext(keyword) && (
+                                          <Badge variant="outline" className="text-xs px-1">
+                                            🏢 Business
+                                          </Badge>
+                                        )}
+                                        {hasTechnicalContext(keyword) && (
+                                          <Badge variant="outline" className="text-xs px-1">
+                                            ⚙️ Tech
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {wordCount}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge 
+                                        variant={tailType === 'short' ? 'destructive' : tailType === 'medium' ? 'secondary' : 'default'}
+                                        className="text-xs"
+                                      >
+                                        {tailType === 'short' ? 'Curta' : tailType === 'medium' ? 'Média' : 'Longa'}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge 
+                                        variant={isCommercial ? 'default' : 'secondary'}
+                                        className="text-xs"
+                                      >
+                                        {isCommercial ? 'Comercial' : 'Informacional'}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            ) : (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                  {searchTerm ? 
+                                    `Nenhum termo encontrado para "${searchTerm}"` :
+                                    'Nenhum termo disponível'
+                                  }
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Pagination Controls */}
+                      {totalPages > 1 && (
+                        <div className="flex justify-center items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Anterior
+                          </Button>
+                          
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                              let pageNum;
+                              if (totalPages <= 5) {
+                                pageNum = i + 1;
+                              } else if (currentPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (currentPage >= totalPages - 2) {
+                                pageNum = totalPages - 4 + i;
+                              } else {
+                                pageNum = currentPage - 2 + i;
+                              }
+                              
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={currentPage === pageNum ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            })}
+                          </div>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
+                          >
+                            Próxima
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </>
           )}
 

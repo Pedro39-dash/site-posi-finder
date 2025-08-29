@@ -182,7 +182,7 @@ const Audit = () => {
       attempts++;
       
       try {
-        const result = await AuditService.getAuditStatus(auditId);
+        const result = await AuditService.getAuditWithKeywords(auditId);
         
         if (result.success && result.report) {
           const report = result.report;
@@ -234,7 +234,7 @@ const Audit = () => {
 
   const loadPreviousAudit = async (auditId: string) => {
     try {
-      const result = await AuditService.getAuditStatus(auditId);
+      const result = await AuditService.getAuditWithKeywords(auditId);
       
       if (result.success && result.report && result.report.categories) {
         setResults(result.report.categories);
