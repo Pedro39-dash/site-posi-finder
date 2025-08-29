@@ -83,11 +83,27 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     
     console.log(`📊 Found ${allIssuesWithKeywords.length} issues with keywords total`);
     
-    // PRIORITY 1: Find the PRIMARY ANALYSIS (52 keywords + 25 prompts)
-    let selectedIssue = allIssuesWithKeywords.find(item => item.isPrimaryAnalysis);
+    // PRIORITY 1: Find the issue with MOST PROMPTS among PRIMARY issues
+    const primaryIssues = allIssuesWithKeywords.filter(item => item.isPrimaryAnalysis);
     
-    if (selectedIssue) {
-      console.log(`🎯 USING PRIMARY ANALYSIS: ${selectedIssue.keywordCount} keywords from "${selectedIssue.message.substring(0, 60)}..."`);
+    let selectedIssue = null;
+    
+    if (primaryIssues.length > 0) {
+      // Sort primary issues by number of prompts (descending), then by keywords
+      primaryIssues.sort((a, b) => {
+        const aPrompts = a.issue.metadata?.prompts?.length || 0;
+        const bPrompts = b.issue.metadata?.prompts?.length || 0;
+        
+        // First priority: most prompts
+        if (aPrompts !== bPrompts) return bPrompts - aPrompts;
+        
+        // Second priority: most keywords  
+        return b.keywordCount - a.keywordCount;
+      });
+      
+      selectedIssue = primaryIssues[0];
+      const promptCount = selectedIssue.issue.metadata?.prompts?.length || 0;
+      console.log(`🎯 USING PRIMARY ANALYSIS: ${selectedIssue.keywordCount} keywords + ${promptCount} prompts from "${selectedIssue.message.substring(0, 60)}..."`);
     } else {
       // PRIORITY 2: Sort by prompts first, then by keyword count
       allIssuesWithKeywords.sort((a, b) => {
