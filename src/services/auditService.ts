@@ -189,4 +189,79 @@ export class AuditService {
       return { success: false, error: 'Failed to delete audit' };
     }
   }
+
+  // Enhanced method to get audit with keywords from dedicated table
+  static async getAuditWithKeywords(auditId: string): Promise<{ success: boolean; report?: AuditReport; error?: string }> {
+    try {
+      // Get the main audit data
+      const auditResult = await this.getAuditStatus(auditId);
+      if (!auditResult.success || !auditResult.report) {
+        return auditResult;
+      }
+
+      // Fetch keywords from the dedicated table
+      const { data: keywords, error: keywordsError } = await supabase
+        .from('audit_keywords')
+        .select('*')
+        .eq('audit_report_id', auditId)
+        .order('relevance_score', { ascending: false });
+
+      if (keywordsError) {
+        console.error('Error fetching keywords from dedicated table:', keywordsError);
+        // Continue with normal audit data if keywords fail
+        return auditResult;
+      }
+
+      // Enhance the audit report with dedicated keywords
+      if (keywords && keywords.length > 0 && auditResult.report.categories) {
+        console.log(`✅ Found ${keywords.length} keywords in dedicated table`);
+        
+        // Group keywords by category
+        const keywordsByCategory = keywords.reduce((acc: Record<string, string[]>, kw: any) => {
+          if (!acc[kw.category]) acc[kw.category] = [];
+          acc[kw.category].push(kw.keyword);
+          return acc;
+        }, {});
+
+        // Enhance categories with keywords from dedicated table
+        auditResult.report.categories = auditResult.report.categories.map(category => {
+          const dedicatedKeywords = keywordsByCategory[category.category] || [];
+          
+          // If we have keywords in the dedicated table, use them
+          if (dedicatedKeywords.length > 0) {
+            // Find an existing issue to hold the keywords or create a new one
+            let keywordIssue = category.issues.find(issue => 
+              issue.metadata?.keywords || issue.message.includes('prompts') || issue.message.includes('palavras-chave')
+            );
+            
+            if (keywordIssue && keywordIssue.metadata) {
+              // Replace truncated keywords with full keywords from dedicated table
+              keywordIssue.metadata.keywords = dedicatedKeywords;
+              console.log(`✅ Enhanced ${category.category} with ${dedicatedKeywords.length} keywords from dedicated table`);
+            } else {
+              // Create a new issue with the keywords
+              category.issues.push({
+                type: 'success',
+                message: `${dedicatedKeywords.length} palavras-chave extraídas do conteúdo`,
+                priority: 'medium',
+                metadata: {
+                  keywords: dedicatedKeywords,
+                  source: 'dedicated_table'
+                }
+              });
+              console.log(`✅ Added new keywords issue to ${category.category} with ${dedicatedKeywords.length} keywords`);
+            }
+          }
+          
+          return category;
+        });
+      }
+
+      return auditResult;
+    } catch (error) {
+      console.error('Error in getAuditWithKeywords:', error);
+      // Fallback to regular audit data
+      return this.getAuditStatus(auditId);
+    }
+  }
 }

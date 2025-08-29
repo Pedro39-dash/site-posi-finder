@@ -77,65 +77,133 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     return { keywords: [], prompts: [], semanticTerms: [], modifiers: [], entities: [], attributes: [] };
   };
 
-  // Extract keywords - Fallback for backward compatibility
+  // Extract keywords - Enhanced multi-strategy extraction for robustness
   const extractKeywords = () => {
     if (!results) {
       console.log('🔍 No results provided to extractKeywords');
       return [];
     }
 
-    console.log('🔍 Keyword extraction starting...');
+    console.log('🔍 Multi-strategy keyword extraction starting...');
     
-    // Phase 1: Try to get keywords from existing audit metadata
+    // Strategy 1: Primary extraction from AI optimization category
     const aiOptimizationCategory = results.find(category => 
       category.category === 'ai_search_optimization'
     );
     
     if (aiOptimizationCategory?.issues) {
-      // Look for the most recent issue with keywords
       for (const issue of aiOptimizationCategory.issues) {
         if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
           const rawKeywords = issue.metadata.keywords;
-          console.log('📊 RAW KEYWORDS FOUND:', rawKeywords.length);
+          console.log('📊 RAW KEYWORDS FROM AI_OPTIMIZATION:', rawKeywords.length);
           
-          const existingKeywords = rawKeywords
+          const processedKeywords = rawKeywords
             .filter((keyword: string) => keyword && typeof keyword === 'string' && keyword.trim().length > 0)
-            .map((keyword: string) => keyword.trim())
+            .map((keyword: string) => keyword.trim().toLowerCase())
+            .filter((keyword, index, array) => array.indexOf(keyword) === index); // Remove duplicates
           
-          console.log('✅ PROCESSED KEYWORDS:', existingKeywords.length, 'total terms extracted');
-          console.log('📋 SAMPLE TERMS:', existingKeywords.slice(0, 10));
-          return existingKeywords;
+          console.log('✅ PROCESSED AI KEYWORDS:', processedKeywords.length, 'unique terms');
+          console.log('📋 AI SAMPLE TERMS:', processedKeywords.slice(0, 10));
+          
+          if (processedKeywords.length > 10) { // Good extraction
+            return processedKeywords;
+          } else {
+            console.log('⚠️ AI keywords insufficient, trying fallback strategies...');
+            // Continue to fallback strategies below
+          }
+        }
+        
+        // Strategy 2: Extract from prompts if keywords are limited
+        if (issue.metadata?.prompts && Array.isArray(issue.metadata.prompts)) {
+          const promptKeywords = issue.metadata.prompts
+            .flatMap((prompt: any) => {
+              if (typeof prompt === 'string') {
+                return extractMultiWordTerms(prompt);
+              } else if (prompt?.content) {
+                return extractMultiWordTerms(prompt.content);
+              }
+              return [];
+            })
+            .map(term => normalizeKeyword(term))
+            .filter(term => term !== null)
+            .slice(0, 200); // Limit to prevent overwhelming
+          
+          console.log('📊 KEYWORDS FROM PROMPTS:', promptKeywords.length);
+          if (promptKeywords.length > 0) {
+            return promptKeywords;
+          }
         }
       }
     }
 
-    // Phase 2: Look for keywords in other categories 
-    let allKeywords: string[] = [];
+    // Strategy 3: Fallback extraction from all categories
+    console.log('🔄 Fallback: extracting from all categories...');
+    const allKeywords: string[] = [];
+    
     results.forEach(category => {
       if (category.issues) {
         category.issues.forEach((issue: any) => {
+          // Extract from metadata keywords
           if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
             allKeywords.push(...issue.metadata.keywords);
+          }
+          
+          // Extract from issue messages
+          if (issue.message && typeof issue.message === 'string') {
+            const messageTerms = extractMultiWordTerms(issue.message);
+            allKeywords.push(...messageTerms);
+          }
+          
+          // Extract from recommendations
+          if (issue.recommendation && typeof issue.recommendation === 'string') {
+            const recTerms = extractMultiWordTerms(issue.recommendation);
+            allKeywords.push(...recTerms);
           }
         });
       }
     });
 
     if (allKeywords.length > 0) {
-      console.log('📊 ALL KEYWORDS FROM CATEGORIES:', allKeywords.length);
+      console.log('📊 FALLBACK KEYWORDS FROM ALL CATEGORIES:', allKeywords.length);
       
-      // Remove duplicates with minimal filtering
-      const uniqueKeywords = [...new Set(allKeywords)]
-        .filter(keyword => keyword && typeof keyword === 'string' && keyword.trim().length > 0)
-        .map(keyword => keyword.trim())
+      const processedFallback = [...new Set(allKeywords)]
+        .map(keyword => normalizeKeyword(keyword))
+        .filter(keyword => keyword !== null)
+        .filter(keyword => keyword.length >= 3)
+        .slice(0, 300); // Reasonable limit
       
-      console.log('✅ FINAL PROCESSED KEYWORDS:', uniqueKeywords.length, 'unique terms');
-      console.log('📋 SAMPLE FROM CATEGORIES:', uniqueKeywords.slice(0, 10));
-      return uniqueKeywords;
+      console.log('✅ PROCESSED FALLBACK KEYWORDS:', processedFallback.length, 'unique terms');
+      console.log('📋 FALLBACK SAMPLE:', processedFallback.slice(0, 10));
+      return processedFallback;
     }
 
-    console.log('⚠️ No processed keywords found, using fallback message');
-    return [];
+    // Strategy 4: Manual extraction from URL and basic terms
+    console.log('🔄 Final fallback: manual extraction from URL and context...');
+    const manualKeywords: string[] = [];
+    
+    if (url) {
+      const urlParts = url
+        .replace(/https?:\/\//, '')
+        .replace(/www\./, '')
+        .split(/[\/\-\.]/)
+        .filter(part => part.length > 2)
+        .filter(part => !/^\d+$/.test(part));
+      
+      manualKeywords.push(...urlParts);
+    }
+    
+    // Add some common business terms for context
+    const contextTerms = ['serviços', 'produtos', 'empresa', 'negócios', 'soluções', 'profissional'];
+    manualKeywords.push(...contextTerms);
+    
+    const finalManual = manualKeywords
+      .map(term => normalizeKeyword(term))
+      .filter(term => term !== null)
+      .slice(0, 20);
+    
+    console.log('✅ MANUAL EXTRACTION KEYWORDS:', finalManual.length, 'terms');
+    console.log('📋 MANUAL SAMPLE:', finalManual);
+    return finalManual;
   };
 
   // Helper function to extract multi-word terms (2-4 words)

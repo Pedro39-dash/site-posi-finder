@@ -211,9 +211,10 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
         continue;
       }
 
-      // Save issues for this category
+      // Save issues for this category and extract keywords to dedicated table
       for (const issue of category.issues) {
-        await supabase
+        // First save the issue
+        const { error: issueError } = await supabase
           .from('audit_issues')
           .insert({
             audit_category_id: categoryData.id,
@@ -223,6 +224,37 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
             recommendation: issue.recommendation,
             metadata: issue.metadata || {}
           });
+
+        if (issueError) {
+          console.error('Error saving issue:', issueError);
+          continue;
+        }
+
+        // **NEW: Save keywords to dedicated table for better handling**
+        if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+          const keywordInserts = issue.metadata.keywords
+            .filter(keyword => keyword && typeof keyword === 'string' && keyword.trim().length > 0)
+            .slice(0, 500) // Limit to prevent database overload
+            .map((keyword, index) => ({
+              audit_report_id: auditId,
+              category: category.category,
+              keyword: keyword.trim(),
+              relevance_score: Math.max(100 - index, 1), // Higher score for earlier keywords
+              keyword_type: 'extracted'
+            }));
+
+          if (keywordInserts.length > 0) {
+            const { error: keywordError } = await supabase
+              .from('audit_keywords')
+              .insert(keywordInserts);
+
+            if (keywordError) {
+              console.error('Error saving keywords:', keywordError);
+            } else {
+              console.log(`✅ Saved ${keywordInserts.length} keywords to dedicated table for category: ${category.category}`);
+            }
+          }
+        }
       }
     }
 

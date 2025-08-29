@@ -90,6 +90,36 @@ export type Database = {
           },
         ]
       }
+      audit_keywords: {
+        Row: {
+          audit_report_id: string
+          category: string
+          created_at: string
+          id: string
+          keyword: string
+          keyword_type: string | null
+          relevance_score: number | null
+        }
+        Insert: {
+          audit_report_id: string
+          category: string
+          created_at?: string
+          id?: string
+          keyword: string
+          keyword_type?: string | null
+          relevance_score?: number | null
+        }
+        Update: {
+          audit_report_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          keyword?: string
+          keyword_type?: string | null
+          relevance_score?: number | null
+        }
+        Relationships: []
+      }
       audit_reports: {
         Row: {
           completed_at: string | null
