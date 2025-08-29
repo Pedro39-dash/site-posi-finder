@@ -132,28 +132,45 @@ Deno.serve(async (req) => {
 });
 
 function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; score: number }[] {
-  console.log('🧹 Cleaning and validating keywords...');
+  console.log('🧹 Cleaning and validating keywords with refined filtering...');
   
-  // Blacklist patterns for irrelevant terms
+  // Enhanced blacklist patterns - including CTA fragments and overly generic terms
   const blacklistPatterns = [
+    // Legal/Copyright terms
     /copyright/i,
     /desenvolvido por/i,
     /todos.*direitos/i,
     /direitos.*reservados/i,
+    
+    // Contact/CTA fragments (REFINED)
     /whatsapp?/i,
+    /ligue/i,
+    /agora/i,
+    /solicite/i,
+    /contato/i,
+    /serviços.*ligue/i,
+    /ligue.*serviços/i,
+    
+    // Technical noise
     /javascript/i,
-    /agora ou/i,
     /contato comercial técnicos/i,
+    
+    // Generic prepositions and articles
     /^(para|com|por|são|uma|mais|sua|seus|das|dos|nos|nas|pela|pelo)$/i,
     /^[0-9]+$/,
     /^(e|ou|de|da|do|em|na|no|a|o)$/i
   ];
   
-  // Commercial keywords that should get priority
+  // Overly generic standalone terms to filter out (REFINED)
+  const genericStandaloneTerms = [
+    'técnicos', 'empresa', 'máquinas', 'industria', 'comercial', 'qualidade'
+  ];
+  
+  // Commercial keywords that should get priority (keeping specificity)
   const commercialIndicators = [
-    'inox', 'polimento', 'escovamento', 'tratamento', 'serviços', 'empresa',
-    'manutenção', 'máquinas', 'equipamentos', 'técnicos', 'comercial',
-    'industrial', 'qualidade', 'soldagem', 'metalurgia'
+    'inox', 'polimento', 'escovamento', 'tratamento', 'serviços',
+    'manutenção', 'equipamentos', 'industrial', 'soldagem', 'metalurgia',
+    'elevadores', 'aço', 'acabamento', 'superfície'
   ];
   
   const processedKeywords = new Map<string, number>();
@@ -163,7 +180,16 @@ function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; sco
     .map(keyword => keyword.trim().toLowerCase())
     .filter(keyword => {
       // Filter out blacklisted patterns
-      return !blacklistPatterns.some(pattern => pattern.test(keyword));
+      if (blacklistPatterns.some(pattern => pattern.test(keyword))) {
+        return false;
+      }
+      
+      // Filter out overly generic standalone terms (but keep if part of compound)
+      if (!keyword.includes(' ') && genericStandaloneTerms.includes(keyword)) {
+        return false;
+      }
+      
+      return true;
     })
     .filter(keyword => {
       // Length validation - more restrictive
@@ -182,7 +208,7 @@ function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; sco
       const commercialMatches = commercialIndicators.filter(indicator => 
         keyword.includes(indicator) || indicator.includes(keyword)
       );
-      score += commercialMatches.length * 20;
+      score += commercialMatches.length * 25;
       
       // Length bonus for meaningful compound terms
       if (keyword.includes(' ') && keyword.length >= 10) {
@@ -190,11 +216,21 @@ function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; sco
       }
       
       // Specific business relevance bonus
-      if (keyword.match(/(polimento.*elevadores|escovamento.*inox|tratamento.*inox|serviços.*inox)/)) {
+      if (keyword.match(/(polimento.*elevadores|escovamento.*inox|tratamento.*inox|serviços.*inox|inox.*polimento)/)) {
         score += 50;
       }
       
-      // Keep highest score for duplicates
+      // Bonus for compound terms with commercial + technical words
+      if (keyword.includes(' ')) {
+        const words = keyword.split(' ');
+        const hasCommercial = words.some(word => commercialIndicators.includes(word));
+        const hasTechnical = words.some(word => ['inox', 'aço', 'elevadores', 'máquinas'].includes(word));
+        if (hasCommercial && hasTechnical) {
+          score += 30;
+        }
+      }
+      
+      // Keep highest score for duplicates (preserving redundancies as requested)
       if (!processedKeywords.has(keyword) || processedKeywords.get(keyword)! < score) {
         processedKeywords.set(keyword, score);
       }
@@ -208,6 +244,7 @@ function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; sco
   
   console.log(`✨ Processed ${rawKeywords.length} raw keywords → ${result.length} cleaned keywords`);
   console.log(`🔝 Top keywords:`, result.slice(0, 10).map(k => `${k.keyword} (${k.score})`));
+  console.log(`🚫 Filtered out CTA fragments and generic standalone terms`);
   
   return result;
 }
