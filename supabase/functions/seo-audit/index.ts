@@ -148,108 +148,162 @@ interface PageContext {
   businessContext: string;
 }
 
-function extractPageContext(htmlContent: string): PageContext {
-  console.log('🔍 Extraindo contexto da página para análise contextual...');
+// OPTIMIZED: Simplified page context extraction
+function extractPageContextOptimized(htmlContent: string): PageContext {
+  console.log('🔍 Extraindo contexto otimizado...');
   
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(htmlContent, 'text/html');
-  
-  // Extrair título
-  const titleElement = doc.querySelector('title');
-  const title = titleElement ? titleElement.textContent?.trim() || '' : '';
-  
-  // Extrair cabeçalhos com contexto hierárquico
-  const headings: { level: number; text: string; section: string }[] = [];
-  const headingElements = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
-  let currentSection = 'header';
-  
-  headingElements.forEach((heading) => {
-    const level = parseInt(heading.tagName.charAt(1));
-    const text = heading.textContent?.trim() || '';
-    if (text.length > 0) {
-      if (level <= 2) currentSection = text.toLowerCase().substring(0, 20);
-      headings.push({ level, text, section: currentSection });
-    }
-  });
-  
-  // Extrair seções contextuais
-  const sections: { name: string; content: string; keywords: string[] }[] = [];
-  
-  // Analisar seções por proximidade de headings
-  headingElements.forEach((heading, index) => {
-    const sectionName = heading.textContent?.trim() || `section_${index}`;
-    let content = '';
+  try {
+    // Simple regex extraction instead of DOM parsing for performance
+    const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : '';
     
-    // Coletar conteúdo até o próximo heading do mesmo nível ou superior
-    let currentElement = heading.nextElementSibling;
-    const headingLevel = parseInt(heading.tagName.charAt(1));
+    // Extract only H1-H3 for better performance  
+    const headingMatches = htmlContent.match(/<h[1-3][^>]*>([^<]+)<\/h[1-3]>/gi) || [];
+    const headings = headingMatches.slice(0, 10).map((match, index) => ({
+      level: parseInt(match.charAt(2)),
+      text: match.replace(/<[^>]+>/g, '').trim(),
+      section: `section_${index}`
+    }));
     
-    while (currentElement) {
-      if (currentElement.tagName.match(/^H[1-6]$/)) {
-        const nextLevel = parseInt(currentElement.tagName.charAt(1));
-        if (nextLevel <= headingLevel) break;
-      }
-      
-      const elementText = currentElement.textContent?.trim() || '';
-      if (elementText.length > 10) {
-        content += ' ' + elementText;
-      }
-      currentElement = currentElement.nextElementSibling;
-    }
+    // Simplified business context
+    const businessContext = determineBusinessContextSimple(htmlContent, title);
     
-    if (content.length > 50) {
-      // Extrair palavras-chave da seção
-      const sectionKeywords = extractWordsFromText(content)
-        .filter(word => word.length >= 4 && word.length <= 30)
-        .slice(0, 15);
-      
-      sections.push({
-        name: sectionName.toLowerCase(),
-        content: content.substring(0, 500), // Limitar tamanho
-        keywords: sectionKeywords
-      });
-    }
-  });
-  
-  // Determinar contexto de negócio
-  const businessContext = determineBusinessContext(htmlContent, title);
-  
-  console.log(`📋 Contexto extraído: ${sections.length} seções, ${headings.length} cabeçalhos`);
-  
-  return {
-    title,
-    headings,
-    sections,
-    businessContext
-  };
+    console.log(`📋 Contexto otimizado: ${headings.length} cabeçalhos`);
+    
+    return {
+      title,
+      headings,
+      sections: [], // Skip heavy section analysis
+      businessContext
+    };
+  } catch (error) {
+    console.error('Erro na extração de contexto:', error);
+    return {
+      title: '',
+      headings: [],
+      sections: [],
+      businessContext: 'geral'
+    };
+  }
 }
 
-function determineBusinessContext(htmlContent: string, title: string): string {
-  const businessIndicators = {
-    'industrial': ['industrial', 'indústria', 'fábrica', 'manufatura', 'produção'],
-    'construção': ['construção', 'obra', 'engenharia', 'edificação', 'reforma'],
-    'equipamentos': ['equipamentos', 'máquinas', 'maquinário', 'aparelhos'],
-    'serviços': ['serviços', 'prestação', 'consultoria', 'assistência'],
-    'comércio': ['venda', 'comércio', 'loja', 'distribuição', 'comercial'],
-    'tecnologia': ['software', 'sistema', 'tecnologia', 'digital', 'automação'],
-    'saúde': ['saúde', 'médico', 'clínica', 'hospital', 'tratamento'],
-    'alimentação': ['alimento', 'restaurante', 'culinária', 'gastronomia']
+// OPTIMIZED: Simplified business context determination
+function determineBusinessContextSimple(htmlContent: string, title: string): string {
+  const fullText = (title + ' ' + htmlContent.substring(0, 5000)).toLowerCase(); // Limit text size
+  
+  const contexts = {
+    'equipamentos': ['equipamentos', 'máquinas', 'maquinário'],
+    'construção': ['construção', 'obra', 'engenharia'],
+    'serviços': ['serviços', 'assistência', 'manutenção'],
+    'industrial': ['indústria', 'industrial', 'fábrica'],
+    'tecnologia': ['software', 'sistema', 'tecnologia']
   };
   
-  const fullText = (title + ' ' + htmlContent).toLowerCase();
-  const contextMatches: { [key: string]: number } = {};
+  for (const [context, indicators] of Object.entries(contexts)) {
+    if (indicators.some(indicator => fullText.includes(indicator))) {
+      return context;
+    }
+  }
   
-  Object.entries(businessIndicators).forEach(([context, indicators]) => {
-    contextMatches[context] = indicators.reduce((count, indicator) => {
-      const matches = (fullText.match(new RegExp(indicator, 'g')) || []).length;
-      return count + matches;
-    }, 0);
-  });
-  
-  const topContext = Object.entries(contextMatches)
-    .sort(([, a], [, b]) => b - a)[0];
+  return 'geral';
+}
+
+// OPTIMIZED: Simplified co-occurrence analysis with smaller window
+function analyzeCoOccurrenceOptimized(text: string, targetWord: string, windowSize: number = 3): string[] {
+  try {
+    // Limit text processing for performance (first 10000 chars)
+    const limitedText = text.substring(0, 10000).toLowerCase();
+    const words = limitedText
+      .replace(/[^\w\sáàâãéêíóôõúç]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length >= 3);
     
-  return topContext ? topContext[0] : 'geral';
+    const coOccurrences: Map<string, number> = new Map();
+    const targetLower = targetWord.toLowerCase();
+    
+    // Find target word and analyze smaller window
+    for (let i = 0; i < words.length; i++) {
+      if (words[i] === targetLower) {
+        const start = Math.max(0, i - windowSize);
+        const end = Math.min(words.length, i + windowSize + 1);
+        
+        for (let j = start; j < end; j++) {
+          if (j !== i && words[j].length >= 3) {
+            coOccurrences.set(words[j], (coOccurrences.get(words[j]) || 0) + 1);
+          }
+        }
+      }
+    }
+    
+    return Array.from(coOccurrences.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5) // Limit to top 5
+      .map(([word]) => word);
+  } catch (error) {
+    console.error('Erro na co-ocorrência:', error);
+    return [];
+  }
+}
+
+// OPTIMIZED: Basic context checking instead of heavy validation
+function checkBasicContext(keyword: string, pageContext: PageContext): boolean {
+  const keywordLower = keyword.toLowerCase();
+  
+  // Check if keyword appears in title or headings
+  if (pageContext.title.toLowerCase().includes(keywordLower)) return true;
+  if (pageContext.headings.some(h => h.text.toLowerCase().includes(keywordLower))) return true;
+  
+  // Check business context alignment
+  if (keywordLower.includes(pageContext.businessContext)) return true;
+  
+  return false;
+}
+
+// OPTIMIZED: Simplified scoring algorithm  
+function calculateSimplifiedScore(
+  keyword: string, 
+  coOccurrenceTerms: string[], 
+  hasContext: boolean, 
+  pageContext: PageContext
+): number {
+  let score = 40; // Base score
+  
+  // Length bonus (prefer 2-3 word phrases)
+  const wordCount = keyword.split(' ').length;
+  if (wordCount === 2) score += 20;
+  else if (wordCount === 3) score += 15;
+  else if (wordCount > 3) score -= 10;
+  
+  // Co-occurrence bonus
+  if (coOccurrenceTerms.length >= 2) score += 15;
+  if (coOccurrenceTerms.length >= 4) score += 10;
+  
+  // Context bonus
+  if (hasContext) score += 20;
+  
+  // Business alignment bonus
+  if (keyword.includes(pageContext.businessContext)) score += 10;
+  
+  // Commercial intent indicators
+  const commercialIndicators = ['serviços', 'produtos', 'soluções', 'equipamentos', 'venda'];
+  if (commercialIndicators.some(indicator => keyword.includes(indicator))) {
+    score += 15;
+  }
+  
+  return Math.min(score, 100);
+}
+
+// OPTIMIZED: Basic keyword cleaning fallback
+function cleanKeywordsBasic(rawKeywords: string[]): { keyword: string; score: number }[] {
+  console.log('🔄 Usando limpeza básica de keywords...');
+  
+  return rawKeywords
+    .filter(k => k && k.length >= 4 && k.length <= 40)
+    .slice(0, 15)
+    .map((keyword, index) => ({
+      keyword: keyword.trim().toLowerCase(),
+      score: 60 - (index * 2) // Decreasing score based on position
+    }));
 }
 
 function analyzeCoOccurrence(text: string, targetWord: string, windowSize: number = 5): string[] {
@@ -384,101 +438,68 @@ function generateContextualVariants(baseKeyword: string, coOccurrenceTerms: stri
 }
 
 function extractContextualKeywords(rawKeywords: string[], htmlContent: string): { keyword: string; score: number }[] {
-  console.log('🎯 Iniciando análise contextual inteligente para extração de termos...');
+  console.log('🎯 Iniciando análise contextual otimizada...');
   
-  // 1. Extrair contexto da página
-  const pageContext = extractPageContext(htmlContent);
-  console.log(`📊 Contexto identificado: ${pageContext.businessContext}`);
-  
-  // 2. Filtros básicos (mantendo os existentes)
-  const blacklistPatterns = [
-    /copyright/i, /desenvolvido por/i, /todos.*direitos/i, /direitos.*reservados/i,
-    /whatsapp?/i, /ligue/i, /agora/i, /solicite/i, /contato/i,
-    /javascript/i, /^(para|com|por|são|uma|mais|sua|seus|das|dos|nos|nas|pela|pelo)$/i,
-    /^[0-9]+$/, /^(e|ou|de|da|do|em|na|no|a|o)$/i
-  ];
-  
-  // 3. Processar palavras-chave com análise contextual
-  const contextualKeywords: Map<string, ContextualKeyword> = new Map();
-  
-  rawKeywords
-    .filter(keyword => keyword && typeof keyword === 'string')
-    .map(keyword => keyword.trim().toLowerCase())
-    .filter(keyword => {
-      // Aplicar filtros básicos
-      if (blacklistPatterns.some(pattern => pattern.test(keyword))) return false;
-      if (keyword.length < 4 || keyword.length > 50) return false;
-      return true;
-    })
-    .forEach(keyword => {
-      // 4. Análise de co-ocorrência
-      const coOccurrenceTerms = analyzeCoOccurrence(htmlContent, keyword, 5);
+  try {
+    // CRITICAL OPTIMIZATION: Limit to top 15 keywords for performance
+    const maxKeywords = Math.min(rawKeywords.length, 15); 
+    console.log(`🔧 Processando apenas ${maxKeywords} keywords para otimizar performance`);
+    
+    // Extract simplified page context
+    const pageContext = extractPageContextOptimized(htmlContent);
+    console.log(`📊 Contexto identificado: ${pageContext.businessContext}`);
+
+    // Basic blacklist patterns (simplified)
+    const blacklistPatterns = [
+      /copyright/i, /whatsapp/i, /javascript/i, /^(para|com|por|são|uma|mais)$/i,
+      /^[0-9]+$/, /^(e|ou|de|da|do|em)$/i
+    ];
+
+    const contextualResults: ContextualKeyword[] = [];
+    
+    for (let i = 0; i < maxKeywords; i++) {
+      const rawKeyword = rawKeywords[i];
+      if (!rawKeyword || rawKeyword.length < 3 || rawKeyword.length > 50) continue;
       
-      // 5. Validação de intenção de busca
-      const intentValidation = validateSearchIntent(keyword, pageContext);
+      // Apply basic filters
+      const keyword = rawKeyword.trim().toLowerCase();
+      if (blacklistPatterns.some(pattern => pattern.test(keyword))) continue;
       
-      if (intentValidation.isValid) {
-        // 6. Gerar variantes contextuais
-        const variants = generateContextualVariants(keyword, coOccurrenceTerms, pageContext);
-        
-        // Adicionar palavra-chave base
-        contextualKeywords.set(keyword, {
+      // OPTIMIZED: Simplified co-occurrence with smaller window (3 instead of 5)
+      const coOccurrenceTerms = analyzeCoOccurrenceOptimized(htmlContent, keyword, 3);
+      
+      // OPTIMIZED: Basic context check instead of heavy validation
+      const hasRelevantContext = checkBasicContext(keyword, pageContext);
+      
+      // OPTIMIZED: Simplified scoring
+      const score = calculateSimplifiedScore(keyword, coOccurrenceTerms, hasRelevantContext, pageContext);
+      
+      if (score >= 50) {
+        contextualResults.push({
           keyword,
-          score: intentValidation.score,
-          context: intentValidation.reasons,
-          coOccurrenceTerms,
-          semanticRelevance: intentValidation.score / 100
-        });
-        
-        // Adicionar variantes válidas
-        variants.forEach(variant => {
-          const variantValidation = validateSearchIntent(variant, pageContext);
-          if (variantValidation.isValid && !contextualKeywords.has(variant)) {
-            contextualKeywords.set(variant, {
-              keyword: variant,
-              score: variantValidation.score + 10, // Bonus para variantes contextuais
-              context: [`variante de: ${keyword}`, ...variantValidation.reasons],
-              coOccurrenceTerms,
-              semanticRelevance: variantValidation.score / 100
-            });
-          }
+          score,
+          context: hasRelevantContext ? ['relevant'] : [],
+          coOccurrenceTerms: coOccurrenceTerms.slice(0, 3), // Limit to 3 terms
+          semanticRelevance: score / 100
         });
       }
-    });
-  
-  // 7. Converter para formato de saída e aplicar scoring final
-  const result = Array.from(contextualKeywords.values())
-    .map(contextualKeyword => {
-      let finalScore = contextualKeyword.score;
-      
-      // Bonus para termos com múltiplas palavras e contexto rico
-      if (contextualKeyword.keyword.includes(' ') && contextualKeyword.coOccurrenceTerms.length >= 3) {
-        finalScore += 15;
-      }
-      
-      // Bonus para alinhamento com contexto de negócio
-      if (contextualKeyword.keyword.includes(pageContext.businessContext)) {
-        finalScore += 20;
-      }
-      
-      return {
-        keyword: contextualKeyword.keyword,
-        score: Math.min(finalScore, 100) // Cap em 100
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 50); // Limitar a top 50
-  
-  console.log(`✨ Análise contextual concluída: ${result.length} termos contextualizados`);
-  console.log(`🏢 Contexto de negócio identificado: ${pageContext.businessContext}`);
-  console.log(`🔝 Top termos contextuais:`, result.slice(0, 10).map(k => `${k.keyword} (${k.score})`));
-  console.log(`📊 Distribuição de scores:`, {
-    'Score > 70': result.filter(k => k.score > 70).length,
-    'Score 50-70': result.filter(k => k.score >= 50 && k.score <= 70).length,
-    'Score < 50': result.filter(k => k.score < 50).length
-  });
-  
-  return result;
+    }
+    
+    // Return top 20 keywords for better performance
+    const finalKeywords = contextualResults
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+      .map(k => ({ keyword: k.keyword, score: Math.min(k.score, 100) }));
+    
+    console.log(`✨ Análise contextual otimizada concluída: ${finalKeywords.length} termos`);
+    console.log('🔝 Top 5 termos:', finalKeywords.slice(0, 5).map(k => `"${k.keyword} (${k.score})"`));
+    console.log(`📊 Distribuição otimizada: >70: ${finalKeywords.filter(k => k.score > 70).length}, 50-70: ${finalKeywords.filter(k => k.score >= 50 && k.score <= 70).length}`);
+    
+    return finalKeywords;
+  } catch (error) {
+    console.error('❌ Erro na análise contextual otimizada:', error);
+    return cleanKeywordsBasic(rawKeywords.slice(0, 15));
+  }
 }
 
 // Função auxiliar para extrair palavras de texto
@@ -498,7 +519,7 @@ function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; sco
 }
 
 async function performSEOAudit(url: string, auditId: string, supabase: any, focusKeyword?: string) {
-  console.log(`🚀 Starting SEO audit for: ${url}, Audit ID: ${auditId}`);
+  console.log(`🚀 Starting optimized SEO audit for: ${url}, Audit ID: ${auditId}`);
   
   try {
     // Validate URL before proceeding
@@ -512,44 +533,47 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
       .from('audit_reports')
       .update({ 
         status: 'analyzing',
-        url: validation.normalizedUrl // Store normalized URL
+        url: validation.normalizedUrl
       })
       .eq('id', auditId);
 
-    // OPTIMIZATION: Global timeout for entire audit (60 seconds max)
-    let htmlContent = ''; // Store HTML content for contextual analysis
+    // CRITICAL OPTIMIZATION: Reduced timeout to 45 seconds
+    let htmlContent = '';
     
     const auditPromise = (async () => {
       // Fetch webpage content
       const html = await fetchWebpageContent(validation.normalizedUrl);
-      htmlContent = html; // Make HTML available in outer scope
+      htmlContent = html;
 
-      // Parallel execution of analyses for performance optimization
-      console.log(`⚡ Starting parallel analyses...`);
-      const [semanticAnalysis, pageSpeedData] = await Promise.all([
-        // Optimized semantic analysis (limited scope)
+      console.log(`⚡ Starting optimized parallel analyses...`);
+      
+      // OPTIMIZATION: Make PageSpeed optional and non-blocking
+      const [semanticAnalysis, pageSpeedData] = await Promise.allSettled([
         performOptimizedSemanticAnalysis(html, validation.normalizedUrl),
-        // PageSpeed with timeout
-        getPageSpeedInsightsWithTimeout(validation.normalizedUrl, 8000)
+        getPageSpeedInsightsWithTimeout(validation.normalizedUrl, 5000) // Reduced to 5s
       ]);
 
+      // Extract results with fallbacks
+      const semanticResult = semanticAnalysis.status === 'fulfilled' ? semanticAnalysis.value : getDefaultSemanticAnalysis();
+      const pageSpeedResult = pageSpeedData.status === 'fulfilled' ? pageSpeedData.value : { desktop: null, mobile: null };
+
       // Analyze HTML content with semantic enrichment
-      const htmlAnalysis = analyzeHTML(html, validation.normalizedUrl, focusKeyword, semanticAnalysis);
+      const htmlAnalysis = analyzeHTML(html, validation.normalizedUrl, focusKeyword, semanticResult);
       
-      if (pageSpeedData.desktop || pageSpeedData.mobile) {
-        console.log(`✅ PageSpeed Insights data received successfully`);
+      if (pageSpeedResult.desktop || pageSpeedResult.mobile) {
+        console.log(`✅ PageSpeed data received`);
       } else {
-        console.log(`⚠️  PageSpeed Insights data not available, continuing with HTML analysis only`);
+        console.log(`⚠️  PageSpeed skipped - continuing with HTML analysis`);
       }
       
-      // Combine all analyses
-      console.log(`🔄 Combining analyses...`);
-      return combineAnalyses(htmlAnalysis, pageSpeedData, url);
+      // Combine analyses
+      console.log(`🔄 Combining optimized analyses...`);
+      return combineAnalyses(htmlAnalysis, pageSpeedResult, url);
     })();
 
-    // Race audit against 60-second timeout
+    // CRITICAL: Race against 45-second timeout (reduced from 60s)
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Audit timeout: 60 seconds exceeded')), 60000);
+      setTimeout(() => reject(new Error('Audit timeout: 45 seconds exceeded')), 45000);
     });
 
     const categories = await Promise.race([auditPromise, timeoutPromise]);
@@ -559,78 +583,11 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
       categories.reduce((sum, category) => sum + category.score, 0) / categories.length
     );
 
-    console.log(`📊 Overall audit score calculated: ${overallScore}% from ${categories.length} categories`);
-    console.log(`💾 Saving ${categories.length} categories and their issues to database...`);
+    console.log(`📊 Optimized audit score: ${overallScore}% from ${categories.length} categories`);
+    console.log(`💾 Batch saving categories and keywords...`);
 
-    // Save categories and issues to database
-    for (const category of categories) {
-      const { data: categoryData, error: categoryError } = await supabase
-        .from('audit_categories')
-        .insert({
-          audit_report_id: auditId,
-          category: category.category,
-          score: category.score,
-          status: category.status
-        })
-        .select()
-        .single();
-
-      if (categoryError) {
-        console.error('Error saving category:', categoryError);
-        continue;
-      }
-
-      // Save issues for this category and extract keywords to dedicated table
-      for (const issue of category.issues) {
-        // First save the issue
-        const { error: issueError } = await supabase
-          .from('audit_issues')
-          .insert({
-            audit_category_id: categoryData.id,
-            type: issue.type,
-            message: issue.message,
-            priority: issue.priority,
-            recommendation: issue.recommendation,
-            metadata: issue.metadata || {}
-          });
-
-        if (issueError) {
-          console.error('Error saving issue:', issueError);
-          continue;
-        }
-
-        // **NEW: Save contextual keywords using intelligent analysis**
-        if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
-          // Use contextual analysis instead of basic cleaning
-          const contextualKeywords = extractContextualKeywords(issue.metadata.keywords, htmlContent);
-          
-          if (contextualKeywords.length > 0) {
-            // Use ON CONFLICT to handle unique constraint gracefully
-            const keywordInserts = contextualKeywords.map((keywordData, index) => ({
-              audit_report_id: auditId,
-              category: category.category,
-              keyword: keywordData.keyword,
-              relevance_score: keywordData.score,
-              keyword_type: 'contextual'
-            }));
-
-            // Insert with conflict handling for deduplication
-            const { error: keywordError } = await supabase
-              .from('audit_keywords')
-              .upsert(keywordInserts, {
-                onConflict: 'audit_report_id,keyword',
-                ignoreDuplicates: false
-              });
-
-            if (keywordError) {
-              console.error('Error saving keywords:', keywordError);
-            } else {
-              console.log(`✅ Saved ${keywordInserts.length} contextual keywords to dedicated table for category: ${category.category}`);
-            }
-          }
-        }
-      }
-    }
+    // OPTIMIZATION: Batch save categories and keywords
+    await batchSaveAuditResults(supabase, auditId, categories, htmlContent);
 
     // Update audit report with final status and score
     await supabase
@@ -642,11 +599,209 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
       })
       .eq('id', auditId);
 
-    console.log(`✅ SEO audit completed successfully for ${url}`);
-    console.log(`📊 Final Results: ${overallScore}% overall score from ${categories.length} categories`);
-    console.log(`🎯 Categories analyzed: ${categories.map(c => c.category).join(', ')}`);
+    console.log(`✅ Optimized SEO audit completed for ${url}`);
+    console.log(`📊 Final Results: ${overallScore}% overall score, ${categories.length} categories`);
+    console.log(`⚡ PERFORMANCE OPTIMIZATIONS ACTIVE:`);
+    console.log(`   - Contextual analysis limited to top 15 keywords`);
+    console.log(`   - Co-occurrence window reduced to 3 words`);
+    console.log(`   - Batch database operations implemented`);
+    console.log(`   - PageSpeed timeout reduced to 5s`);
+    console.log(`   - Global audit timeout reduced to 45s`);
+    console.log(`   - Semantic analysis optimized and limited`);
 
   } catch (error) {
+    console.error(`❌ Optimized audit error for ${url}:`, error);
+    
+    // Improved error handling with performance context
+    let userFriendlyError = error.message;
+    
+    if (error.message.includes('timeout') || error.message.includes('45 seconds')) {
+      userFriendlyError = 'Auditoria interrompida por timeout otimizado (45s). Site muito complexo - tente uma página mais simples.';
+    } else if (error.message.includes('CPU Time exceeded')) {
+      userFriendlyError = 'Processamento intensivo detectado. As otimizações foram aplicadas - tente novamente.';
+    } else if (error.message.includes('Failed to fetch')) {
+      userFriendlyError = 'Site inacessível. Verifique se o site está online.';
+    } else if (error.message.includes('Invalid URL')) {
+      userFriendlyError = 'URL inválida. Verifique o formato da URL.';
+    }
+    
+    // Update audit report with error status
+    await supabase
+      .from('audit_reports')
+      .update({ 
+        status: 'failed',
+        metadata: { 
+          error: userFriendlyError,
+          technical_error: error.message
+        }
+      })
+      .eq('id', auditId);
+  }
+}
+
+// OPTIMIZATION: Batch save audit results for better performance
+async function batchSaveAuditResults(supabase: any, auditId: string, categories: any[], htmlContent: string) {
+  console.log(`💾 Starting batch save for ${categories.length} categories...`);
+  
+  try {
+    // Batch insert categories
+    const categoryInserts = categories.map(category => ({
+      audit_report_id: auditId,
+      category: category.category,
+      score: category.score,
+      status: category.status
+    }));
+    
+    const { data: savedCategories, error: categoryError } = await supabase
+      .from('audit_categories')
+      .insert(categoryInserts)
+      .select();
+
+    if (categoryError) {
+      console.error('Error batch saving categories:', categoryError);
+      throw categoryError;
+    }
+
+    console.log(`✅ Saved ${savedCategories.length} categories in batch`);
+
+    // Batch save issues and keywords
+    const allIssues: any[] = [];
+    const allKeywords: any[] = [];
+    
+    categories.forEach((category, categoryIndex) => {
+      const savedCategory = savedCategories[categoryIndex];
+      if (!savedCategory) return;
+      
+      category.issues.forEach((issue: any) => {
+        // Add issue to batch
+        allIssues.push({
+          audit_category_id: savedCategory.id,
+          type: issue.type,
+          message: issue.message,
+          priority: issue.priority,
+          recommendation: issue.recommendation,
+          metadata: issue.metadata || {}
+        });
+        
+        // Extract keywords from this issue
+        if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
+          const contextualKeywords = extractContextualKeywords(issue.metadata.keywords, htmlContent);
+          
+          contextualKeywords.forEach((keywordData) => {
+            allKeywords.push({
+              audit_report_id: auditId,
+              category: category.category,
+              keyword: keywordData.keyword,
+              relevance_score: keywordData.score,
+              keyword_type: 'contextual'
+            });
+          });
+        }
+      });
+    });
+
+    // Batch insert issues
+    if (allIssues.length > 0) {
+      const { error: issuesError } = await supabase
+        .from('audit_issues')
+        .insert(allIssues);
+      
+      if (issuesError) {
+        console.error('Error batch saving issues:', issuesError);
+      } else {
+        console.log(`✅ Saved ${allIssues.length} issues in batch`);
+      }
+    }
+
+    // Batch upsert keywords (handle duplicates)
+    if (allKeywords.length > 0) {
+      // Remove duplicates by keyword within the same audit
+      const uniqueKeywords = allKeywords.reduce((acc, current) => {
+        const key = `${current.audit_report_id}_${current.keyword}`;
+        if (!acc.has(key)) {
+          acc.set(key, current);
+        }
+        return acc;
+      }, new Map());
+      
+      const keywordInserts = Array.from(uniqueKeywords.values());
+      
+      const { error: keywordsError } = await supabase
+        .from('audit_keywords')
+        .upsert(keywordInserts, {
+          onConflict: 'audit_report_id,keyword',
+          ignoreDuplicates: true
+        });
+      
+      if (keywordsError) {
+        console.error('Error batch saving keywords:', keywordsError);
+      } else {
+        console.log(`✅ Saved ${keywordInserts.length} unique keywords in batch`);
+      }
+    }
+    
+    console.log(`🎯 Batch save completed successfully`);
+    
+  } catch (error) {
+    console.error('❌ Error in batch save:', error);
+    // Fall back to individual saves if batch fails
+    console.log('🔄 Falling back to individual saves...');
+    await fallbackIndividualSave(supabase, auditId, categories, htmlContent);
+  }
+}
+
+// OPTIMIZATION: Fallback to individual saves if batch fails
+async function fallbackIndividualSave(supabase: any, auditId: string, categories: any[], htmlContent: string) {
+  console.log('🔄 Using fallback individual save method...');
+  
+  for (const category of categories.slice(0, 10)) { // Limit to 10 categories
+    try {
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('audit_categories')
+        .insert({
+          audit_report_id: auditId,
+          category: category.category,
+          score: category.score,
+          status: category.status
+        })
+        .select()
+        .single();
+
+      if (categoryError) continue;
+
+      // Save limited issues (max 5 per category)
+      for (const issue of category.issues.slice(0, 5)) {
+        await supabase
+          .from('audit_issues')
+          .insert({
+            audit_category_id: categoryData.id,
+            type: issue.type,
+            message: issue.message,
+            priority: issue.priority,
+            recommendation: issue.recommendation,
+            metadata: issue.metadata || {}
+          });
+      }
+    } catch (error) {
+      console.error('Error in fallback save:', error);
+    }
+  }
+}
+      }
+    }
+
+// OPTIMIZATION: Default semantic analysis for fallback
+function getDefaultSemanticAnalysis() {
+  return {
+    commercialModifiers: [],
+    mainEntities: [],
+    attributes: [],
+    shortTailTerms: [],
+    mediumTailTerms: [],
+    longTailTerms: [],
+    intelligentPrompts: []
+  };
+}
     console.error(`❌ Error performing SEO audit for ${url}:`, error);
     console.log('🔍 Error details:', JSON.stringify({
       message: error.message,
@@ -777,15 +932,122 @@ interface SemanticAnalysis {
 }
 
 function performOptimizedSemanticAnalysis(html: string, url: string): SemanticAnalysis {
-  console.log('🧠 Iniciando análise semântica manual simplificada...');
+  console.log('🧠 Iniciando análise semântica otimizada (limitada)...');
   
   try {
-    // ===== FASE 1: EXTRAÇÃO DE CONTEÚDO PRINCIPAL =====
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    // OPTIMIZATION: Limit HTML processing for performance
+    const limitedHtml = html.substring(0, 50000); // Process only first 50k chars
+    const doc = new DOMParser().parseFromString(limitedHtml, 'text/html');
     
-    // Extrair apenas conteúdo dos elementos principais
+    // Extract only essential content
     const titleText = doc.querySelector('title')?.textContent?.trim() || '';
-    const h1Text = Array.from(doc.querySelectorAll('h1')).map(h => h.textContent?.trim()).join(' ') || '';
+    const h1Text = Array.from(doc.querySelectorAll('h1')).slice(0, 3).map(h => h.textContent?.trim()).join(' ') || '';
+    const h2Text = Array.from(doc.querySelectorAll('h2')).slice(0, 5).map(h => h.textContent?.trim()).join(' ') || '';
+    const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+    
+    // OPTIMIZATION: Simplified menu extraction
+    const menuText = Array.from(doc.querySelectorAll('nav, .menu, [role="navigation"]'))
+      .slice(0, 2)
+      .map(nav => nav.textContent?.trim())
+      .join(' ').substring(0, 1000) || '';
+
+    console.log('📝 Conteúdo principal extraído:', {
+      title: titleText.substring(0, 50),
+      h1: h1Text.substring(0, 50),
+      menu: menuText.substring(0, 50)
+    });
+
+    // OPTIMIZATION: Simplified business context detection
+    const businessContext = identifyBusinessSectorSimple(titleText + ' ' + h1Text + ' ' + menuText);
+    console.log('🏢 Contexto identificado:', businessContext);
+
+    // OPTIMIZATION: Extract only top 8 main concepts
+    const mainConcepts = extractMainConceptsSimple(titleText, h1Text, h2Text, menuText, metaDescription);
+    console.log('🎯 Top conceitos:', mainConcepts.slice(0, 5));
+
+    // OPTIMIZATION: Build only essential commercial terms
+    const commercialTerms = buildCommercialTermsSimple(mainConcepts, businessContext);
+    console.log('💼 Termos comerciais:', commercialTerms.slice(0, 5));
+
+    // OPTIMIZATION: Limit to 8 final terms
+    const validTerms = commercialTerms
+      .filter(term => term && term.length >= 4 && term.length <= 40)
+      .slice(0, 8);
+
+    console.log('✅ Termos finais otimizados:', validTerms);
+
+    // OPTIMIZATION: Simplified categorization and prompts
+    const shortTail = validTerms.filter(t => t.split(' ').length === 1).slice(0, 3);
+    const mediumTail = validTerms.filter(t => t.split(' ').length === 2).slice(0, 3);
+    const longTail = validTerms.filter(t => t.split(' ').length >= 3).slice(0, 3);
+    
+    return {
+      commercialModifiers: validTerms.slice(0, 3),
+      mainEntities: validTerms.slice(0, 4),
+      attributes: validTerms.slice(0, 3),
+      shortTailTerms: shortTail.map(term => ({ term, relevance: 80 })),
+      mediumTailTerms: mediumTail.map(term => ({ term, relevance: 85 })),
+      longTailTerms: longTail.map(term => ({ term, relevance: 90 })),
+      intelligentPrompts: [`Como ${businessContext} pode ajudar`, `Serviços de ${businessContext}`].slice(0, 2)
+    };
+
+  } catch (error) {
+    console.error('❌ Erro na análise semântica otimizada:', error);
+    return getDefaultSemanticAnalysis();
+  }
+}
+
+// OPTIMIZATION: Simplified business sector identification
+function identifyBusinessSectorSimple(text: string): string {
+  const lowerText = text.toLowerCase();
+  
+  if (lowerText.includes('equipamentos') || lowerText.includes('máquinas')) return 'equipamentos';
+  if (lowerText.includes('construção') || lowerText.includes('obra')) return 'construção';
+  if (lowerText.includes('serviços') || lowerText.includes('assistência')) return 'serviços';
+  if (lowerText.includes('indústria') || lowerText.includes('industrial')) return 'industrial';
+  if (lowerText.includes('tecnologia') || lowerText.includes('software')) return 'tecnologia';
+  
+  return 'geral';
+}
+
+// OPTIMIZATION: Simplified main concepts extraction
+function extractMainConceptsSimple(title: string, h1: string, h2: string, menu: string, meta: string): string[] {
+  const allText = [title, h1, h2, menu, meta].join(' ').toLowerCase();
+  
+  // Simple word extraction with basic filtering
+  const words = allText
+    .replace(/[^\w\sáàâãéêíóôõúç]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length >= 4 && word.length <= 20)
+    .filter(word => !['para', 'com', 'por', 'são', 'uma', 'mais', 'seus', 'das'].includes(word));
+  
+  // Count frequency and return top 10
+  const frequency = new Map<string, number>();
+  words.forEach(word => frequency.set(word, (frequency.get(word) || 0) + 1));
+  
+  return Array.from(frequency.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10)
+    .map(([word]) => word);
+}
+
+// OPTIMIZATION: Simplified commercial terms building
+function buildCommercialTermsSimple(concepts: string[], businessContext: string): string[] {
+  const commercialTerms: string[] = [];
+  
+  // Add business context
+  commercialTerms.push(businessContext);
+  
+  // Combine concepts with business context
+  concepts.slice(0, 5).forEach(concept => {
+    if (concept !== businessContext) {
+      commercialTerms.push(concept);
+      commercialTerms.push(`${concept} ${businessContext}`);
+    }
+  });
+  
+  return [...new Set(commercialTerms)].slice(0, 10); // Remove duplicates and limit
+}
     const h2Text = Array.from(doc.querySelectorAll('h2')).slice(0, 3).map(h => h.textContent?.trim()).join(' ') || '';
     const menuText = Array.from(doc.querySelectorAll('nav, .menu, #menu, .navigation')).map(el => el.textContent?.trim()).join(' ') || '';
     const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
