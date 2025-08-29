@@ -166,6 +166,19 @@ function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; sco
     'técnicos', 'empresa', 'máquinas', 'industria', 'comercial', 'qualidade'
   ];
   
+  // Generic terms that create meaningless compounds when combined together
+  const genericCompoundTerms = [
+    'serviços', 'empresa', 'técnicos', 'comercial', 'limpeza', 'qualidade', 
+    'manutenção', 'atendimento', 'suporte', 'vendas', 'consultoria'
+  ];
+  
+  // Specific technical terms that add value to compounds
+  const technicalTerms = [
+    'inox', 'polimento', 'escovamento', 'tratamento', 'eletropolimento',
+    'aço', 'elevadores', 'tanques', 'soldagem', 'metalurgia', 'acabamento',
+    'superfície', 'industrial'
+  ];
+  
   // Commercial keywords that should get priority (keeping specificity)
   const commercialIndicators = [
     'inox', 'polimento', 'escovamento', 'tratamento', 'serviços',
@@ -187,6 +200,21 @@ function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; sco
       // Filter out overly generic standalone terms (but keep if part of compound)
       if (!keyword.includes(' ') && genericStandaloneTerms.includes(keyword)) {
         return false;
+      }
+      
+      // Filter out generic compound terms (two generic words combined)
+      if (keyword.includes(' ')) {
+        const words = keyword.split(' ').filter(word => word.length > 2);
+        if (words.length === 2) {
+          const allWordsGeneric = words.every(word => genericCompoundTerms.includes(word));
+          const hasNoTechnicalTerm = !words.some(word => technicalTerms.includes(word));
+          
+          // Filter out if both words are generic AND no technical terms present
+          if (allWordsGeneric && hasNoTechnicalTerm) {
+            console.log(`🚫 Filtered generic compound: "${keyword}"`);
+            return false;
+          }
+        }
       }
       
       return true;
@@ -244,7 +272,7 @@ function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; sco
   
   console.log(`✨ Processed ${rawKeywords.length} raw keywords → ${result.length} cleaned keywords`);
   console.log(`🔝 Top keywords:`, result.slice(0, 10).map(k => `${k.keyword} (${k.score})`));
-  console.log(`🚫 Filtered out CTA fragments and generic standalone terms`);
+  console.log(`🚫 Filtered out CTA fragments, generic standalone terms, and generic compounds`);
   
   return result;
 }
