@@ -127,6 +127,7 @@ export type Database = {
           id: string
           metadata: Json | null
           overall_score: number
+          project_id: string | null
           status: string
           updated_at: string
           url: string
@@ -138,6 +139,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           overall_score?: number
+          project_id?: string | null
           status?: string
           updated_at?: string
           url: string
@@ -149,12 +151,21 @@ export type Database = {
           id?: string
           metadata?: Json | null
           overall_score?: number
+          project_id?: string | null
           status?: string
           updated_at?: string
           url?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       competitor_analyses: {
         Row: {
@@ -164,6 +175,7 @@ export type Database = {
           id: string
           metadata: Json | null
           overall_competitiveness_score: number | null
+          project_id: string | null
           status: string
           target_domain: string
           total_competitors: number | null
@@ -178,6 +190,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           overall_competitiveness_score?: number | null
+          project_id?: string | null
           status?: string
           target_domain: string
           total_competitors?: number | null
@@ -192,6 +205,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           overall_competitiveness_score?: number | null
+          project_id?: string | null
           status?: string
           target_domain?: string
           total_competitors?: number | null
@@ -205,6 +219,13 @@ export type Database = {
             columns: ["audit_report_id"]
             isOneToOne: false
             referencedRelation: "audit_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_analyses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -353,15 +374,114 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          market_segment: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          market_segment?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          market_segment?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          competitor_domains: string[] | null
+          created_at: string
+          domain: string
+          focus_keywords: string[] | null
+          id: string
+          is_active: boolean | null
+          market_segment: string | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competitor_domains?: string[] | null
+          created_at?: string
+          domain: string
+          focus_keywords?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          market_segment?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competitor_domains?: string[] | null
+          created_at?: string
+          domain?: string
+          focus_keywords?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          market_segment?: string | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["user_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "admin" | "client" | "display"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -488,6 +608,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["admin", "client", "display"],
+    },
   },
 } as const
