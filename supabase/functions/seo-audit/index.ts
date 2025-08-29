@@ -799,7 +799,6 @@ function getDefaultSemanticAnalysis() {
     intelligentPrompts: []
   };
 }
-}
 
 
 async function fetchWebpageContent(url: string): Promise<string> {
