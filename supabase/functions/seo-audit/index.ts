@@ -131,150 +131,370 @@ Deno.serve(async (req) => {
   }
 });
 
-function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; score: number }[] {
-  console.log('🧹 Cleaning and validating keywords with refined filtering...');
+// ============= NOVA IMPLEMENTAÇÃO: ANÁLISE CONTEXTUAL INTELIGENTE =============
+
+interface ContextualKeyword {
+  keyword: string;
+  score: number;
+  context: string[];
+  coOccurrenceTerms: string[];
+  semanticRelevance: number;
+}
+
+interface PageContext {
+  title: string;
+  headings: { level: number; text: string; section: string }[];
+  sections: { name: string; content: string; keywords: string[] }[];
+  businessContext: string;
+}
+
+function extractPageContext(htmlContent: string): PageContext {
+  console.log('🔍 Extraindo contexto da página para análise contextual...');
   
-  // Enhanced blacklist patterns - including CTA fragments and overly generic terms
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlContent, 'text/html');
+  
+  // Extrair título
+  const titleElement = doc.querySelector('title');
+  const title = titleElement ? titleElement.textContent?.trim() || '' : '';
+  
+  // Extrair cabeçalhos com contexto hierárquico
+  const headings: { level: number; text: string; section: string }[] = [];
+  const headingElements = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+  let currentSection = 'header';
+  
+  headingElements.forEach((heading) => {
+    const level = parseInt(heading.tagName.charAt(1));
+    const text = heading.textContent?.trim() || '';
+    if (text.length > 0) {
+      if (level <= 2) currentSection = text.toLowerCase().substring(0, 20);
+      headings.push({ level, text, section: currentSection });
+    }
+  });
+  
+  // Extrair seções contextuais
+  const sections: { name: string; content: string; keywords: string[] }[] = [];
+  
+  // Analisar seções por proximidade de headings
+  headingElements.forEach((heading, index) => {
+    const sectionName = heading.textContent?.trim() || `section_${index}`;
+    let content = '';
+    
+    // Coletar conteúdo até o próximo heading do mesmo nível ou superior
+    let currentElement = heading.nextElementSibling;
+    const headingLevel = parseInt(heading.tagName.charAt(1));
+    
+    while (currentElement) {
+      if (currentElement.tagName.match(/^H[1-6]$/)) {
+        const nextLevel = parseInt(currentElement.tagName.charAt(1));
+        if (nextLevel <= headingLevel) break;
+      }
+      
+      const elementText = currentElement.textContent?.trim() || '';
+      if (elementText.length > 10) {
+        content += ' ' + elementText;
+      }
+      currentElement = currentElement.nextElementSibling;
+    }
+    
+    if (content.length > 50) {
+      // Extrair palavras-chave da seção
+      const sectionKeywords = extractWordsFromText(content)
+        .filter(word => word.length >= 4 && word.length <= 30)
+        .slice(0, 15);
+      
+      sections.push({
+        name: sectionName.toLowerCase(),
+        content: content.substring(0, 500), // Limitar tamanho
+        keywords: sectionKeywords
+      });
+    }
+  });
+  
+  // Determinar contexto de negócio
+  const businessContext = determineBusinessContext(htmlContent, title);
+  
+  console.log(`📋 Contexto extraído: ${sections.length} seções, ${headings.length} cabeçalhos`);
+  
+  return {
+    title,
+    headings,
+    sections,
+    businessContext
+  };
+}
+
+function determineBusinessContext(htmlContent: string, title: string): string {
+  const businessIndicators = {
+    'industrial': ['industrial', 'indústria', 'fábrica', 'manufatura', 'produção'],
+    'construção': ['construção', 'obra', 'engenharia', 'edificação', 'reforma'],
+    'equipamentos': ['equipamentos', 'máquinas', 'maquinário', 'aparelhos'],
+    'serviços': ['serviços', 'prestação', 'consultoria', 'assistência'],
+    'comércio': ['venda', 'comércio', 'loja', 'distribuição', 'comercial'],
+    'tecnologia': ['software', 'sistema', 'tecnologia', 'digital', 'automação'],
+    'saúde': ['saúde', 'médico', 'clínica', 'hospital', 'tratamento'],
+    'alimentação': ['alimento', 'restaurante', 'culinária', 'gastronomia']
+  };
+  
+  const fullText = (title + ' ' + htmlContent).toLowerCase();
+  const contextMatches: { [key: string]: number } = {};
+  
+  Object.entries(businessIndicators).forEach(([context, indicators]) => {
+    contextMatches[context] = indicators.reduce((count, indicator) => {
+      const matches = (fullText.match(new RegExp(indicator, 'g')) || []).length;
+      return count + matches;
+    }, 0);
+  });
+  
+  const topContext = Object.entries(contextMatches)
+    .sort(([, a], [, b]) => b - a)[0];
+    
+  return topContext ? topContext[0] : 'geral';
+}
+
+function analyzeCoOccurrence(text: string, targetWord: string, windowSize: number = 5): string[] {
+  const words = text.toLowerCase()
+    .replace(/[^\w\sáàâãéêíóôõúç]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length >= 3);
+  
+  const coOccurrences: Map<string, number> = new Map();
+  
+  for (let i = 0; i < words.length; i++) {
+    if (words[i] === targetWord.toLowerCase()) {
+      // Analisar janela de palavras ao redor (windowSize antes e depois)
+      const start = Math.max(0, i - windowSize);
+      const end = Math.min(words.length, i + windowSize + 1);
+      
+      for (let j = start; j < end; j++) {
+        if (j !== i && words[j].length >= 3) {
+          const contextWord = words[j];
+          const currentCount = coOccurrences.get(contextWord) || 0;
+          coOccurrences.set(contextWord, currentCount + 1);
+        }
+      }
+    }
+  }
+  
+  return Array.from(coOccurrences.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10)
+    .map(([word, count]) => word);
+}
+
+function validateSearchIntent(keyword: string, context: PageContext): { isValid: boolean; score: number; reasons: string[] } {
+  const reasons: string[] = [];
+  let score = 50; // Base score
+  
+  // 1. Completude Semântica - termo deve fazer sentido para busca
+  const words = keyword.split(' ');
+  
+  // Verificar se tem pelo menos um substantivo significativo
+  const substantivos = ['equipamentos', 'máquinas', 'serviços', 'produtos', 'soluções', 'sistemas', 'peças'];
+  const hasSubstantivo = words.some(word => substantivos.some(sub => word.includes(sub) || sub.includes(word)));
+  
+  if (hasSubstantivo) {
+    score += 20;
+    reasons.push('possui substantivo relevante');
+  }
+  
+  // 2. Especificidade - priorizar termos com modificadores
+  const modificadores = ['industrial', 'comercial', 'profissional', 'original', 'técnico', 'especializado'];
+  const hasModificador = words.some(word => modificadores.some(mod => word.includes(mod)));
+  
+  if (hasModificador) {
+    score += 15;
+    reasons.push('possui modificador específico');
+  }
+  
+  // 3. Contexto de Negócio - alinhar com o contexto da página
+  if (keyword.includes(context.businessContext)) {
+    score += 25;
+    reasons.push(`alinhado com contexto ${context.businessContext}`);
+  }
+  
+  // 4. Rejeitar termos muito genéricos sem contexto
+  const termosGenericosSemContexto = ['empresa', 'serviços', 'produtos', 'qualidade', 'comercial'];
+  if (words.length === 1 && termosGenericosSemContexto.includes(keyword)) {
+    score -= 30;
+    reasons.push('termo genérico sem contexto');
+  }
+  
+  // 5. Bonus para termos encontrados em títulos/headings importantes
+  const inImportantHeading = context.headings.some(h => 
+    h.level <= 2 && h.text.toLowerCase().includes(keyword)
+  );
+  if (inImportantHeading) {
+    score += 20;
+    reasons.push('encontrado em título importante');
+  }
+  
+  // 6. Penalizar termos muito curtos sem contexto
+  if (keyword.length < 6 && !hasModificador) {
+    score -= 15;
+    reasons.push('termo muito curto sem especificação');
+  }
+  
+  const isValid = score >= 40; // Limiar de aceitação
+  return { isValid, score, reasons };
+}
+
+function generateContextualVariants(baseKeyword: string, coOccurrenceTerms: string[], context: PageContext): string[] {
+  const variants: string[] = [];
+  const baseWords = baseKeyword.split(' ');
+  
+  // 1. Combinar com termos de co-ocorrência relevantes
+  coOccurrenceTerms.slice(0, 5).forEach(coTerm => {
+    if (coTerm.length >= 4 && !baseKeyword.includes(coTerm)) {
+      // Variante: baseKeyword + coTerm
+      variants.push(`${baseKeyword} ${coTerm}`.trim());
+      
+      // Variante: coTerm + baseKeyword (se fizer sentido semânticamente)
+      if (coTerm.match(/(industrial|comercial|profissional|técnico|especializado)/)) {
+        variants.push(`${coTerm} ${baseKeyword}`.trim());
+      }
+    }
+  });
+  
+  // 2. Combinar com contexto de negócio
+  if (context.businessContext && context.businessContext !== 'geral') {
+    if (!baseKeyword.includes(context.businessContext)) {
+      variants.push(`${baseKeyword} ${context.businessContext}`.trim());
+    }
+  }
+  
+  // 3. Combinar com termos de seções relevantes
+  context.sections.forEach(section => {
+    section.keywords.slice(0, 3).forEach(sectionKeyword => {
+      if (sectionKeyword.length >= 4 && 
+          !baseKeyword.includes(sectionKeyword) && 
+          !sectionKeyword.includes(baseKeyword.split(' ')[0])) {
+        variants.push(`${baseKeyword} ${sectionKeyword}`.trim());
+      }
+    });
+  });
+  
+  return variants
+    .filter(variant => 
+      variant.length >= 8 && 
+      variant.length <= 45 && 
+      variant.split(' ').length <= 4
+    )
+    .slice(0, 8); // Limitar número de variantes
+}
+
+function extractContextualKeywords(rawKeywords: string[], htmlContent: string): { keyword: string; score: number }[] {
+  console.log('🎯 Iniciando análise contextual inteligente para extração de termos...');
+  
+  // 1. Extrair contexto da página
+  const pageContext = extractPageContext(htmlContent);
+  console.log(`📊 Contexto identificado: ${pageContext.businessContext}`);
+  
+  // 2. Filtros básicos (mantendo os existentes)
   const blacklistPatterns = [
-    // Legal/Copyright terms
-    /copyright/i,
-    /desenvolvido por/i,
-    /todos.*direitos/i,
-    /direitos.*reservados/i,
-    
-    // Contact/CTA fragments (REFINED)
-    /whatsapp?/i,
-    /ligue/i,
-    /agora/i,
-    /solicite/i,
-    /contato/i,
-    /serviços.*ligue/i,
-    /ligue.*serviços/i,
-    
-    // Technical noise
-    /javascript/i,
-    /contato comercial técnicos/i,
-    
-    // Generic prepositions and articles
-    /^(para|com|por|são|uma|mais|sua|seus|das|dos|nos|nas|pela|pelo)$/i,
-    /^[0-9]+$/,
-    /^(e|ou|de|da|do|em|na|no|a|o)$/i
+    /copyright/i, /desenvolvido por/i, /todos.*direitos/i, /direitos.*reservados/i,
+    /whatsapp?/i, /ligue/i, /agora/i, /solicite/i, /contato/i,
+    /javascript/i, /^(para|com|por|são|uma|mais|sua|seus|das|dos|nos|nas|pela|pelo)$/i,
+    /^[0-9]+$/, /^(e|ou|de|da|do|em|na|no|a|o)$/i
   ];
   
-  // Overly generic standalone terms to filter out (REFINED)
-  const genericStandaloneTerms = [
-    'técnicos', 'empresa', 'máquinas', 'industria', 'comercial', 'qualidade'
-  ];
-  
-  // Generic terms that create meaningless compounds when combined together
-  const genericCompoundTerms = [
-    'serviços', 'empresa', 'técnicos', 'comercial', 'limpeza', 'qualidade', 
-    'manutenção', 'atendimento', 'suporte', 'vendas', 'consultoria'
-  ];
-  
-  // Specific technical terms that add value to compounds
-  const technicalTerms = [
-    'inox', 'polimento', 'escovamento', 'tratamento', 'eletropolimento',
-    'aço', 'elevadores', 'tanques', 'soldagem', 'metalurgia', 'acabamento',
-    'superfície', 'industrial'
-  ];
-  
-  // Commercial keywords that should get priority (keeping specificity)
-  const commercialIndicators = [
-    'inox', 'polimento', 'escovamento', 'tratamento', 'serviços',
-    'manutenção', 'equipamentos', 'industrial', 'soldagem', 'metalurgia',
-    'elevadores', 'aço', 'acabamento', 'superfície'
-  ];
-  
-  const processedKeywords = new Map<string, number>();
+  // 3. Processar palavras-chave com análise contextual
+  const contextualKeywords: Map<string, ContextualKeyword> = new Map();
   
   rawKeywords
     .filter(keyword => keyword && typeof keyword === 'string')
     .map(keyword => keyword.trim().toLowerCase())
     .filter(keyword => {
-      // Filter out blacklisted patterns
-      if (blacklistPatterns.some(pattern => pattern.test(keyword))) {
-        return false;
-      }
-      
-      // Filter out overly generic standalone terms (but keep if part of compound)
-      if (!keyword.includes(' ') && genericStandaloneTerms.includes(keyword)) {
-        return false;
-      }
-      
-      // Filter out generic compound terms (two generic words combined)
-      if (keyword.includes(' ')) {
-        const words = keyword.split(' ').filter(word => word.length > 2);
-        if (words.length === 2) {
-          const allWordsGeneric = words.every(word => genericCompoundTerms.includes(word));
-          const hasNoTechnicalTerm = !words.some(word => technicalTerms.includes(word));
-          
-          // Filter out if both words are generic AND no technical terms present
-          if (allWordsGeneric && hasNoTechnicalTerm) {
-            console.log(`🚫 Filtered generic compound: "${keyword}"`);
-            return false;
-          }
-        }
-      }
-      
+      // Aplicar filtros básicos
+      if (blacklistPatterns.some(pattern => pattern.test(keyword))) return false;
+      if (keyword.length < 4 || keyword.length > 50) return false;
       return true;
     })
-    .filter(keyword => {
-      // Length validation - more restrictive
-      if (keyword.includes(' ')) {
-        // Compound terms: 6-40 characters
-        return keyword.length >= 6 && keyword.length <= 40;
-      } else {
-        // Single terms: 4-25 characters
-        return keyword.length >= 4 && keyword.length <= 25;
-      }
-    })
     .forEach(keyword => {
-      let score = 10; // Base score
+      // 4. Análise de co-ocorrência
+      const coOccurrenceTerms = analyzeCoOccurrence(htmlContent, keyword, 5);
       
-      // Commercial relevance scoring
-      const commercialMatches = commercialIndicators.filter(indicator => 
-        keyword.includes(indicator) || indicator.includes(keyword)
-      );
-      score += commercialMatches.length * 25;
+      // 5. Validação de intenção de busca
+      const intentValidation = validateSearchIntent(keyword, pageContext);
       
-      // Length bonus for meaningful compound terms
-      if (keyword.includes(' ') && keyword.length >= 10) {
-        score += 15;
-      }
-      
-      // Specific business relevance bonus
-      if (keyword.match(/(polimento.*elevadores|escovamento.*inox|tratamento.*inox|serviços.*inox|inox.*polimento)/)) {
-        score += 50;
-      }
-      
-      // Bonus for compound terms with commercial + technical words
-      if (keyword.includes(' ')) {
-        const words = keyword.split(' ');
-        const hasCommercial = words.some(word => commercialIndicators.includes(word));
-        const hasTechnical = words.some(word => ['inox', 'aço', 'elevadores', 'máquinas'].includes(word));
-        if (hasCommercial && hasTechnical) {
-          score += 30;
-        }
-      }
-      
-      // Keep highest score for duplicates (preserving redundancies as requested)
-      if (!processedKeywords.has(keyword) || processedKeywords.get(keyword)! < score) {
-        processedKeywords.set(keyword, score);
+      if (intentValidation.isValid) {
+        // 6. Gerar variantes contextuais
+        const variants = generateContextualVariants(keyword, coOccurrenceTerms, pageContext);
+        
+        // Adicionar palavra-chave base
+        contextualKeywords.set(keyword, {
+          keyword,
+          score: intentValidation.score,
+          context: intentValidation.reasons,
+          coOccurrenceTerms,
+          semanticRelevance: intentValidation.score / 100
+        });
+        
+        // Adicionar variantes válidas
+        variants.forEach(variant => {
+          const variantValidation = validateSearchIntent(variant, pageContext);
+          if (variantValidation.isValid && !contextualKeywords.has(variant)) {
+            contextualKeywords.set(variant, {
+              keyword: variant,
+              score: variantValidation.score + 10, // Bonus para variantes contextuais
+              context: [`variante de: ${keyword}`, ...variantValidation.reasons],
+              coOccurrenceTerms,
+              semanticRelevance: variantValidation.score / 100
+            });
+          }
+        });
       }
     });
   
-  // Convert to array and sort by score
-  const result = Array.from(processedKeywords.entries())
-    .map(([keyword, score]) => ({ keyword, score }))
+  // 7. Converter para formato de saída e aplicar scoring final
+  const result = Array.from(contextualKeywords.values())
+    .map(contextualKeyword => {
+      let finalScore = contextualKeyword.score;
+      
+      // Bonus para termos com múltiplas palavras e contexto rico
+      if (contextualKeyword.keyword.includes(' ') && contextualKeyword.coOccurrenceTerms.length >= 3) {
+        finalScore += 15;
+      }
+      
+      // Bonus para alinhamento com contexto de negócio
+      if (contextualKeyword.keyword.includes(pageContext.businessContext)) {
+        finalScore += 20;
+      }
+      
+      return {
+        keyword: contextualKeyword.keyword,
+        score: Math.min(finalScore, 100) // Cap em 100
+      };
+    })
     .sort((a, b) => b.score - a.score)
-    .slice(0, 50); // Limit to top 50 keywords
+    .slice(0, 50); // Limitar a top 50
   
-  console.log(`✨ Processed ${rawKeywords.length} raw keywords → ${result.length} cleaned keywords`);
-  console.log(`🔝 Top keywords:`, result.slice(0, 10).map(k => `${k.keyword} (${k.score})`));
-  console.log(`🚫 Filtered out CTA fragments, generic standalone terms, and generic compounds`);
+  console.log(`✨ Análise contextual concluída: ${result.length} termos contextualizados`);
+  console.log(`🏢 Contexto de negócio identificado: ${pageContext.businessContext}`);
+  console.log(`🔝 Top termos contextuais:`, result.slice(0, 10).map(k => `${k.keyword} (${k.score})`));
+  console.log(`📊 Distribuição de scores:`, {
+    'Score > 70': result.filter(k => k.score > 70).length,
+    'Score 50-70': result.filter(k => k.score >= 50 && k.score <= 70).length,
+    'Score < 50': result.filter(k => k.score < 50).length
+  });
   
   return result;
+}
+
+// Função auxiliar para extrair palavras de texto
+function extractWordsFromText(text: string): string[] {
+  return text.toLowerCase()
+    .replace(/[^\w\sáàâãéêíóôõúç]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length >= 3)
+    .filter((word, index, arr) => arr.indexOf(word) === index) // Remove duplicatas
+    .slice(0, 100); // Limita quantidade
+}
+
+// Manter função legacy para compatibilidade (caso seja chamada em outros lugares)
+function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; score: number }[] {
+  console.log('⚠️  Usando função de limpeza básica (legacy) - considere usar extractContextualKeywords');
+  return extractContextualKeywords(rawKeywords, ''); // Fallback sem contexto HTML
 }
 
 async function performSEOAudit(url: string, auditId: string, supabase: any, focusKeyword?: string) {
@@ -297,9 +517,12 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
       .eq('id', auditId);
 
     // OPTIMIZATION: Global timeout for entire audit (60 seconds max)
+    let htmlContent = ''; // Store HTML content for contextual analysis
+    
     const auditPromise = (async () => {
       // Fetch webpage content
       const html = await fetchWebpageContent(validation.normalizedUrl);
+      htmlContent = html; // Make HTML available in outer scope
 
       // Parallel execution of analyses for performance optimization
       console.log(`⚡ Starting parallel analyses...`);
@@ -376,18 +599,19 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
           continue;
         }
 
-        // **IMPROVED: Save cleaned keywords to dedicated table**
+        // **NEW: Save contextual keywords using intelligent analysis**
         if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
-          const cleanedKeywords = cleanAndValidateKeywords(issue.metadata.keywords);
+          // Use contextual analysis instead of basic cleaning
+          const contextualKeywords = extractContextualKeywords(issue.metadata.keywords, htmlContent);
           
-          if (cleanedKeywords.length > 0) {
+          if (contextualKeywords.length > 0) {
             // Use ON CONFLICT to handle unique constraint gracefully
-            const keywordInserts = cleanedKeywords.map((keywordData, index) => ({
+            const keywordInserts = contextualKeywords.map((keywordData, index) => ({
               audit_report_id: auditId,
               category: category.category,
               keyword: keywordData.keyword,
               relevance_score: keywordData.score,
-              keyword_type: 'extracted'
+              keyword_type: 'contextual'
             }));
 
             // Insert with conflict handling for deduplication
@@ -401,7 +625,7 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
             if (keywordError) {
               console.error('Error saving keywords:', keywordError);
             } else {
-              console.log(`✅ Saved ${keywordInserts.length} cleaned keywords to dedicated table for category: ${category.category}`);
+              console.log(`✅ Saved ${keywordInserts.length} contextual keywords to dedicated table for category: ${category.category}`);
             }
           }
         }
