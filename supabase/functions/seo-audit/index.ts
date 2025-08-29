@@ -237,7 +237,7 @@ function analyzeCoOccurrenceOptimized(text: string, targetWord: string, windowSi
     
     return Array.from(coOccurrences.entries())
       .sort(([, a], [, b]) => b - a)
-      .slice(0, 5) // Limit to top 5
+      .slice(0, 20) // Increased co-occurrence analysis
       .map(([word]) => word);
   } catch (error) {
     console.error('Erro na co-ocorrência:', error);
@@ -299,7 +299,6 @@ function cleanKeywordsBasic(rawKeywords: string[]): { keyword: string; score: nu
   
   return rawKeywords
     .filter(k => k && k.length >= 4 && k.length <= 40)
-    .slice(0, 15)
     .map((keyword, index) => ({
       keyword: keyword.trim().toLowerCase(),
       score: 60 - (index * 2) // Decreasing score based on position
@@ -332,7 +331,7 @@ function analyzeCoOccurrence(text: string, targetWord: string, windowSize: numbe
   
   return Array.from(coOccurrences.entries())
     .sort(([, a], [, b]) => b - a)
-    .slice(0, 10)
+    .slice(0, 50) // Increased co-occurrence analysis
     .map(([word, count]) => word);
 }
 
@@ -444,7 +443,7 @@ function extractContextualKeywordsWithTimeout(rawKeywords: string[], htmlContent
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       console.log('⏰ TIMEOUT: Contextual analysis exceeded timeout, using fallback');
-      resolve(cleanKeywordsBasic(rawKeywords.slice(0, 12)));
+      resolve(cleanKeywordsBasic(rawKeywords.slice(0, 50)));
     }, timeoutMs);
     
     try {
@@ -454,7 +453,7 @@ function extractContextualKeywordsWithTimeout(rawKeywords: string[], htmlContent
     } catch (error) {
       clearTimeout(timeout);
       console.error('❌ Contextual analysis error:', error);
-      resolve(cleanKeywordsBasic(rawKeywords.slice(0, 12)));
+      resolve(cleanKeywordsBasic(rawKeywords.slice(0, 50)));
     }
   });
 }
@@ -462,8 +461,8 @@ function extractContextualKeywordsWithTimeout(rawKeywords: string[], htmlContent
 // CORE: Contextual analysis implementation
 function extractContextualKeywordsCore(rawKeywords: string[], htmlContent: string): { keyword: string; score: number }[] {
   try {
-    // OPTIMIZATION: Process only top 12 keywords for speed
-    const maxKeywords = Math.min(rawKeywords.length, 12);
+    // OPTIMIZATION: Process ALL keywords for maximum coverage
+    const maxKeywords = rawKeywords.length;
     console.log(`🔧 Processing ${maxKeywords} keywords for optimization`);
     
     // Extract simplified context
@@ -509,7 +508,7 @@ function extractContextualKeywordsCore(rawKeywords: string[], htmlContent: strin
     // Return top 15 keywords
     const finalKeywords = contextualResults
       .sort((a, b) => b.score - a.score)
-      .slice(0, 15)
+      .filter(k => k.score >= 10)  // Filter by quality, not quantity
       .map(k => ({ keyword: k.keyword, score: Math.min(k.score, 100) }));
     
     console.log(`✨ Contextual analysis: ${finalKeywords.length} terms`);
@@ -517,7 +516,7 @@ function extractContextualKeywordsCore(rawKeywords: string[], htmlContent: strin
     
   } catch (error) {
     console.error('❌ Core contextual analysis error:', error);
-    return cleanKeywordsBasic(rawKeywords.slice(0, 12));
+    return cleanKeywordsBasic(rawKeywords.slice(0, 50));
   }
 }
 
@@ -529,7 +528,7 @@ function extractBasicKeywordsFromText(text: string): string[] {
       .split(/\s+/)
       .filter(word => word.length >= 4 && word.length <= 25);
     
-    return [...new Set(words)].slice(0, 5); // Top 5 unique words
+    return [...new Set(words)].slice(0, 30); // Extract up to 30 unique words
   } catch (error) {
     console.error('❌ Basic keyword extraction error:', error);
     return ['seo', 'auditoria', 'website'];
@@ -634,7 +633,6 @@ function extractWordsFromText(text: string): string[] {
     .split(/\s+/)
     .filter(word => word.length >= 3)
     .filter((word, index, arr) => arr.indexOf(word) === index) // Remove duplicatas
-    .slice(0, 100); // Limita quantidade
 }
 
 // Manter função legacy para compatibilidade (caso seja chamada em outros lugares)
@@ -881,7 +879,7 @@ function extractKeywordsFromIssue(issue: any, category: any, htmlContent: string
       } else {
         console.log('⚠️ Contextual keywords not an array, using fallback');
         // Fallback: Use original keywords directly
-        issue.metadata.keywords.slice(0, 10).forEach((keyword: string, index: number) => {
+        issue.metadata.keywords.forEach((keyword: string, index: number) => {
           if (keyword && typeof keyword === 'string') {
             keywords.push({
               audit_report_id: auditId,
@@ -1026,7 +1024,7 @@ async function processKeywordsInBackground(supabase: any, auditId: string, allKe
 
     // Try direct insert first (faster than upsert) with improved timeout
     const { error: keywordsError } = await Promise.race([
-      supabase.from('audit_keywords').insert(uniqueKeywords.slice(0, 150)), // Increased limit but safe
+      supabase.from('audit_keywords').insert(uniqueKeywords), // No limit - save all keywords
       new Promise((_, reject) => setTimeout(() => reject(new Error('Keywords timeout')), 20000))
     ]);
     
@@ -1945,7 +1943,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
           priority: 'medium' as const,
           recommendation: 'Inclua termos comerciais como "comprar", "preço", "melhor" para capturar intenções de compra',
           metadata: {
-            keywords: guaranteedKeywords.slice(0, 30), // Guaranteed keywords
+            keywords: guaranteedKeywords, // All guaranteed keywords
             prompts: guaranteedPrompts
           }
         });
@@ -1957,7 +1955,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
           priority: 'medium' as const,
           recommendation: 'Adicione mais termos comerciais para cobrir diferentes intenções de compra',
           metadata: {
-            keywords: guaranteedKeywords.slice(0, 30),
+            keywords: guaranteedKeywords,
             prompts: guaranteedPrompts
           }
         });
@@ -1968,7 +1966,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
           message: `Boa cobertura de termos comerciais (${commercialTermsCount} identificados)`,
           priority: 'low' as const,
           metadata: {
-            keywords: guaranteedKeywords.slice(0, 30),
+            keywords: guaranteedKeywords,
             prompts: guaranteedPrompts
           }
         });
@@ -1983,7 +1981,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
           priority: 'medium' as const,
           recommendation: 'Crie conteúdo mais específico e detalhado para capturar termos long-tail',
           metadata: {
-            keywords: guaranteedKeywords.slice(0, 30),
+            keywords: guaranteedKeywords,
             prompts: guaranteedPrompts
           }
         });
@@ -1994,7 +1992,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
           message: `Boa cobertura de termos long-tail (${longTailCount} identificados)`,
           priority: 'low' as const,
           metadata: {
-            keywords: guaranteedKeywords.slice(0, 30),
+            keywords: guaranteedKeywords,
             prompts: guaranteedPrompts
           }
         });
@@ -2008,7 +2006,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
           priority: 'high' as const,
           recommendation: 'Defina claramente seus produtos/serviços principais no conteúdo',
           metadata: {
-            keywords: guaranteedKeywords.slice(0, 30),
+            keywords: guaranteedKeywords,
             prompts: guaranteedPrompts
           }
         });
@@ -2020,7 +2018,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
           priority: 'medium' as const,
           recommendation: 'Expanda a descrição de seus produtos/serviços para melhor cobertura semântica',
           metadata: {
-            keywords: guaranteedKeywords.slice(0, 30),
+            keywords: guaranteedKeywords,
             prompts: guaranteedPrompts
           }
         });
@@ -2031,7 +2029,7 @@ function analyzeHTML(html: string, url: string, focusKeyword?: string, semanticA
           message: `Bom número de entidades identificadas (${entityCount})`,
           priority: 'low' as const,
           metadata: {
-            keywords: guaranteedKeywords.slice(0, 30),
+            keywords: guaranteedKeywords,
             prompts: guaranteedPrompts
           }
         });
@@ -3241,8 +3239,8 @@ function analyzeAISearchOptimization(textContent: string, title: string, metaDes
       priority: 'low' as const,
       recommendation: `Termos identificados com fallbacks para garantir dados`,
       metadata: { 
-        keywords: finalKeywords.slice(0, 25), // Limit but ensure we have them
-        prompts: finalPrompts.slice(0, 10),
+        keywords: finalKeywords, // All keywords without limit
+        prompts: finalPrompts,
         extraction_method: keywords.length > 0 ? 'normal' : 'fallback'
       }
     });
@@ -3391,8 +3389,7 @@ function extractKeywords(textContent: string, title: string, metaDesc: string): 
   // Get top terms with MUCH stricter limits
   const topTerms = Array.from(termScores.entries())
     .sort((a, b) => b[1] - a[1])
-    .filter(([term, score]) => score >= 8) // Higher minimum score threshold
-    .slice(0, 30) // Strict limit of 30 keywords max
+    .filter(([term, score]) => score >= 5) // Lower threshold for more keywords
     .map(([term]) => term);
   
   // Final validation with even stricter rules
