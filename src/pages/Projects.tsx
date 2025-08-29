@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useProjects, Project } from "@/contexts/ProjectContext";
 import { useNavigate } from "react-router-dom";
-import ProjectModal from "@/components/projects/ProjectModal";
+import { ProjectModal } from "@/components/projects/ProjectModal";
 
 const Projects = () => {
   const { projects, setSelectedProject } = useProjects();
@@ -238,9 +238,9 @@ const Projects = () => {
       </div>
 
       <ProjectModal
-        isOpen={isModalOpen}
+        open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        project={editingProject}
+        projectId={editingProject?.id}
       />
     </>
   );
