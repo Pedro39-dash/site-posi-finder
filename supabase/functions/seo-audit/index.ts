@@ -787,9 +787,6 @@ async function fallbackIndividualSave(supabase: any, auditId: string, categories
     }
   }
 }
-      }
-    }
-
 // OPTIMIZATION: Default semantic analysis for fallback
 function getDefaultSemanticAnalysis() {
   return {
