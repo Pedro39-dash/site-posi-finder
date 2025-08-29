@@ -1197,62 +1197,6 @@ function buildCommercialTermsSimple(concepts: string[], businessContext: string)
   
   return [...new Set(commercialTerms)].slice(0, 10); // Remove duplicates and limit
 }
-    const h2Text = Array.from(doc.querySelectorAll('h2')).slice(0, 3).map(h => h.textContent?.trim()).join(' ') || '';
-    const menuText = Array.from(doc.querySelectorAll('nav, .menu, #menu, .navigation')).map(el => el.textContent?.trim()).join(' ') || '';
-    const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
-    
-    console.log('📝 Conteúdo extraído:', {
-      title: titleText.slice(0, 80),
-      h1: h1Text.slice(0, 80),
-      menu: menuText.slice(0, 80)
-    });
-
-    // ===== FASE 2: IDENTIFICAR CONTEXTO DO NEGÓCIO =====
-    const businessContext = identifyBusinessSector(titleText + ' ' + h1Text + ' ' + menuText);
-    console.log('🏢 Contexto do negócio:', businessContext);
-
-    // ===== FASE 3: EXTRAIR CONCEITOS PRINCIPAIS =====
-    const mainConcepts = extractMainConcepts(titleText, h1Text, h2Text, menuText, metaDescription);
-    console.log('🎯 Conceitos principais extraídos:', mainConcepts);
-
-    // ===== FASE 4: CONSTRUIR TERMOS COMERCIAIS =====
-    const commercialTerms = buildCommercialTerms(mainConcepts, businessContext);
-    console.log('💼 Termos comerciais:', commercialTerms);
-
-    // ===== FASE 5: VALIDAÇÃO E CLASSIFICAÇÃO FINAL =====
-    const validTerms = commercialTerms
-      .filter(term => isSearchableTerm(term))
-      .slice(0, 12); // Máximo 12 termos de alta qualidade
-
-    console.log('✅ Termos finais aprovados:', validTerms);
-
-    // Classificar em categorias simples
-    const categorizedTerms = categorizeByLength(validTerms, businessContext, mainConcepts);
-    const prompts = generateFocusedPrompts(validTerms, businessContext);
-    
-    return {
-      commercialModifiers: categorizedTerms.commercial.slice(0, 3),
-      mainEntities: categorizedTerms.commercial.slice(0, 4),
-      attributes: categorizedTerms.informational.slice(0, 3),
-      shortTailTerms: categorizedTerms.shortTail,
-      mediumTailTerms: categorizedTerms.mediumTail,
-      longTailTerms: categorizedTerms.longTail,
-      intelligentPrompts: prompts
-    };
-
-  } catch (error) {
-    console.error('❌ Erro na análise semântica:', error);
-    return {
-      commercialModifiers: [],
-      mainEntities: [],
-      attributes: [],
-      shortTailTerms: [],
-      mediumTailTerms: [],
-      longTailTerms: [],
-      intelligentPrompts: []
-    };
-  }
-}
 
 // ===== FUNÇÕES AUXILIARES SIMPLIFICADAS =====
 
