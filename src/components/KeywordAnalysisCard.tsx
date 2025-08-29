@@ -514,11 +514,32 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
 
   if (!results) return null;
 
-  const { keywords, prompts, semanticTerms, modifiers, entities, attributes } = extractSemanticData();
+  // Extract data with detailed logging
+  const extractedData = extractSemanticData();
+  console.log('🚀 EXTRACTED DATA RESULT:', extractedData);
+  
+  const { keywords, prompts, semanticTerms, modifiers, entities, attributes } = extractedData;
+  console.log('🔥 KEYWORDS FROM EXTRACTION:', keywords, 'Length:', keywords?.length || 0);
+  
   const legacyKeywords = extractKeywords();
+  console.log('📜 LEGACY KEYWORDS:', legacyKeywords, 'Length:', legacyKeywords?.length || 0);
+  
   const aiPrompts = generateAIPrompts();
   
-  const finalKeywords = keywords.length > 0 ? keywords : legacyKeywords;
+  // PRIORITY: Use extracted keywords if they exist, otherwise fallback
+  // Force the use of keywords if they were successfully extracted from the database
+  let finalKeywords: string[] = [];
+  
+  if (keywords && keywords.length > 0) {
+    console.log('✅ USING EXTRACTED KEYWORDS:', keywords.length);
+    finalKeywords = keywords;
+  } else if (legacyKeywords && legacyKeywords.length > 0) {
+    console.log('📜 FALLING BACK TO LEGACY KEYWORDS:', legacyKeywords.length);
+    finalKeywords = legacyKeywords;
+  } else {
+    console.log('❌ NO KEYWORDS FOUND AT ALL');
+    finalKeywords = [];
+  }
   const finalPrompts = prompts.length > 0 ? prompts : aiPrompts;
   const categorizedTerms = categorizeTerms(finalKeywords);
 
