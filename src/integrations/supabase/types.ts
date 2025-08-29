@@ -321,6 +321,45 @@ export type Database = {
           },
         ]
       }
+      dashboard_metrics: {
+        Row: {
+          change_percentage: number | null
+          current_value: number
+          id: string
+          metadata: Json | null
+          metric_type: string
+          period_type: string
+          previous_value: number | null
+          project_id: string | null
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          change_percentage?: number | null
+          current_value?: number
+          id?: string
+          metadata?: Json | null
+          metric_type: string
+          period_type?: string
+          previous_value?: number | null
+          project_id?: string | null
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          change_percentage?: number | null
+          current_value?: number
+          id?: string
+          metadata?: Json | null
+          metric_type?: string
+          period_type?: string
+          previous_value?: number | null
+          project_id?: string | null
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       keyword_opportunities: {
         Row: {
           analysis_id: string
@@ -455,6 +494,87 @@ export type Database = {
           status?: string | null
           suggested_at?: string
           suggested_keyword?: string
+        }
+        Relationships: []
+      }
+      monitoring_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          last_check_at: string | null
+          metadata: Json | null
+          monitoring_frequency: string
+          next_check_at: string | null
+          project_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_check_at?: string | null
+          metadata?: Json | null
+          monitoring_frequency?: string
+          next_check_at?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_check_at?: string | null
+          metadata?: Json | null
+          monitoring_frequency?: string
+          next_check_at?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string
+          metadata: Json | null
+          priority: string
+          project_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          metadata?: Json | null
+          priority?: string
+          project_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          metadata?: Json | null
+          priority?: string
+          project_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -619,6 +739,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_dashboard_metrics: {
+        Args: { _period_type?: string; _project_id?: string; _user_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
