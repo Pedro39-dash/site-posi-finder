@@ -83,8 +83,8 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
           };
         }
         
-        // Fallback to legacy data
-        if (issue.metadata?.keywords && issue.metadata?.prompts) {
+        // Fallback to legacy data - prioritize issues with more keywords
+        if (issue.metadata?.keywords) {
           return {
             keywords: issue.metadata.keywords || [],
             prompts: issue.metadata.prompts || [],
