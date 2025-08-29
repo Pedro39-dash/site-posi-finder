@@ -374,6 +374,90 @@ export type Database = {
           },
         ]
       }
+      keyword_rankings: {
+        Row: {
+          created_at: string
+          current_position: number | null
+          device: string
+          id: string
+          keyword: string
+          location: string | null
+          metadata: Json | null
+          previous_position: number | null
+          project_id: string
+          search_engine: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_position?: number | null
+          device?: string
+          id?: string
+          keyword: string
+          location?: string | null
+          metadata?: Json | null
+          previous_position?: number | null
+          project_id: string
+          search_engine?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_position?: number | null
+          device?: string
+          id?: string
+          keyword?: string
+          location?: string | null
+          metadata?: Json | null
+          previous_position?: number | null
+          project_id?: string
+          search_engine?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      keyword_suggestions: {
+        Row: {
+          difficulty_score: number | null
+          id: string
+          metadata: Json | null
+          project_id: string
+          relevance_score: number | null
+          search_volume: number | null
+          source_type: string
+          status: string | null
+          suggested_at: string
+          suggested_keyword: string
+        }
+        Insert: {
+          difficulty_score?: number | null
+          id?: string
+          metadata?: Json | null
+          project_id: string
+          relevance_score?: number | null
+          search_volume?: number | null
+          source_type: string
+          status?: string | null
+          suggested_at?: string
+          suggested_keyword: string
+        }
+        Update: {
+          difficulty_score?: number | null
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+          relevance_score?: number | null
+          search_volume?: number | null
+          source_type?: string
+          status?: string | null
+          suggested_at?: string
+          suggested_keyword?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company_name: string | null
@@ -443,6 +527,69 @@ export type Database = {
           name?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      ranking_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          keyword: string
+          last_triggered: string | null
+          metadata: Json | null
+          project_id: string
+          threshold_value: number | null
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          keyword: string
+          last_triggered?: string | null
+          metadata?: Json | null
+          project_id: string
+          threshold_value?: number | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          keyword?: string
+          last_triggered?: string | null
+          metadata?: Json | null
+          project_id?: string
+          threshold_value?: number | null
+        }
+        Relationships: []
+      }
+      ranking_history: {
+        Row: {
+          change_from_previous: number | null
+          id: string
+          keyword_ranking_id: string
+          metadata: Json | null
+          position: number
+          recorded_at: string
+        }
+        Insert: {
+          change_from_previous?: number | null
+          id?: string
+          keyword_ranking_id: string
+          metadata?: Json | null
+          position: number
+          recorded_at?: string
+        }
+        Update: {
+          change_from_previous?: number | null
+          id?: string
+          keyword_ranking_id?: string
+          metadata?: Json | null
+          position?: number
+          recorded_at?: string
         }
         Relationships: []
       }
