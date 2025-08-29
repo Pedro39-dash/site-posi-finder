@@ -3,8 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Brain, Search, Copy, CheckCircle, TrendingUp, Target, Zap, Info } from "lucide-react";
-import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Brain, Search, Copy, CheckCircle, TrendingUp, Target, Zap, Info, Filter, BarChart3 } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface KeywordAnalysisCardProps {
@@ -24,6 +25,8 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const { toast } = useToast();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'commercial' | 'informational'>('overview');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showStats, setShowStats] = useState(false);
 
   // Extract semantic data from audit results - Enhanced for intelligent analysis
   const extractSemanticData = () => {
@@ -93,13 +96,11 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
       for (const issue of aiOptimizationCategory.issues) {
         if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
           const existingKeywords = issue.metadata.keywords
-            .filter((keyword: string) => keyword && typeof keyword === 'string' && keyword.length > 2)
-            .slice(0, 100); // Get up to 100 keywords
+            .filter((keyword: string) => keyword && typeof keyword === 'string' && keyword.length > 1) // Reduced minimum length
+            // REMOVED: .slice(0, 100) - No more artificial limits!
           
-          if (existingKeywords.length > 5) {
-            console.log('✅ Found existing keywords:', existingKeywords.length, 'keywords');
-            return existingKeywords;
-          }
+          console.log('✅ Found existing keywords:', existingKeywords.length, 'keywords (ALL TERMS)');
+          return existingKeywords;
         }
       }
     }
@@ -117,12 +118,12 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
     });
 
     if (allKeywords.length > 0) {
-      // Remove duplicates and filter
+      // Remove duplicates and filter with less restrictive criteria
       const uniqueKeywords = [...new Set(allKeywords)]
-        .filter(keyword => keyword && typeof keyword === 'string' && keyword.length > 2)
-        .slice(0, 100);
+        .filter(keyword => keyword && typeof keyword === 'string' && keyword.length > 1) // Reduced minimum length
+        // REMOVED: .slice(0, 100) - No more artificial limits!
       
-      console.log('✅ Found keywords from categories:', uniqueKeywords.length, 'keywords');
+      console.log('✅ Found keywords from categories:', uniqueKeywords.length, 'keywords (ALL TERMS)');
       return uniqueKeywords;
     }
 
@@ -363,6 +364,47 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
   const finalPrompts = prompts.length > 0 ? prompts : aiPrompts;
   const categorizedTerms = categorizeTerms(finalKeywords);
 
+  // Filter keywords based on search term
+  const filteredKeywords = useMemo(() => {
+    if (!searchTerm) return finalKeywords;
+    return finalKeywords.filter(keyword => 
+      keyword.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [finalKeywords, searchTerm]);
+
+  // Filter categorized terms based on search
+  const filteredCategorizedTerms = useMemo(() => {
+    if (!searchTerm) return categorizedTerms;
+    return {
+      commercial: categorizedTerms.commercial.filter(term => 
+        term.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+      informational: categorizedTerms.informational.filter(term => 
+        term.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+      shortTail: categorizedTerms.shortTail.filter(term => 
+        term.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+      mediumTail: categorizedTerms.mediumTail.filter(term => 
+        term.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+      longTail: categorizedTerms.longTail.filter(term => 
+        term.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    };
+  }, [categorizedTerms, searchTerm]);
+
+  // Statistics
+  const stats = {
+    total: finalKeywords.length,
+    unique: new Set(finalKeywords).size,
+    commercial: categorizedTerms.commercial.length,
+    informational: categorizedTerms.informational.length,
+    shortTail: categorizedTerms.shortTail.length,
+    mediumTail: categorizedTerms.mediumTail.length,
+    longTail: categorizedTerms.longTail.length,
+  };
+
   // Enhanced categorization for intelligent semantic terms
   const enhancedCategorization = {
     ...categorizedTerms,
@@ -438,12 +480,55 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
             <Brain className="h-5 w-5 text-primary" />
             Análise Semântica Inteligente
             <Badge variant="outline" className="ml-auto">
-              {finalKeywords.length} termos | {finalPrompts.length} prompts
+              {stats.total} termos | {finalPrompts.length} prompts
             </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowStats(!showStats)}
+              className="ml-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </Button>
           </CardTitle>
           
+          {/* Search and Statistics */}
+          <div className="space-y-4">
+            <div className="flex gap-4 items-center">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Pesquisar termos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Badge variant="secondary">
+                {searchTerm ? filteredKeywords.length : stats.total} termos
+              </Badge>
+            </div>
+
+            {/* Statistics Panel */}
+            {showStats && (
+              <div className="p-4 bg-muted/20 rounded-lg space-y-2">
+                <h4 className="font-medium text-sm">Estatísticas Detalhadas</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>Total: <strong>{stats.total}</strong></div>
+                  <div>Únicos: <strong>{stats.unique}</strong></div>
+                  <div>Comerciais: <strong>{stats.commercial}</strong></div>
+                  <div>Informacionais: <strong>{stats.informational}</strong></div>
+                  <div>Cauda Curta: <strong>{stats.shortTail}</strong></div>
+                  <div>Cauda Média: <strong>{stats.mediumTail}</strong></div>
+                  <div>Cauda Longa: <strong>{stats.longTail}</strong></div>
+                  <div>Prompts: <strong>{finalPrompts.length}</strong></div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Tab Navigation */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2">
             <Button
               variant={activeTab === 'overview' ? 'default' : 'outline'}
               size="sm"
@@ -460,7 +545,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
               className="flex items-center gap-2"
             >
               <TrendingUp className="h-4 w-4" />
-              Comercial ({categorizedTerms.commercial.length})
+              Comercial ({filteredCategorizedTerms.commercial.length})
             </Button>
             <Button
               variant={activeTab === 'informational' ? 'default' : 'outline'}
@@ -469,7 +554,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
               className="flex items-center gap-2"
             >
               <Search className="h-4 w-4" />
-              Informacional ({categorizedTerms.informational.length})
+              Informacional ({filteredCategorizedTerms.informational.length})
             </Button>
           </div>
         </CardHeader>
@@ -481,7 +566,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
               {/* Semantic Summary */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="text-center p-4 bg-primary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{categorizedTerms.shortTail.length}</div>
+                  <div className="text-2xl font-bold text-primary">{filteredCategorizedTerms.shortTail.length}</div>
                   <div className="text-sm text-muted-foreground">Cauda Curta</div>
                   <Tooltip>
                     <TooltipTrigger>
@@ -493,7 +578,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
                   </Tooltip>
                 </div>
                 <div className="text-center p-4 bg-accent/5 rounded-lg">
-                  <div className="text-2xl font-bold text-accent">{categorizedTerms.mediumTail.length}</div>
+                  <div className="text-2xl font-bold text-accent">{filteredCategorizedTerms.mediumTail.length}</div>
                   <div className="text-sm text-muted-foreground">Cauda Média</div>
                   <Tooltip>
                     <TooltipTrigger>
@@ -505,7 +590,7 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
                   </Tooltip>
                 </div>
                 <div className="text-center p-4 bg-secondary/5 rounded-lg">
-                  <div className="text-2xl font-bold text-secondary-foreground">{categorizedTerms.longTail.length}</div>
+                  <div className="text-2xl font-bold text-secondary-foreground">{filteredCategorizedTerms.longTail.length}</div>
                   <div className="text-sm text-muted-foreground">Cauda Longa</div>
                   <Tooltip>
                     <TooltipTrigger>
@@ -532,15 +617,15 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
                       <TrendingUp className="h-3 w-3" />
                       Intenção Comercial
                     </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {categorizedTerms.commercial.slice(0, 8).map((term, index) => (
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                      {filteredCategorizedTerms.commercial.slice(0, 12).map((term, index) => (
                         <Badge key={index} variant="default" className="text-xs">
                           {term}
                         </Badge>
                       ))}
-                      {categorizedTerms.commercial.length > 8 && (
+                      {filteredCategorizedTerms.commercial.length > 12 && (
                         <Badge variant="outline" className="text-xs">
-                          +{categorizedTerms.commercial.length - 8} mais
+                          +{filteredCategorizedTerms.commercial.length - 12} mais
                         </Badge>
                       )}
                     </div>
@@ -552,15 +637,15 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
                       <Search className="h-3 w-3" />
                       Intenção Informacional
                     </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {categorizedTerms.informational.slice(0, 8).map((term, index) => (
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                      {filteredCategorizedTerms.informational.slice(0, 12).map((term, index) => (
                         <Badge key={index} variant="secondary" className="text-xs">
                           {term}
                         </Badge>
                       ))}
-                      {categorizedTerms.informational.length > 8 && (
+                      {filteredCategorizedTerms.informational.length > 12 && (
                         <Badge variant="outline" className="text-xs">
-                          +{categorizedTerms.informational.length - 8} mais
+                          +{filteredCategorizedTerms.informational.length - 12} mais
                         </Badge>
                       )}
                     </div>
@@ -629,16 +714,19 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
                 <TrendingUp className="h-4 w-4" />
                 Termos Comerciais - Intenção de Compra
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {categorizedTerms.commercial.length > 0 ? (
-                  categorizedTerms.commercial.map((term, index) => (
+              <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
+                {filteredCategorizedTerms.commercial.length > 0 ? (
+                  filteredCategorizedTerms.commercial.map((term, index) => (
                     <Badge key={index} variant="default">
                       {term}
                     </Badge>
                   ))
                 ) : (
                   <p className="text-muted-foreground text-sm">
-                    Nenhum termo comercial identificado. Considere incluir palavras como "comprar", "preço", "melhor" no seu conteúdo.
+                    {searchTerm ? 
+                      `Nenhum termo comercial encontrado para "${searchTerm}".` :
+                      'Nenhum termo comercial identificado. Considere incluir palavras como "comprar", "preço", "melhor" no seu conteúdo.'
+                    }
                   </p>
                 )}
               </div>
@@ -652,16 +740,19 @@ const KeywordAnalysisCard = ({ url, results }: KeywordAnalysisCardProps) => {
                 <Search className="h-4 w-4" />
                 Termos Informacionais - Busca por Conhecimento
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {categorizedTerms.informational.length > 0 ? (
-                  categorizedTerms.informational.map((term, index) => (
+              <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
+                {filteredCategorizedTerms.informational.length > 0 ? (
+                  filteredCategorizedTerms.informational.map((term, index) => (
                     <Badge key={index} variant="secondary">
                       {term}
                     </Badge>
                   ))
                 ) : (
                   <p className="text-muted-foreground text-sm">
-                    Nenhum termo informacional identificado.
+                    {searchTerm ? 
+                      `Nenhum termo informacional encontrado para "${searchTerm}".` :
+                      'Nenhum termo informacional identificado.'
+                    }
                   </p>
                 )}
               </div>
