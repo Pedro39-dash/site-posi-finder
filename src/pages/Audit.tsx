@@ -20,16 +20,23 @@ import {
   Eye,
   History,
   Trash2,
-  Brain
+  Brain,
+  TrendingUp,
+  Clock
 } from "lucide-react";
 import { AuditService, type AuditResult, type AuditReport } from "@/services/auditService";
 import { AuditTestPanel } from "@/components/AuditTestPanel";
 import { EdgeFunctionMonitor } from "@/components/EdgeFunctionMonitor";
 import { SystemStatusPanel } from "@/components/SystemStatusPanel";
 import KeywordAnalysisCard from "@/components/KeywordAnalysisCard";
+import { AuditScoreCard } from "@/components/audit/AuditScoreCard";
+import { CategoryCard } from "@/components/audit/CategoryCard";
+import { ProjectAuditForm } from "@/components/audit/ProjectAuditForm";
+import { useProject } from "@/hooks/useProject";
 
 const Audit = () => {
   const { toast } = useToast();
+  const { activeProject } = useProject();
   const [url, setUrl] = useState("");
   const [focusKeyword, setFocusKeyword] = useState("");
   const [isScanning, setIsScanning] = useState(false);
@@ -40,6 +47,7 @@ const Audit = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [urlError, setUrlError] = useState<string>("");
   const [auditError, setAuditError] = useState<string>("");
+  const [currentUrl, setCurrentUrl] = useState<string>("");
 
   // Load previous audits on component mount
   useEffect(() => {
@@ -132,8 +140,8 @@ const Audit = () => {
     }
   };
 
-  const handleAudit = async () => {
-    const validation = validateAndNormalizeUrl(url);
+  const handleAudit = async (auditUrl: string, keyword: string) => {
+    const validation = validateAndNormalizeUrl(auditUrl);
     
     if (!validation.isValid) {
       setUrlError(validation.error);
@@ -145,13 +153,13 @@ const Audit = () => {
     setOverallScore(0);
     setCurrentAuditId(null);
     setAuditError('');
+    setCurrentUrl(validation.normalizedUrl);
     
     try {
-      const result = await AuditService.startAudit(validation.normalizedUrl, focusKeyword.trim() || undefined);
+      const result = await AuditService.startAudit(validation.normalizedUrl, keyword.trim() || undefined);
       
       if (result.success && result.auditId) {
         setCurrentAuditId(result.auditId);
-        setUrl(validation.normalizedUrl); // Update with normalized URL
         toast({
           title: "Auditoria iniciada",
           description: "Analisando seu site... isso pode levar alguns minutos.",
@@ -358,86 +366,16 @@ const Audit = () => {
             </p>
           </div>
 
-          {/* Formulário de Auditoria */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  Iniciar Auditoria
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setUrl('https://example.com')}
-                    disabled={isScanning}
-                  >
-                    🧪 Site Teste
-                  </Button>
-                  {previousAudits.length > 0 && (
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowHistory(!showHistory)}
-                    >
-                      <History className="h-4 w-4 mr-2" />
-                      Histórico ({previousAudits.length})
-                    </Button>
-                  )}
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="Digite a URL do site (ex: itxcompany.com.br, example.com)"
-                      value={url}
-                      onChange={(e) => handleUrlChange(e.target.value)}
-                      disabled={isScanning}
-                      className={urlError ? 'border-red-500' : ''}
-                    />
-                    {urlError && (
-                      <p className="text-sm text-red-500 mt-1">{urlError}</p>
-                    )}
-                    {url && !urlError && url.length > 3 && (() => {
-                      const validation = validateAndNormalizeUrl(url);
-                      return validation.isValid ? (
-                        <div>
-                          <p className="text-sm text-green-600 mt-1">✓ URL válida</p>
-                          {validation.normalizedUrl !== url && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Será normalizada para: {validation.normalizedUrl}
-                            </p>
-                          )}
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                  <Button 
-                    onClick={handleAudit}
-                    disabled={isScanning || !url.trim() || !!urlError}
-                    className="min-w-[120px]"
-                  >
-                    {isScanning ? "Analisando..." : "Auditar"}
-                  </Button>
-                </div>
-                <div className="flex gap-4">
-                  <Input
-                    placeholder="Palavra-chave principal (opcional) - ex: marketing digital"
-                    value={focusKeyword}
-                    onChange={(e) => setFocusKeyword(e.target.value)}
-                    disabled={isScanning}
-                    className="flex-1"
-                  />
-                  <div className="min-w-[120px] flex items-center text-sm text-muted-foreground">
-                    Palavra-chave foco
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Enhanced Audit Form */}
+          <ProjectAuditForm
+            onAudit={handleAudit}
+            isScanning={isScanning}
+            urlError={urlError}
+            onUrlChange={handleUrlChange}
+            url={url}
+            focusKeyword={focusKeyword}
+            onFocusKeywordChange={setFocusKeyword}
+          />
 
           {/* Histórico de Auditorias */}
           {showHistory && previousAudits.length > 0 && (
