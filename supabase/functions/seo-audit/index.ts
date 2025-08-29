@@ -131,6 +131,87 @@ Deno.serve(async (req) => {
   }
 });
 
+function cleanAndValidateKeywords(rawKeywords: string[]): { keyword: string; score: number }[] {
+  console.log('🧹 Cleaning and validating keywords...');
+  
+  // Blacklist patterns for irrelevant terms
+  const blacklistPatterns = [
+    /copyright/i,
+    /desenvolvido por/i,
+    /todos.*direitos/i,
+    /direitos.*reservados/i,
+    /whatsapp?/i,
+    /javascript/i,
+    /agora ou/i,
+    /contato comercial técnicos/i,
+    /^(para|com|por|são|uma|mais|sua|seus|das|dos|nos|nas|pela|pelo)$/i,
+    /^[0-9]+$/,
+    /^(e|ou|de|da|do|em|na|no|a|o)$/i
+  ];
+  
+  // Commercial keywords that should get priority
+  const commercialIndicators = [
+    'inox', 'polimento', 'escovamento', 'tratamento', 'serviços', 'empresa',
+    'manutenção', 'máquinas', 'equipamentos', 'técnicos', 'comercial',
+    'industrial', 'qualidade', 'soldagem', 'metalurgia'
+  ];
+  
+  const processedKeywords = new Map<string, number>();
+  
+  rawKeywords
+    .filter(keyword => keyword && typeof keyword === 'string')
+    .map(keyword => keyword.trim().toLowerCase())
+    .filter(keyword => {
+      // Filter out blacklisted patterns
+      return !blacklistPatterns.some(pattern => pattern.test(keyword));
+    })
+    .filter(keyword => {
+      // Length validation - more restrictive
+      if (keyword.includes(' ')) {
+        // Compound terms: 6-40 characters
+        return keyword.length >= 6 && keyword.length <= 40;
+      } else {
+        // Single terms: 4-25 characters
+        return keyword.length >= 4 && keyword.length <= 25;
+      }
+    })
+    .forEach(keyword => {
+      let score = 10; // Base score
+      
+      // Commercial relevance scoring
+      const commercialMatches = commercialIndicators.filter(indicator => 
+        keyword.includes(indicator) || indicator.includes(keyword)
+      );
+      score += commercialMatches.length * 20;
+      
+      // Length bonus for meaningful compound terms
+      if (keyword.includes(' ') && keyword.length >= 10) {
+        score += 15;
+      }
+      
+      // Specific business relevance bonus
+      if (keyword.match(/(polimento.*elevadores|escovamento.*inox|tratamento.*inox|serviços.*inox)/)) {
+        score += 50;
+      }
+      
+      // Keep highest score for duplicates
+      if (!processedKeywords.has(keyword) || processedKeywords.get(keyword)! < score) {
+        processedKeywords.set(keyword, score);
+      }
+    });
+  
+  // Convert to array and sort by score
+  const result = Array.from(processedKeywords.entries())
+    .map(([keyword, score]) => ({ keyword, score }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 50); // Limit to top 50 keywords
+  
+  console.log(`✨ Processed ${rawKeywords.length} raw keywords → ${result.length} cleaned keywords`);
+  console.log(`🔝 Top keywords:`, result.slice(0, 10).map(k => `${k.keyword} (${k.score})`));
+  
+  return result;
+}
+
 async function performSEOAudit(url: string, auditId: string, supabase: any, focusKeyword?: string) {
   console.log(`🚀 Starting SEO audit for: ${url}, Audit ID: ${auditId}`);
   
@@ -230,28 +311,32 @@ async function performSEOAudit(url: string, auditId: string, supabase: any, focu
           continue;
         }
 
-        // **NEW: Save keywords to dedicated table for better handling**
+        // **IMPROVED: Save cleaned keywords to dedicated table**
         if (issue.metadata?.keywords && Array.isArray(issue.metadata.keywords)) {
-          const keywordInserts = issue.metadata.keywords
-            .filter(keyword => keyword && typeof keyword === 'string' && keyword.trim().length > 0)
-            .slice(0, 500) // Limit to prevent database overload
-            .map((keyword, index) => ({
+          const cleanedKeywords = cleanAndValidateKeywords(issue.metadata.keywords);
+          
+          if (cleanedKeywords.length > 0) {
+            // Use ON CONFLICT to handle unique constraint gracefully
+            const keywordInserts = cleanedKeywords.map((keywordData, index) => ({
               audit_report_id: auditId,
               category: category.category,
-              keyword: keyword.trim(),
-              relevance_score: Math.max(100 - index, 1), // Higher score for earlier keywords
+              keyword: keywordData.keyword,
+              relevance_score: keywordData.score,
               keyword_type: 'extracted'
             }));
 
-          if (keywordInserts.length > 0) {
+            // Insert with conflict handling for deduplication
             const { error: keywordError } = await supabase
               .from('audit_keywords')
-              .insert(keywordInserts);
+              .upsert(keywordInserts, {
+                onConflict: 'audit_report_id,keyword',
+                ignoreDuplicates: false
+              });
 
             if (keywordError) {
               console.error('Error saving keywords:', keywordError);
             } else {
-              console.log(`✅ Saved ${keywordInserts.length} keywords to dedicated table for category: ${category.category}`);
+              console.log(`✅ Saved ${keywordInserts.length} cleaned keywords to dedicated table for category: ${category.category}`);
             }
           }
         }
@@ -2292,157 +2377,164 @@ function extractKeywords(textContent: string, title: string, metaDesc: string): 
   
   console.log('🔍 Advanced keyword extraction starting with text length:', combinedText.length);
   
-  // Reduced Portuguese stop words (more selective)
+  // IMPROVED: Enhanced stopwords list with irrelevant business terms
   const stopWords = new Set([
     'a', 'e', 'o', 'de', 'da', 'do', 'para', 'com', 'em', 'na', 'no', 'por', 'que', 'se', 'um', 'uma',
     'os', 'as', 'dos', 'das', 'nos', 'nas', 'pelo', 'pela', 'ao', 'aos', 'à', 'às', 'este', 'esta',
     'esse', 'essa', 'ele', 'ela', 'eles', 'elas', 'você', 'mas', 'mais', 'muito', 'bem', 'já', 'ainda',
     'onde', 'como', 'quando', 'porque', 'então', 'assim', 'também', 'só', 'até', 'depois', 'antes',
     'são', 'foi', 'ser', 'ter', 'tem', 'está', 'estar', 'essa', 'isso', 'aqui', 'pode', 'vai', 'fazer',
-    'todo', 'toda', 'todos', 'outras', 'mesmo', 'cada', 'sobre', 'entre', 'sem', 'através', 'durante'
+    'todo', 'toda', 'todos', 'todas', 'outro', 'outra', 'outros', 'outras', 'mesmo', 'mesma', 'cada', 'sobre', 'entre', 'sem', 'através', 'durante',
+    // IMPROVED: Add irrelevant business patterns  
+    'copyright', 'desenvolvido', 'direitos', 'reservados', 'whatsapp', 'whats', 'app', 'javascript',
+    'agora', 'telefone', 'email', 'site', 'página', 'ltda', 'inc', 'corp', 'sa', 'cia'
   ]);
   
-  // Commercial context indicators (get priority scoring)
-  const commercialIndicators = [
-    'preço', 'preços', 'orçamento', 'cotação', 'valor', 'custo', 'investimento', 'comprar', 'venda', 'vendas',
-    'produto', 'produtos', 'serviço', 'serviços', 'solução', 'soluções', 'empresa', 'empresas', 'negócio',
-    'comercial', 'industrial', 'profissional', 'especializado', 'especializada', 'técnico', 'técnica',
-    'implemento', 'implementos', 'equipamento', 'equipamentos', 'máquina', 'máquinas', 'sistema', 'sistemas'
+  // IMPROVED: Specific blacklist patterns for irrelevant content
+  const blacklistPatterns = [
+    /copyright.*renove/i,
+    /desenvolvido.*por/i,
+    /todos.*direitos/i,
+    /direitos.*reservados/i,
+    /whatsapp?/i,
+    /agora.*ou/i,
+    /contato.*comercial/i,
+    /renove.*inox.*desenvolvido/i,
+    /comercial.*técnicos/i,
+    /técnicos.*contato/i
   ];
   
-  // Extract words with improved regex for Portuguese
+  // More selective commercial context indicators focused on the business
+  const commercialIndicators = [
+    'inox', 'polimento', 'escovamento', 'tratamento', 'soldagem', 'metalurgia',
+    'serviço', 'serviços', 'empresa', 'manutenção', 'máquinas', 'equipamentos', 
+    'técnicos', 'industrial', 'qualidade', 'profissional', 'especializado'
+  ];
+  
+  // Extract words with STRICTER filtering
   const words = combinedText
     .replace(/[^\p{L}\s]/gu, ' ') // Keep only letters and spaces (Unicode aware)
     .split(/\s+/)
-    .filter(word => word.length >= 2 && !stopWords.has(word)) // Allow shorter technical terms
+    .filter(word => word.length >= 3 && !stopWords.has(word)) // Minimum 3 chars
     .filter(word => !/^\d+$/.test(word)) // Remove pure numbers
-    .filter(word => word.length <= 50); // Allow even longer technical terms
+    .filter(word => word.length <= 25) // Reasonable max length
+    .filter(word => !blacklistPatterns.some(pattern => pattern.test(word))); // Apply blacklist
   
-  console.log('📝 Found words after filtering:', words.length);
+  console.log('📝 Found words after enhanced filtering:', words.length);
   
-  // Enhanced scoring system with commercial context
+  // Enhanced scoring system with commercial focus
   const termScores = new Map<string, number>();
-  
-  // Score individual words with commercial bonus
   const wordCount = new Map<string, number>();
+  
   words.forEach(word => {
     wordCount.set(word, (wordCount.get(word) || 0) + 1);
   });
   
-  // Add scored individual words
+  // Score individual words with STRICTER commercial focus
   wordCount.forEach((count, word) => {
-    let score = count * 2; // Base frequency score
+    let score = count; // Reduced base score
     
-    // Commercial context bonus
+    // MAJOR bonus for exact commercial matches
+    if (commercialIndicators.some(indicator => word === indicator)) {
+      score += 25;
+    }
+    
+    // Moderate bonus for containing commercial terms
     if (commercialIndicators.some(indicator => word.includes(indicator) || indicator.includes(word))) {
-      score += 15;
+      score += 10;
     }
     
-    // Length bonus for substantial words
+    // Length bonus for meaningful words
     if (word.length >= 6) {
-      score += 5;
+      score += 3;
     }
     
-    termScores.set(word, score);
+    // Only keep terms with decent scores
+    if (score >= 4) {
+      termScores.set(word, score);
+    }
   });
   
-  // Enhanced compound detection (2, 3, and 4-word phrases)
+  // MUCH MORE SELECTIVE compound detection (only 2-word, limit quantity)
   const compoundScores = new Map<string, number>();
   
-  // 2-word compounds
+  // Only 2-word compounds to reduce noise
   for (let i = 0; i < words.length - 1; i++) {
     const compound = `${words[i]} ${words[i + 1]}`;
-    if (compound.length >= 6 && compound.length <= 50) {
-      compoundScores.set(compound, (compoundScores.get(compound) || 0) + 3);
+    if (compound.length >= 8 && compound.length <= 30) {
+      // Check if compound contains meaningful terms OR passes blacklist
+      const isBlacklisted = blacklistPatterns.some(pattern => pattern.test(compound));
+      if (!isBlacklisted && (
+        commercialIndicators.some(indicator => compound.includes(indicator)) ||
+        compound.match(/(polimento|escovamento|tratamento|soldagem|inox|máquinas|equipamentos)/)
+      )) {
+        compoundScores.set(compound, (compoundScores.get(compound) || 0) + 5);
+      }
     }
   }
   
-  // 3-word compounds (like "implementos hidráulicos industriais")
-  for (let i = 0; i < words.length - 2; i++) {
-    const compound = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
-    if (compound.length >= 10 && compound.length <= 60) {
-      compoundScores.set(compound, (compoundScores.get(compound) || 0) + 5);
-    }
-  }
-  
-  // 4-word compounds for complex terms
-  for (let i = 0; i < words.length - 3; i++) {
-    const compound = `${words[i]} ${words[i + 1]} ${words[i + 2]} ${words[i + 3]}`;
-    if (compound.length >= 15 && compound.length <= 70) {
-      compoundScores.set(compound, (compoundScores.get(compound) || 0) + 7);
-    }
-  }
-  
-  // Add commercial bonuses to compounds
+  // ENHANCED commercial bonus system for compounds
   compoundScores.forEach((count, compound) => {
     let score = count;
     
-    // High priority for business-specific compound terms
-    const businessPatterns = [
-      /\w+\s+hidráulicos?/i,
-      /\w+\s+elétricos?/i,
-      /\w+\s+mecânicos?/i,
-      /soluções?\s+para\s+\w+/i,
-      /implementos?\s+\w+/i,
-      /equipamentos?\s+\w+/i,
-      /sistemas?\s+\w+/i,
-      /serviços?\s+de\s+\w+/i,
-      /consultoria\s+em\s+\w+/i,
-      /\w+\s+industriais?/i,
-      /\w+\s+comerciais?/i,
-      /construção\s+civil/i,
-      /\w+\s+pesada/i,
-      /indústria\s+\w+/i,
-      /máquinas\s+\w+/i
+    // High priority for specific business patterns
+    const specificBusinessPatterns = [
+      /polimento.*inox/i,
+      /escovamento.*inox/i,
+      /tratamento.*inox/i,
+      /polimento.*elevadores/i,
+      /serviços.*inox/i,
+      /manutenção.*equipamentos/i,
+      /máquinas.*industriais/i,
+      /aço.*inox/i,
+      /tanques.*inox/i
     ];
     
-    if (businessPatterns.some(pattern => pattern.test(compound))) {
-      score += 20; // High commercial relevance bonus
+    if (specificBusinessPatterns.some(pattern => pattern.test(compound))) {
+      score += 30; // Major bonus for core business terms
     }
     
-    // Bonus for appearing in title or meta description
+    // Bonus for appearing in important places
     if (title.toLowerCase().includes(compound) || metaDesc.toLowerCase().includes(compound)) {
-      score += 10;
+      score += 15;
     }
     
     termScores.set(compound, score);
   });
   
-  // Get ALL scored terms without artificial limits
+  // Get top terms with MUCH stricter limits
   const topTerms = Array.from(termScores.entries())
     .sort((a, b) => b[1] - a[1])
+    .filter(([term, score]) => score >= 8) // Higher minimum score threshold
+    .slice(0, 30) // Strict limit of 30 keywords max
     .map(([term]) => term);
   
-  // Remove duplicates and improve validation for real searchability
+  // Final validation with even stricter rules
   const finalKeywords = topTerms
-    .filter((keyword, index, arr) => arr.indexOf(keyword) === index)
+    .filter((keyword, index, arr) => arr.indexOf(keyword) === index) // Remove duplicates
     .filter(keyword => {
-      // More inclusive validation - accept meaningful terms
+      // STRICT validation for searchability
+      if (blacklistPatterns.some(pattern => pattern.test(keyword))) {
+        return false;
+      }
+      
       if (keyword.includes(' ')) {
-        // For compound terms: accept if meaningful length
-        return keyword.length >= 6 && keyword.length <= 70;
+        // Compound terms: must be meaningful and business-related
+        return keyword.length >= 8 && keyword.length <= 35 && 
+               commercialIndicators.some(indicator => keyword.includes(indicator));
       } else {
-        // For single words: accept if >= 3 chars and potentially searchable
-        if (keyword.length < 3) return false;
-        
-        // Accept technical/commercial terms even if short
-        const commercialPatterns = [
-          /^[a-z]{3,}ção$/i, // Terms ending in -ção (like "soldação")
-          /^[a-z]{3,}gem$/i,  // Terms ending in -gem (like "soldagem")
-          /^[a-z]{3,}mento$/i, // Terms ending in -mento
-          /^[a-z]{4,}al$/i,    // Terms ending in -al (like "industrial")
-          /^[a-z]{4,}ico$/i,   // Terms ending in -ico (like "hidráulico")
-          /^[a-z]{4,}ada$/i,   // Terms ending in -ada
-          /^[a-z]{4,}ado$/i,   // Terms ending in -ado (like "polimento")
-        ];
-        
-        // Accept if matches commercial patterns or is long enough
-        return keyword.length >= 4 || commercialPatterns.some(pattern => pattern.test(keyword));
+        // Single words: must be business-relevant and substantial
+        return keyword.length >= 4 && keyword.length <= 20 &&
+               commercialIndicators.some(indicator => 
+                 keyword === indicator || 
+                 keyword.includes(indicator) || 
+                 indicator.includes(keyword)
+               );
       }
     });
   
-  console.log('🎯 Advanced extraction complete:', finalKeywords.length, 'keywords (NO LIMITS)');
-  console.log('🔝 Top 30 scored keywords:', finalKeywords.slice(0, 30));
+  console.log('🎯 Enhanced extraction complete:', finalKeywords.length, 'high-quality keywords');
+  console.log('🔝 Final cleaned keywords:', finalKeywords);
   console.log('📊 Score distribution:', {
     'Score > 20': finalKeywords.filter(k => (termScores.get(k) || 0) > 20).length,
     'Score 10-20': finalKeywords.filter(k => {
