@@ -3,6 +3,8 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { RankingAlertSystem } from '@/components/alerts/RankingAlertSystem';
 import {
   Sidebar,
   SidebarContent,
@@ -83,10 +85,14 @@ export function AppSidebar() {
       collapsible="icon"
     >
       <SidebarHeader className="border-b border-border">
-        <div className="flex items-center gap-2 px-4 py-3">
-          <BarChart3 className="h-8 w-8 text-primary flex-shrink-0" />
-          {state !== "collapsed" && <span className="text-xl font-bold text-foreground">SEO Dashboard</span>}
+        <div className="flex items-center justify-between gap-2 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-8 w-8 text-primary flex-shrink-0" />
+            {state !== "collapsed" && <span className="text-xl font-bold text-foreground">SEO Dashboard</span>}
+          </div>
+          {state !== "collapsed" && <NotificationCenter />}
         </div>
+        <RankingAlertSystem />
       </SidebarHeader>
 
       <SidebarContent>
