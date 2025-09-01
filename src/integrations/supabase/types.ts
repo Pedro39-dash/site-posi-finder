@@ -497,6 +497,81 @@ export type Database = {
         }
         Relationships: []
       }
+      monitoring_configs: {
+        Row: {
+          created_at: string
+          frequency: string
+          id: string
+          is_active: boolean | null
+          last_run_at: string | null
+          monitoring_type: string
+          next_run_at: string | null
+          project_id: string
+          settings: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          monitoring_type?: string
+          next_run_at?: string | null
+          project_id: string
+          settings?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_run_at?: string | null
+          monitoring_type?: string
+          next_run_at?: string | null
+          project_id?: string
+          settings?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      monitoring_logs: {
+        Row: {
+          config_id: string
+          error_message: string | null
+          executed_at: string
+          execution_time_ms: number | null
+          execution_type: string
+          id: string
+          results: Json | null
+          status: string
+        }
+        Insert: {
+          config_id: string
+          error_message?: string | null
+          executed_at?: string
+          execution_time_ms?: number | null
+          execution_type: string
+          id?: string
+          results?: Json | null
+          status?: string
+        }
+        Update: {
+          config_id?: string
+          error_message?: string | null
+          executed_at?: string
+          execution_time_ms?: number | null
+          execution_type?: string
+          id?: string
+          results?: Json | null
+          status?: string
+        }
+        Relationships: []
+      }
       monitoring_sessions: {
         Row: {
           created_at: string
@@ -749,6 +824,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      schedule_monitoring_job: {
+        Args: { _config_id: string; _frequency?: string }
+        Returns: undefined
       }
     }
     Enums: {
