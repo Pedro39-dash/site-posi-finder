@@ -1,61 +1,63 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Monitor, Globe, Hash, Clock } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useMonitoring } from "@/contexts/MonitoringContext";
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import { MonitoringService } from '@/services/monitoringService';
+import { useProject } from '@/hooks/useProject';
 
-const MonitoringSetup = () => {
-  const [website, setWebsite] = useState("");
-  const [keywords, setKeywords] = useState("");
-  const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
+interface MonitoringSetupProps {
+  onSetupComplete: () => void;
+}
+
+export const MonitoringSetup: React.FC<MonitoringSetupProps> = ({ onSetupComplete }) => {
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [autoStart, setAutoStart] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { addSite } = useMonitoring();
+  const { activeProject } = useProject();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!website || !keywords) {
+  const handleSetup = async () => {
+    if (!activeProject) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Preencha o site e palavras-chave",
+        title: "Erro",
+        description: "Nenhum projeto ativo selecionado",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
-    
-    const keywordArray = keywords
-      .split(",")
-      .map(k => k.trim())
-      .filter(k => k.length > 0);
-    
-    if (keywordArray.length === 0) {
-      toast({
-        title: "Palavras-chave inválidas",
-        description: "Adicione pelo menos uma palavra-chave válida",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      addSite(website, keywordArray, frequency);
-      
-      // Reset form
-      setWebsite("");
-      setKeywords("");
-      setFrequency('daily');
+      const { success, error } = await MonitoringService.createMonitoringSession({
+        project_id: activeProject.id,
+        monitoring_frequency: frequency,
+        metadata: {
+          auto_start: autoStart,
+          created_by: 'user'
+        }
+      });
+
+      if (success) {
+        toast({
+          title: "Sucesso",
+          description: "Monitoramento configurado com sucesso!",
+        });
+        onSetupComplete();
+      } else {
+        toast({
+          title: "Erro",
+          description: error || "Erro ao configurar monitoramento",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
-        title: "Erro ao adicionar monitoramento",
-        description: "Tente novamente em alguns instantes",
+        title: "Erro",
+        description: "Erro inesperado ao configurar monitoramento",
         variant: "destructive",
       });
     } finally {
@@ -63,87 +65,67 @@ const MonitoringSetup = () => {
     }
   };
 
+  if (!activeProject) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Configurar Monitoramento</CardTitle>
+          <CardDescription>
+            Selecione um projeto ativo para configurar o monitoramento
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-card">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
-          <Monitor className="h-6 w-6 text-primary" />
-          Configurar Monitoramento
-        </CardTitle>
-        <p className="text-muted-foreground">
-          Monitore automaticamente as posições do seu site
-        </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Configurar Monitoramento</CardTitle>
+        <CardDescription>
+          Configure o monitoramento automático para o projeto "{activeProject.name}"
+        </CardDescription>
       </CardHeader>
       
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Globe className="h-4 w-4 text-primary" />
-              Site (URL)
-            </label>
-            <Input
-              type="url"
-              placeholder="https://seusite.com.br"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              className="h-12"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Hash className="h-4 w-4 text-primary" />
-              Palavras-chave (separadas por vírgula)
-            </label>
-            <Input
-              placeholder="marketing digital, seo, otimização"
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              className="h-12"
-            />
-            <p className="text-xs text-muted-foreground">
-              Digite as palavras-chave que deseja monitorar
-            </p>
-          </div>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="frequency">Frequência de Monitoramento</Label>
+          <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a frequência" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Diário</SelectItem>
+              <SelectItem value="weekly">Semanal</SelectItem>
+              <SelectItem value="monthly">Mensal</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" />
-              Frequência de Verificação
-            </label>
-            <Select value={frequency} onValueChange={(value: 'daily' | 'weekly') => setFrequency(value)}>
-              <SelectTrigger className="h-12">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Diariamente</SelectItem>
-                <SelectItem value="weekly">Semanalmente</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Com que frequência verificar as posições
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="auto-start">Iniciar Automaticamente</Label>
+            <p className="text-sm text-muted-foreground">
+              Começar o monitoramento imediatamente após a configuração
             </p>
           </div>
-          
+          <Switch
+            id="auto-start"
+            checked={autoStart}
+            onCheckedChange={setAutoStart}
+          />
+        </div>
+
+        <div className="pt-4">
           <Button 
-            type="submit" 
-            className="w-full h-12 bg-gradient-primary hover:opacity-90 shadow-card"
+            onClick={handleSetup} 
             disabled={isLoading}
+            className="w-full"
           >
-            {isLoading ? (
-              "Configurando monitoramento..."
-            ) : (
-              <>
-                <Monitor className="mr-2 h-5 w-5" />
-                Iniciar Monitoramento
-              </>
-            )}
+            {isLoading ? 'Configurando...' : 'Configurar Monitoramento'}
           </Button>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );
 };
-
-export default MonitoringSetup;

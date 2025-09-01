@@ -1,312 +1,207 @@
-import { TrendingUp, TrendingDown, Eye, AlertTriangle, Users, Trophy, Settings, Globe } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import ProjectsSection from "./ProjectsSection";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
-import { useMonitoring } from "@/contexts/MonitoringContext";
-import { useProjects } from "@/contexts/ProjectContext";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { TrendingUp, TrendingDown, Eye, AlertTriangle, Target, BarChart3 } from 'lucide-react';
+import { MonitoringService, DashboardMetric } from '@/services/monitoringService';
+import { useProject } from '@/hooks/useProject';
+import { useRole } from '@/hooks/useRole';
 
-interface DashboardOverviewProps {
-  onViewModeChange?: (mode: 'search') => void;
+interface MetricCardProps {
+  title: string;
+  value: number;
+  previousValue?: number;
+  icon: React.ReactNode;
+  suffix?: string;
+  description?: string;
 }
 
-const DashboardOverview = ({ onViewModeChange }: DashboardOverviewProps) => {
-  const { user } = useAuth();
-  const { sites } = useMonitoring();
-  const { activeProject, projects } = useProjects();
-  const navigate = useNavigate();
-
-  // Métricas baseadas no projeto ativo
-  const mockMetrics = activeProject ? {
-    totalKeywords: activeProject.keywords.length || 47,
-    averagePosition: 8.3,
-    topPositions: Math.floor((activeProject.keywords.length || 47) * 0.25),
-    competitorBeat: activeProject.competitors.length || 3,
-    trendsUp: Math.floor((activeProject.keywords.length || 47) * 0.32),
-    trendsDown: Math.floor((activeProject.keywords.length || 47) * 0.17),
-    siteHealth: activeProject.currentScore || 92,
-    monthlyProgress: +12.5,
-    featuredKeyword: activeProject.keywords[0]?.keyword || "marketing digital"
-  } : {
-    totalKeywords: 0,
-    averagePosition: 0,
-    topPositions: 0,
-    competitorBeat: 0,
-    trendsUp: 0,
-    trendsDown: 0,
-    siteHealth: 0,
-    monthlyProgress: 0,
-    featuredKeyword: "Nenhuma palavra-chave"
-  };
-
-  const healthStatus = mockMetrics.siteHealth >= 90 ? 'excellent' : 
-                      mockMetrics.siteHealth >= 75 ? 'good' : 'needs-attention';
-
-  const healthColor = healthStatus === 'excellent' ? 'text-green-500' :
-                      healthStatus === 'good' ? 'text-yellow-500' : 'text-red-500';
+const MetricCard: React.FC<MetricCardProps> = ({ 
+  title, 
+  value, 
+  previousValue, 
+  icon, 
+  suffix = '', 
+  description 
+}) => {
+  const change = previousValue ? ((value - previousValue) / previousValue) * 100 : 0;
+  const hasIncreased = change > 0;
+  const hasChanged = Math.abs(change) > 0.1;
 
   return (
-    <div className="space-y-6">
-      {/* Active Project Header */}
-      {activeProject ? (
-        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-6 border border-primary/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="bg-primary/20 rounded-lg p-3">
-                <Globe className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground mb-1">
-                  {activeProject.name}
-                </h1>
-                <p className="text-muted-foreground flex items-center gap-2">
-                  <span>{activeProject.mainDomain}</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {activeProject.sector}
-                  </Badge>
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="bg-primary/20 text-primary">
-                Projeto Ativo
-              </Badge>
-              {projects.length > 1 && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate('/projects')}
-                  className="gap-2"
-                >
-                  <Settings className="h-4 w-4" />
-                  Trocar Projeto
-                </Button>
-              )}
-            </div>
-          </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">
+          {value.toLocaleString('pt-BR')}{suffix}
         </div>
-      ) : (
-        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-6 border border-primary/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground mb-2">
-                Bem-vindo, {user?.email}! 👋
-              </h1>
-              <p className="text-muted-foreground">
-                Selecione um projeto para ver as métricas de SEO específicas.
-              </p>
-            </div>
-            <Button onClick={() => navigate('/projects')}>
-              Gerenciar Projetos
-            </Button>
+        {hasChanged && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            {hasIncreased ? (
+              <TrendingUp className="h-3 w-3 text-green-500" />
+            ) : (
+              <TrendingDown className="h-3 w-3 text-red-500" />
+            )}
+            <span className={hasIncreased ? 'text-green-500' : 'text-red-500'}>
+              {Math.abs(change).toFixed(1)}%
+            </span>
+            <span>vs. período anterior</span>
           </div>
-        </div>
-      )}
-
-      {/* Main KPIs Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card 
-          className="hover:shadow-card transition-all duration-300 cursor-pointer hover:scale-[1.02]"
-          onClick={() => navigate('/rankings')}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              Palavras-chave Monitoradas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-foreground">{mockMetrics.totalKeywords}</div>
-            <p className="text-sm text-green-500 flex items-center gap-1 mt-1">
-              <TrendingUp className="h-3 w-3" />
-              +5 este mês
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="hover:shadow-card transition-all duration-300 cursor-pointer hover:scale-[1.02]"
-          onClick={() => navigate('/rankings')}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Posição Média
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-foreground">{mockMetrics.averagePosition}</div>
-            <p className="text-sm text-green-500 flex items-center gap-1 mt-1">
-              <TrendingUp className="h-3 w-3" />
-              Melhorou 2.1 posições
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="hover:shadow-card transition-all duration-300 cursor-pointer hover:scale-[1.02]"
-          onClick={() => navigate('/rankings')}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Trophy className="h-4 w-4" />
-              Top 10 Posições
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-2xl font-bold text-foreground">{mockMetrics.topPositions}</div>
-            <p className="text-sm text-green-500 flex items-center gap-1 mt-1">
-              <TrendingUp className="h-3 w-3" />
-              +3 este mês
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="hover:shadow-card transition-all duration-300 cursor-pointer hover:scale-[1.02]"
-          onClick={() => navigate('/audit')}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Saúde do Site
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className={`text-2xl font-bold ${healthColor}`}>
-              {mockMetrics.siteHealth}%
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {healthStatus === 'excellent' ? 'Excelente' : 
-               healthStatus === 'good' ? 'Bom' : 'Precisa Atenção'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Secondary Metrics */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card 
-          className="hover:shadow-card transition-all duration-300 cursor-pointer"
-          onClick={() => navigate('/rankings')}
-        >
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-500" />
-              Tendências Positivas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Palavras em Alta</span>
-                <span className="font-semibold text-green-500">{mockMetrics.trendsUp}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Palavras em Queda</span>
-                <span className="font-semibold text-red-500">{mockMetrics.trendsDown}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Concorrentes Superados</span>
-                <span className="font-semibold text-primary">{mockMetrics.competitorBeat}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="hover:shadow-card transition-all duration-300 cursor-pointer"
-          onClick={() => navigate('/monitoring')}
-        >
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Progresso Mensal
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-primary mb-2">
-                  +{mockMetrics.monthlyProgress}%
-                </div>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Palavra-chave em destaque:
-                </p>
-                <p className="font-semibold text-foreground">
-                  "{mockMetrics.featuredKeyword}" 
-                  <span className="text-green-500 text-sm ml-1">+8 posições</span>
-                </p>
-              </div>
-              <div className="bg-secondary/50 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
-                  style={{ width: `${Math.min(mockMetrics.monthlyProgress * 2, 100)}%` }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ações Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            <button 
-              onClick={() => onViewModeChange?.('search')}
-              className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <Eye className="h-5 w-5 text-primary" />
-                <span className="font-medium">Ver Posições</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Consultar posições atuais das suas palavras-chave
-              </p>
-            </button>
-            
-            <button 
-              onClick={() => navigate('/comparison')}
-              className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <Users className="h-5 w-5 text-primary" />
-                <span className="font-medium">Comparar Concorrentes</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Ver como você está comparado à concorrência
-              </p>
-            </button>
-            
-            <button 
-              onClick={() => navigate('/audit')}
-              className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <AlertTriangle className="h-5 w-5 text-primary" />
-                <span className="font-medium">Auditoria SEO</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Análise técnica completa do site
-              </p>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Projects Section - Moved to bottom */}
-      <div className="border-t pt-6">
-        <ProjectsSection />
-      </div>
-
-    </div>
+        )}
+        {description && (
+          <p className="text-xs text-muted-foreground mt-1">{description}</p>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
-export default DashboardOverview;
+export const DashboardOverview: React.FC = () => {
+  const [metrics, setMetrics] = useState<DashboardMetric[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { activeProject } = useProject();
+  const { isAdmin, isClient } = useRole();
+
+  useEffect(() => {
+    loadMetrics();
+  }, [activeProject]);
+
+  const loadMetrics = async () => {
+    setIsLoading(true);
+    try {
+      // Calcular métricas atuais
+      await MonitoringService.calculateMetrics(activeProject?.id);
+      
+      // Buscar métricas
+      const { success, metrics: data } = await MonitoringService.getDashboardMetrics(
+        activeProject?.id, 
+        'daily'
+      );
+      
+      if (success) {
+        setMetrics(data);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar métricas:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getMetricValue = (type: string) => {
+    const latestMetric = metrics
+      .filter(m => m.metric_type === type)
+      .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())[0];
+    
+    return {
+      current: latestMetric?.current_value || 0,
+      previous: latestMetric?.previous_value || 0
+    };
+  };
+
+  const totalKeywords = getMetricValue('total_keywords');
+  const avgPosition = getMetricValue('avg_position');
+  const visibilityScore = getMetricValue('visibility_score');
+  const rankingChanges = getMetricValue('ranking_changes');
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="space-y-0 pb-2">
+              <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 w-16 bg-muted animate-pulse rounded mb-2" />
+              <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Visão Geral</h2>
+          <p className="text-muted-foreground">
+            {activeProject ? `Projeto: ${activeProject.name}` : 'Todos os projetos'}
+          </p>
+        </div>
+        {(isAdmin || isClient) && (
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Eye className="w-3 h-3" />
+            {isAdmin ? 'Admin' : 'Cliente'}
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Total de Keywords"
+          value={totalKeywords.current}
+          previousValue={totalKeywords.previous}
+          icon={<Target className="h-4 w-4 text-muted-foreground" />}
+          description="Palavras-chave monitoradas"
+        />
+        
+        <MetricCard
+          title="Posição Média"
+          value={avgPosition.current}
+          previousValue={avgPosition.previous}
+          icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
+          description="Posição média no ranking"
+        />
+        
+        <MetricCard
+          title="Score de Visibilidade"
+          value={visibilityScore.current}
+          previousValue={visibilityScore.previous}
+          icon={<Eye className="h-4 w-4 text-muted-foreground" />}
+          suffix="%"
+          description="Visibilidade geral do site"
+        />
+        
+        <MetricCard
+          title="Mudanças Recentes"
+          value={rankingChanges.current}
+          previousValue={rankingChanges.previous}
+          icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}
+          description="Mudanças nas últimas 24h"
+        />
+      </div>
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Status do Sistema
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-sm">Monitoramento Ativo</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-sm">Processando Auditorias</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-sm">APIs Funcionando</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
