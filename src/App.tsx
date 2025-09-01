@@ -21,6 +21,7 @@ import Projects from "./pages/Projects";
 import Rankings from "./pages/Rankings";
 import Comparison from "./pages/Comparison";
 import Monitoring from "./pages/Monitoring";
+import AutoMonitoring from "./pages/AutoMonitoring";
 import Audit from "./pages/Audit";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -143,6 +144,13 @@ const App = () => (
                     <ProtectedRoute>
                       <AppLayout>
                         <Audit />
+                      </AppLayout>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/auto-monitoring" element={
+                    <ProtectedRoute>
+                      <AppLayout>
+                        <AutoMonitoring />
                       </AppLayout>
                     </ProtectedRoute>
                   } />
