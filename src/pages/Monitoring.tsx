@@ -1,24 +1,84 @@
 import { Helmet } from "react-helmet-async";
-import { useMonitoring } from "@/contexts/MonitoringContext";
-import MonitoringSetup from "@/components/monitoring/MonitoringSetup";
-import MonitoringCard from "@/components/monitoring/MonitoringCard";
+import { MonitoringSetup } from "@/components/monitoring/MonitoringSetup";
+import { MonitoringCard } from "@/components/monitoring/MonitoringCard";
 import TrendChart from "@/components/monitoring/TrendChart";
 import SimulationNotice from "@/components/SimulationNotice";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Monitor, TrendingUp, Clock, Globe } from "lucide-react";
+import { useEffect, useState } from "react";
+import { MonitoringService, MonitoringSession } from "@/services/monitoringService";
+import { useProject } from "@/hooks/useProject";
+import { useToast } from "@/hooks/use-toast";
 
 const Monitoring = () => {
-  const { sites } = useMonitoring();
+  const [sessions, setSessions] = useState<MonitoringSession[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { activeProject } = useProject();
+  const { toast } = useToast();
+
+  const loadSessions = async () => {
+    setIsLoading(true);
+    try {
+      const { success, sessions: data } = await MonitoringService.getMonitoringSessions(
+        activeProject?.id
+      );
+      if (success) {
+        setSessions(data);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar sessões:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSessions();
+  }, [activeProject]);
+
+  const handleSetupComplete = () => {
+    loadSessions();
+    toast({
+      title: "Sucesso",
+      description: "Monitoramento configurado com sucesso!",
+    });
+  };
+
+  const handleStatusChange = async (id: string, status: 'active' | 'paused' | 'stopped') => {
+    try {
+      const { success } = await MonitoringService.updateMonitoringSession(id, { status });
+      if (success) {
+        loadSessions();
+        toast({
+          title: "Status atualizado",
+          description: `Monitoramento ${status === 'active' ? 'iniciado' : status === 'paused' ? 'pausado' : 'parado'}`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar status do monitoramento",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSettings = (session: MonitoringSession) => {
+    toast({
+      title: "Em breve",
+      description: "Configurações avançadas em desenvolvimento",
+    });
+  };
 
   const getStats = () => {
-    const activeSites = sites.filter(s => s.status === 'active').length;
-    const totalKeywords = sites.reduce((acc, site) => acc + site.keywords.length, 0);
-    const recentlyChecked = sites.filter(s => 
-      s.lastCheck && 
-      Date.now() - s.lastCheck.getTime() < 24 * 60 * 60 * 1000
+    const activeSessions = sessions.filter(s => s.status === 'active').length;
+    const totalSessions = sessions.length;
+    const recentlyChecked = sessions.filter(s => 
+      s.last_check_at && 
+      Date.now() - new Date(s.last_check_at).getTime() < 24 * 60 * 60 * 1000
     ).length;
 
-    return { activeSites, totalKeywords, recentlyChecked };
+    return { activeSessions, totalSessions, recentlyChecked };
   };
 
   const stats = getStats();
@@ -53,30 +113,30 @@ const Monitoring = () => {
               <SimulationNotice />
 
               {/* Stats Cards */}
-              {sites.length > 0 && (
+              {sessions.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Sites Ativos</CardTitle>
+                      <CardTitle className="text-sm font-medium">Sessões Ativas</CardTitle>
                       <Globe className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-primary">{stats.activeSites}</div>
+                      <div className="text-2xl font-bold text-primary">{stats.activeSessions}</div>
                       <p className="text-xs text-muted-foreground">
-                        de {sites.length} total
+                        de {stats.totalSessions} total
                       </p>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Palavras-chave</CardTitle>
+                      <CardTitle className="text-sm font-medium">Monitoramentos</CardTitle>
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-primary">{stats.totalKeywords}</div>
+                      <div className="text-2xl font-bold text-primary">{stats.totalSessions}</div>
                       <p className="text-xs text-muted-foreground">
-                        sendo monitoradas
+                        configurados
                       </p>
                     </CardContent>
                   </Card>
@@ -97,39 +157,33 @@ const Monitoring = () => {
               )}
 
               {/* Setup Form */}
-              <MonitoringSetup />
+              <MonitoringSetup onSetupComplete={handleSetupComplete} />
 
-              {/* Monitored Sites */}
-              {sites.length > 0 && (
+              {/* Monitoring Sessions */}
+              {sessions.length > 0 && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-foreground">
-                    Sites Monitorados ({sites.length})
+                    Sessões de Monitoramento ({sessions.length})
                   </h2>
                   
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {sites.map(site => (
-                      <MonitoringCard key={site.id} site={site} />
-                    ))}
-                  </div>
-
-                  {/* Trend Charts */}
-                  <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-foreground">
-                      Gráficos de Evolução
-                    </h2>
-                    
-                    {sites.map(site => (
-                      <TrendChart key={site.id} site={site} />
+                    {sessions.map(session => (
+                      <MonitoringCard 
+                        key={session.id} 
+                        session={session}
+                        onStatusChange={handleStatusChange}
+                        onSettings={handleSettings}
+                      />
                     ))}
                   </div>
                 </div>
               )}
 
-              {sites.length === 0 && (
+              {sessions.length === 0 && !isLoading && (
                 <Card className="text-center p-8">
                   <CardContent>
                     <Monitor className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Nenhum site sendo monitorado</h3>
+                    <h3 className="text-lg font-semibold mb-2">Nenhuma sessão de monitoramento</h3>
                     <p className="text-muted-foreground">
                       Configure seu primeiro monitoramento usando o formulário acima.
                     </p>

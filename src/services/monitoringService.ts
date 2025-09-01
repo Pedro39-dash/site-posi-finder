@@ -1,4 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+// Use types from Supabase
+type DbMonitoringSession = Database['public']['Tables']['monitoring_sessions']['Row'];
+type DbNotification = Database['public']['Tables']['notifications']['Row'];
+type DbDashboardMetric = Database['public']['Tables']['dashboard_metrics']['Row'];
 
 export interface MonitoringSession {
   id: string;
@@ -40,6 +46,28 @@ export interface DashboardMetric {
   metadata: Record<string, any>;
 }
 
+// Type casting utilities
+const castToMonitoringSession = (dbSession: DbMonitoringSession): MonitoringSession => ({
+  ...dbSession,
+  status: dbSession.status as 'active' | 'paused' | 'stopped',
+  monitoring_frequency: dbSession.monitoring_frequency as 'daily' | 'weekly' | 'monthly',
+  metadata: (dbSession.metadata as Record<string, any>) || {}
+});
+
+const castToNotification = (dbNotification: DbNotification): Notification => ({
+  ...dbNotification,
+  type: dbNotification.type as 'ranking_change' | 'audit_complete' | 'alert_triggered' | 'system',
+  priority: dbNotification.priority as 'low' | 'medium' | 'high' | 'urgent',
+  metadata: (dbNotification.metadata as Record<string, any>) || {}
+});
+
+const castToDashboardMetric = (dbMetric: DbDashboardMetric): DashboardMetric => ({
+  ...dbMetric,
+  metric_type: dbMetric.metric_type as 'total_keywords' | 'avg_position' | 'visibility_score' | 'ranking_changes',
+  period_type: dbMetric.period_type as 'daily' | 'weekly' | 'monthly',
+  metadata: (dbMetric.metadata as Record<string, any>) || {}
+});
+
 export class MonitoringService {
   // Monitoring Sessions
   static async createMonitoringSession(data: {
@@ -76,7 +104,8 @@ export class MonitoringService {
       }
 
       const { data, error } = await query;
-      return { success: !error, sessions: data || [], error: error?.message };
+      const sessions = data ? data.map(castToMonitoringSession) : [];
+      return { success: !error, sessions, error: error?.message };
     } catch (error) {
       return { success: false, sessions: [], error: 'Erro ao buscar sessões' };
     }
@@ -106,7 +135,8 @@ export class MonitoringService {
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      return { success: !error, notifications: data || [], error: error?.message };
+      const notifications = data ? data.map(castToNotification) : [];
+      return { success: !error, notifications, error: error?.message };
     } catch (error) {
       return { success: false, notifications: [], error: 'Erro ao buscar notificações' };
     }
@@ -152,7 +182,8 @@ export class MonitoringService {
       }
 
       const { data, error } = await query;
-      return { success: !error, metrics: data || [], error: error?.message };
+      const metrics = data ? data.map(castToDashboardMetric) : [];
+      return { success: !error, metrics, error: error?.message };
     } catch (error) {
       return { success: false, metrics: [], error: 'Erro ao buscar métricas' };
     }
