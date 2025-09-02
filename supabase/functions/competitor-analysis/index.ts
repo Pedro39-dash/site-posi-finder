@@ -860,8 +860,8 @@ async function performSimulatedAnalysis(
     
     // Add additional competitors and limit to 6
     const finalCompetitors = [
-      ...realisticCompetitors.slice(0, 4),
-      ...additionalCompetitors
+      ...additionalCompetitors, // Prioritize manual competitors first
+      ...realisticCompetitors.filter(comp => !additionalCompetitors.includes(comp))
     ].slice(0, 6);
     
     console.log(`🏢 FASE 4: Generated realistic competitors: [${finalCompetitors.join(', ')}]`);

@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { ArrowUp, ArrowDown, Trophy, Target, RefreshCw, AlertTriangle, TrendingUp, Users, Eye, BarChart3, Zap, ArrowUpCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, Trophy, Target, RefreshCw, AlertTriangle, TrendingUp, TrendingDown, Users, Eye, BarChart3, Zap, ArrowUpCircle, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from "@/services/competitorAnalysisService";
 import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead } from "@/utils/competitiveAnalysis";
 import KeywordDetailModal from "./KeywordDetailModal";
@@ -155,6 +156,16 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     )
   ).length;
 
+  const quickOpportunities = opportunities.filter(opp => 
+    opp.priority_score > 75
+  ).length;
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  };
+
   const getDomainName = (url: string) => {
     return url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
   };
@@ -206,101 +217,112 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
       {/* Main Metrics Cards - Enhanced with Insights */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-primary/20 bg-primary/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-primary">Posição Média Competitiva</CardTitle>
-            <BarChart3 className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">
-              {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap}
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-muted-foreground">Posição Média Competitiva</p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Diferença média de posições em relação ao melhor concorrente</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <p className="text-2xl font-bold text-primary">
+                  {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap.toFixed(1)}
+                </p>
+              </div>
+              <BarChart3 className="h-8 w-8 text-primary" />
             </div>
-            <p className="text-xs text-muted-foreground">
-              {competitiveMetrics.averagePositionGap > 0 ? 
-                `${competitiveMetrics.averagePositionGap} posições atrás` : 
-                'Liderando na maioria das palavras-chave'}
-            </p>
           </CardContent>
         </Card>
 
-        <Card className="border-accent/20 bg-accent/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-accent">Potencial de Tráfego Perdido</CardTitle>
-            <Zap className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-accent">
-              +{competitiveMetrics.lostTrafficPotential}%
+        <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Potencial de Tráfego Perdido</p>
+                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  {formatNumber(competitiveMetrics.lostTrafficPotential)}
+                </p>
+              </div>
+              <TrendingDown className="h-8 w-8 text-orange-600 dark:text-orange-400" />
             </div>
-            <p className="text-xs text-muted-foreground">
-              de tráfego orgânico potencial
-            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Suas Vitórias</CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{keywordWins}</div>
-            <p className="text-xs text-muted-foreground">
-              de {analysis.total_keywords} palavras-chave
-            </p>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Suas Vitórias</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {keywordWins} nas palavras fornecidas
+                </p>
+              </div>
+              <Trophy className="h-8 w-8 text-green-600" />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Oportunidades Rápidas</CardTitle>
-            <ArrowUpCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{opportunities.length}</div>
-            <p className="text-xs text-muted-foreground">melhorias de baixo esforço</p>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Oportunidades Rápidas</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {quickOpportunities} palavras-chave
+                </p>
+              </div>
+              <ArrowUpCircle className="h-8 w-8 text-blue-600" />
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Top Competitors - Enhanced */}
-      <Card className="bg-accent/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-accent" />
-            Top Concorrentes Identificados
-          </CardTitle>
-          <CardDescription>
-            Concorrentes que mais competem com você nas palavras-chave analisadas
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {competitiveMetrics.topCompetitors.slice(0, 5).map((competitor, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border rounded-lg bg-white">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <p className="font-semibold">{competitor.domain}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Posição média: {competitor.averagePosition}ª • Share of Voice: {competitor.shareOfVoice}%
-                    </p>
-                  </div>
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          Top Concorrentes
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Share of Voice: porcentagem de visibilidade do concorrente nas palavras-chave analisadas</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          {competitiveMetrics.topCompetitors.map((competitor, index) => (
+            <Card key={competitor.domain} className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-foreground">{competitor.domain}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {competitor.winsCount} palavras-chave vencidas
+                  </p>
                 </div>
                 <div className="text-right">
-                  <Badge variant={index === 0 ? "destructive" : index === 1 ? "secondary" : "outline"}>
-                    {competitor.winsCount} vitórias
-                  </Badge>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {index === 0 ? 'Principal rival' : index === 1 ? 'Segundo rival' : 'Concorrente secundário'}
+                  <p className="text-sm font-medium text-primary">
+                    {competitor.shareOfVoice.toFixed(1)}% share
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Pos. média: {competitor.averagePosition.toFixed(1)}
                   </p>
                 </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </Card>
+          ))}
+        </div>
+      </div>
 
 
       {/* Enhanced Keywords Analysis Table */}
@@ -422,11 +444,48 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
         </CardContent>
       </Card>
 
-      {/* Opportunities Section */}
+      {/* Principais Oportunidades */}
       {opportunities.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/50">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-4">Principais Oportunidades</h3>
+          <div className="grid gap-3">
+            {opportunities.slice(0, 5).map((opportunity, index) => (
+              <Card key={index} className="p-4 border-border bg-card">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="secondary" className="text-xs">
+                        {CompetitorAnalysisService.getOpportunityTypeText(opportunity.opportunity_type)}
+                      </Badge>
+                      <span className="text-sm font-medium text-foreground">
+                        {opportunity.keyword}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Posição atual: #{opportunity.target_position} → Potencial: #{opportunity.best_competitor_position}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {opportunity.recommended_action}
+                    </p>
+                  </div>
+                  <div className="text-right ml-4">
+                    <p className="text-lg font-bold text-primary">
+                      {opportunity.priority_score}
+                    </p>
+                    <p className="text-xs text-muted-foreground">score</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Opportunities Section - Old */}
+      {opportunities.length > 0 && (
+        <Card className="border-border bg-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-800">
+            <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
               Principais Oportunidades de Melhoria
             </CardTitle>
@@ -437,7 +496,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {opportunities.slice(0, 6).map((opportunity) => (
-                <div key={opportunity.id} className="p-4 border rounded-lg bg-white">
+                <div key={opportunity.id} className="p-4 border rounded-lg bg-muted/5">
                   <h4 className="font-medium text-sm mb-2">{opportunity.keyword}</h4>
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <p>Prioridade: {opportunity.priority_score}</p>
