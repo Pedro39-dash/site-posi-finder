@@ -30,6 +30,64 @@ export interface KeywordPotential {
 }
 
 /**
+ * Get gap analysis interpretation
+ */
+export const getGapAnalysis = (gap: number, totalKeywords: number) => {
+  if (gap === 0) {
+    return {
+      level: 'excellent' as const,
+      description: 'Sem desvantagem competitiva',
+      color: 'text-green-600',
+      bgColor: 'bg-green-50 dark:bg-green-900/20',
+      borderColor: 'border-green-200 dark:border-green-800',
+      recommendation: 'Mantenha sua estratégia atual'
+    };
+  }
+  
+  if (gap <= 3) {
+    return {
+      level: 'good' as const,
+      description: 'Gap competitivo baixo',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+      borderColor: 'border-blue-200 dark:border-blue-800',
+      recommendation: 'Pequenos ajustes podem melhorar posições'
+    };
+  }
+  
+  if (gap <= 8) {
+    return {
+      level: 'moderate' as const,
+      description: 'Gap competitivo moderado',
+      color: 'text-yellow-600',
+      bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+      borderColor: 'border-yellow-200 dark:border-yellow-800',
+      recommendation: 'Otimização focada necessária'
+    };
+  }
+  
+  if (gap <= 15) {
+    return {
+      level: 'high' as const,
+      description: 'Gap competitivo alto',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+      borderColor: 'border-orange-200 dark:border-orange-800',
+      recommendation: 'Estratégia de SEO abrangente necessária'
+    };
+  }
+  
+  return {
+    level: 'critical' as const,
+    description: 'Gap competitivo crítico',
+    color: 'text-red-600',
+    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    borderColor: 'border-red-200 dark:border-red-800',
+    recommendation: 'Revisão completa da estratégia de conteúdo'
+  };
+};
+
+/**
  * Calculate comprehensive competitive metrics
  */
 export const calculateCompetitiveMetrics = (

@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from "@/services/competitorAnalysisService";
-import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead } from "@/utils/competitiveAnalysis";
+import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis } from "@/utils/competitiveAnalysis";
 import KeywordDetailModal from "./KeywordDetailModal";
 
 interface CompetitiveResultsDisplayProps {
@@ -216,31 +216,48 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
 
       {/* Main Metrics Cards - Enhanced with Insights */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-muted-foreground">Posição Média Competitiva</p>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Diferença média de posições em relação ao melhor concorrente</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+        {(() => {
+          const gapAnalysis = getGapAnalysis(competitiveMetrics.averagePositionGap, keywords.length);
+          return (
+            <Card className={`${gapAnalysis.borderColor} ${gapAnalysis.bgColor}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-sm font-medium text-muted-foreground">Gap Médio dos Concorrentes</p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <div className="space-y-2">
+                              <p className="font-medium">Diferença média entre sua posição e o melhor concorrente</p>
+                              <p className="text-xs">Exemplo: Se você está na 12ª posição e o líder na 1ª, o gap é +11</p>
+                              <p className="text-xs text-muted-foreground">Baseado em {keywords.length} palavra{keywords.length !== 1 ? 's' : ''}-chave analisada{keywords.length !== 1 ? 's' : ''}</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="space-y-1">
+                      <p className={`text-2xl font-bold ${gapAnalysis.color}`}>
+                        {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap}
+                      </p>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {gapAnalysis.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {gapAnalysis.recommendation}
+                      </p>
+                    </div>
+                  </div>
+                  <BarChart3 className={`h-8 w-8 ${gapAnalysis.color}`} />
                 </div>
-                <p className="text-2xl font-bold text-primary">
-                  {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap.toFixed(1)}
-                </p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20">
           <CardContent className="p-4">
