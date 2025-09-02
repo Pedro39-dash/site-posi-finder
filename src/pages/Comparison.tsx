@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { ArrowLeft, Target, Zap } from "lucide-react";
 import ComparisonFormEnhanced from "@/components/comparison/ComparisonFormEnhanced";
-import ComparisonResultsEnhanced, { ComparisonResultEnhanced } from "@/components/comparison/ComparisonResultsEnhanced";
 import CompetitiveAnalysisForm from "@/components/comparison/CompetitiveAnalysisForm";
 import CompetitiveAnalysisResults from "@/components/comparison/CompetitiveAnalysisResults";
 import CompetitiveOverview from "@/components/comparison/CompetitiveOverview";
@@ -14,18 +14,37 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+export interface ComparisonResultEnhanced {
+  keyword: string;
+  results: {
+    website: string;
+    position: number | null;
+    isWinner: boolean;
+    isClient: boolean;
+  }[];
+}
+
+type AnalysisMode = 'selection' | 'real' | 'simulation';
+type AnalysisState = 'form' | 'results' | 'details';
+
 const Comparison = () => {
   const { projects } = useProjects();
+  
+  // Main state management
+  const [mode, setMode] = useState<AnalysisMode>('selection');
+  const [state, setState] = useState<AnalysisState>('form');
+  
+  // Real analysis state
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
+  
+  // Simulation state
   const [comparisonResults, setComparisonResults] = useState<{
     websites: string[];
     results: ComparisonResultEnhanced[];
     projectName?: string;
   } | null>(null);
-  
-  // State for real competitive analysis
-  const [analysisId, setAnalysisId] = useState<string | null>(null);
 
-  // State for keyword analysis modal
+  // Keyword analysis modal state
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
 
   // Enhanced mock function for domain comparison - CORRECTED DATA GENERATION
@@ -85,25 +104,43 @@ const Comparison = () => {
     return results;
   };
 
-  const handleComparison = (data: { websites: string[]; keywords: string[]; projectName?: string }) => {
+  // Handler functions
+  const handleModeSelection = (selectedMode: AnalysisMode) => {
+    setMode(selectedMode);
+    setState('form');
+    // Reset states
+    setAnalysisId(null);
+    setComparisonResults(null);
+    setSelectedKeyword(null);
+  };
+
+  const handleSimulationResults = (data: { websites: string[]; keywords: string[]; projectName?: string }) => {
     const results = generateComparisonResults(data.websites, data.keywords);
     setComparisonResults({ 
       websites: data.websites, 
       results,
       projectName: data.projectName 
     });
+    setState('results');
   };
 
-  const handleNewComparison = () => {
+  const handleRealAnalysisStarted = (newAnalysisId: string) => {
+    setAnalysisId(newAnalysisId);
+    setState('results');
+  };
+
+  const handleBackToForm = () => {
+    setState('form');
+    setAnalysisId(null);
     setComparisonResults(null);
   };
 
-  const handleAnalysisStarted = (newAnalysisId: string) => {
-    setAnalysisId(newAnalysisId);
-  };
-
-  const handleBackToAnalysisForm = () => {
+  const handleNewAnalysis = () => {
+    setMode('selection');
+    setState('form');
     setAnalysisId(null);
+    setComparisonResults(null);
+    setSelectedKeyword(null);
   };
 
   const handleKeywordDetails = (keyword: string) => {
@@ -129,44 +166,122 @@ const Comparison = () => {
       <div className="min-h-screen bg-background lg:pl-80">
         <div className="pt-16 lg:pt-0">
           <main className="container mx-auto px-4 py-8">
-            <div className="text-center space-y-4 mb-8">
-              <h1 className="text-4xl font-bold text-foreground">
-                Análise Competitiva
-              </h1>
-              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Compare posições reais no Google ou use nossa simulação avançada para análise competitiva
-              </p>
+            
+            {/* Header with navigation */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                {mode !== 'selection' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleNewAnalysis}
+                    className="gap-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar
+                  </Button>
+                )}
+                <div>
+                  <h1 className="text-4xl font-bold text-foreground">
+                    Análise Competitiva SEO
+                  </h1>
+                  <p className="text-muted-foreground mt-2">
+                    {mode === 'selection' && "Escolha o tipo de análise que deseja realizar"}
+                    {mode === 'real' && "Análise com dados reais do Google"}
+                    {mode === 'simulation' && "Simulação avançada para demonstração"}
+                  </p>
+                </div>
+              </div>
+              
+              {state === 'results' && (
+                <Button
+                  variant="outline"
+                  onClick={handleNewAnalysis}
+                  className="gap-2"
+                >
+                  <Target className="h-4 w-4" />
+                  Nova Análise
+                </Button>
+              )}
             </div>
 
-            <Tabs defaultValue="real" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-8">
-                <TabsTrigger value="real" className="gap-2">
-                  <Badge variant="secondary">Novo</Badge>
-                  Análise Real
-                </TabsTrigger>
-                <TabsTrigger value="simulation">
-                  Simulação Avançada
-                </TabsTrigger>
-              </TabsList>
+            {/* Mode Selection */}
+            {mode === 'selection' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-primary/50"
+                  onClick={() => handleModeSelection('real')}
+                >
+                  <CardHeader className="text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Target className="h-6 w-6 text-primary" />
+                      <Badge variant="secondary">Novo</Badge>
+                    </div>
+                    <CardTitle className="text-2xl">Análise Real</CardTitle>
+                    <CardDescription>
+                      Dados reais extraídos diretamente do Google
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>• Posições reais no Google</li>
+                      <li>• Identificação automática de concorrentes</li>
+                      <li>• Análise baseada nas suas auditorias</li>
+                      <li>• Oportunidades específicas</li>
+                    </ul>
+                  </CardContent>
+                </Card>
 
-              <TabsContent value="real">
-                {analysisId ? (
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:border-primary/50"
+                  onClick={() => handleModeSelection('simulation')}
+                >
+                  <CardHeader className="text-center">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Zap className="h-6 w-6 text-amber-500" />
+                    </div>
+                    <CardTitle className="text-2xl">Simulação Avançada</CardTitle>
+                    <CardDescription>
+                      Demonstração com dados simulados realísticos
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>• Comparação entre 2 sites</li>
+                      <li>• Palavras-chave personalizadas</li>
+                      <li>• Análise competitiva detalhada</li>
+                      <li>• Insights e recomendações</li>
+                    </ul>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Real Analysis Flow */}
+            {mode === 'real' && (
+              <>
+                {state === 'form' && (
+                  <CompetitiveAnalysisForm onAnalysisStarted={handleRealAnalysisStarted} />
+                )}
+                {state === 'results' && analysisId && (
                   <CompetitiveAnalysisResults 
                     analysisId={analysisId} 
-                    onBackToForm={handleBackToAnalysisForm}
+                    onBackToForm={handleBackToForm}
                   />
-                ) : (
-                  <CompetitiveAnalysisForm onAnalysisStarted={handleAnalysisStarted} />
                 )}
-              </TabsContent>
+              </>
+            )}
 
-              <TabsContent value="simulation">
-                {!comparisonResults ? (
+            {/* Simulation Analysis Flow */}
+            {mode === 'simulation' && (
+              <>
+                {state === 'form' && (
                   <div className="space-y-6">
                     <SimulationNotice />
-                    <ComparisonFormEnhanced onCompare={handleComparison} />
+                    <ComparisonFormEnhanced onCompare={handleSimulationResults} />
                   </div>
-                ) : (
+                )}
+                {state === 'results' && comparisonResults && (
                   <div className="space-y-8">
                     <SimulationNotice />
                     
@@ -182,18 +297,10 @@ const Comparison = () => {
                       websites={comparisonResults.websites}
                       onKeywordDetails={handleKeywordDetails}
                     />
-                    
-                    {/* Componentes originais mantidos para compatibilidade */}
-                    <ComparisonResultsEnhanced
-                      websites={comparisonResults.websites}
-                      results={comparisonResults.results}
-                      projectName={comparisonResults.projectName}
-                      onNewComparison={handleNewComparison}
-                    />
                   </div>
                 )}
-              </TabsContent>
-            </Tabs>
+              </>
+            )}
           </main>
         </div>
       </div>

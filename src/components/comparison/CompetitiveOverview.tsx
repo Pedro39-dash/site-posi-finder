@@ -4,7 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateAdvancedScore, calculateOverallScore } from "@/utils/seoScoring";
-import { ComparisonResultEnhanced } from "./ComparisonResultsEnhanced";
+
+export interface ComparisonResultEnhanced {
+  keyword: string;
+  results: {
+    website: string;
+    position: number | null;
+    isWinner: boolean;
+    isClient: boolean;
+  }[];
+}
 
 interface CompetitiveOverviewProps {
   results: ComparisonResultEnhanced[];

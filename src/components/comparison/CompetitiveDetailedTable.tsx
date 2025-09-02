@@ -7,7 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getPositionCategory, calculateKeywordDifficulty } from "@/utils/seoScoring";
-import { ComparisonResultEnhanced } from "./ComparisonResultsEnhanced";
+
+export interface ComparisonResultEnhanced {
+  keyword: string;
+  results: {
+    website: string;
+    position: number | null;
+    isWinner: boolean;
+    isClient: boolean;
+  }[];
+}
 
 interface CompetitiveDetailedTableProps {
   results: ComparisonResultEnhanced[];

@@ -22,7 +22,16 @@ import { Separator } from "@/components/ui/separator";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { EnhancedChartContainer, CustomTooltip, ChartGradients } from "@/components/ui/enhanced-chart";
 import { calculateAdvancedScore, getPositionCategory, calculateKeywordDifficulty } from "@/utils/seoScoring";
-import { ComparisonResultEnhanced } from "./ComparisonResultsEnhanced";
+
+export interface ComparisonResultEnhanced {
+  keyword: string;
+  results: {
+    website: string;
+    position: number | null;
+    isWinner: boolean;
+    isClient: boolean;
+  }[];
+}
 
 interface KeywordAnalysisModalProps {
   isOpen: boolean;
