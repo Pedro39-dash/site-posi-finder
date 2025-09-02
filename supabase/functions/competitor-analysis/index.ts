@@ -441,6 +441,40 @@ async function extractKeywordsFromAudit(supabase: any, auditReportId: string | n
   }
 }
 
+// Função para identificar domínios não comerciais que devem ser filtrados
+function shouldExcludeDomain(domain: string): boolean {
+  const nonCommercialDomains = [
+    'youtube.com',
+    'youtu.be',
+    'facebook.com', 
+    'fb.com',
+    'instagram.com',
+    'tiktok.com',
+    'linkedin.com',
+    'pinterest.com',
+    'twitter.com',
+    'x.com',
+    'reddit.com',
+    'wikipedia.org',
+    'wikimedia.org',
+    'quora.com',
+    'medium.com',
+    'blogger.com',
+    'blogspot.com',
+    'tumblr.com',
+    'vimeo.com',
+    'dailymotion.com',
+    'spotify.com'
+  ];
+  
+  // Normaliza o domínio removendo www e convertendo para minúsculo
+  const normalizedDomain = domain.toLowerCase().replace(/^www\./, '');
+  
+  return nonCommercialDomains.some(excludedDomain => 
+    normalizedDomain === excludedDomain || normalizedDomain.endsWith('.' + excludedDomain)
+  );
+}
+
 async function analyzeKeywordPositions(keyword: string, targetDomain: string): Promise<KeywordAnalysis> {
   console.log(`🔍 SERPAPI: Starting analysis for "${keyword}" targeting ${targetDomain}`);
   
@@ -470,49 +504,64 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     console.log(`✅ SERPAPI: Retrieved ${organicResults.length} organic search results for "${keyword}"`);
 
     // Convert SerpApi results to our analysis format
-    const competitorPositions: CompetitorPosition[] = [];
+    const allPositions: CompetitorPosition[] = [];
+    const filteredPositions: CompetitorPosition[] = [];
     let targetDomainPosition: number | null = null;
+    let filteredCount = 0;
 
     organicResults.forEach((result: any, index: number) => {
       const domain = extractDomain(result.link);
       const position = result.position || (index + 1);
 
-      // Check if this is our target domain
-      if (domain === targetDomain || domain === `www.${targetDomain}` || targetDomain.includes(domain)) {
-        targetDomainPosition = position;
-        console.log(`🎯 SERPAPI: Found target domain ${targetDomain} at position ${position}`);
-      }
-
-      competitorPositions.push({
+      const competitorPosition = {
         domain,
         position,
         url: result.link,
         title: result.title
-      });
+      };
+
+      allPositions.push(competitorPosition);
+
+      // Check if this is our target domain
+      if (domain === targetDomain || domain === `www.${targetDomain}` || targetDomain.includes(domain)) {
+        targetDomainPosition = position;
+        console.log(`🎯 SERPAPI: Found target domain ${targetDomain} at position ${position}`);
+        filteredPositions.push(competitorPosition);
+      }
+      // Filter out non-commercial domains
+      else if (shouldExcludeDomain(domain)) {
+        filteredCount++;
+        console.log(`🚫 SERPAPI: Filtered non-commercial domain ${domain} at position ${position}`);
+      }
+      else {
+        filteredPositions.push(competitorPosition);
+      }
     });
 
+    console.log(`🔄 SERPAPI: Filtered ${filteredCount} non-commercial domains (YouTube, social media, etc.)`);
+
     // Log competitor analysis
-    const competitors = competitorPositions
+    const competitors = filteredPositions
       .filter(p => p.domain !== targetDomain && !p.domain.includes(targetDomain))
       .slice(0, 10);
     
-    console.log(`🏢 SERPAPI: Top competitors found:`, competitors.slice(0, 5).map(c => ({
+    console.log(`🏢 SERPAPI: Top commercial competitors found:`, competitors.slice(0, 5).map(c => ({
       domain: c.domain,
       position: c.position
     })));
 
-    // Estimate competition level based on results diversity
-    const uniqueDomains = new Set(competitorPositions.map(p => p.domain));
+    // Estimate competition level based on filtered results diversity
+    const uniqueCommercialDomains = new Set(filteredPositions.map(p => p.domain));
     const competitionLevel: 'low' | 'medium' | 'high' = 
-      uniqueDomains.size <= 3 ? 'high' : 
-      uniqueDomains.size <= 6 ? 'medium' : 'low';
+      uniqueCommercialDomains.size <= 3 ? 'high' : 
+      uniqueCommercialDomains.size <= 6 ? 'medium' : 'low';
 
-    console.log(`📊 SERPAPI: Competition level for "${keyword}": ${competitionLevel} (${uniqueDomains.size} unique domains)`);
+    console.log(`📊 SERPAPI: Competition level for "${keyword}": ${competitionLevel} (${uniqueCommercialDomains.size} unique commercial domains)`);
 
     return {
       keyword,
       target_domain_position: targetDomainPosition,
-      competitor_positions: competitorPositions,
+      competitor_positions: filteredPositions, // Use filtered positions
       competition_level: competitionLevel
     };
 
