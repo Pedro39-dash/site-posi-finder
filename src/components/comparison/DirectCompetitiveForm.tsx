@@ -138,6 +138,11 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     e.preventDefault();
     
     // Validation
+    if (!selectedAudit) {
+      toast.error("Selecione uma auditoria base para realizar a análise");
+      return;
+    }
+
     if (!clientDomain.trim()) {
       toast.error("Digite o domínio do cliente");
       return;
@@ -153,42 +158,26 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
       return;
     }
 
-    // If we have an audit selected, use real analysis
-    if (selectedAudit) {
-      try {
-        setLoading(true);
-        
-        const result = await CompetitorAnalysisService.startAnalysis(
-          selectedAudit,
-          clientDomain,
-          competitors
-        );
-
-        if (result.success && result.analysisId) {
-          toast.success("Análise competitiva iniciada com sucesso");
-          onAnalysisStarted(result.analysisId);
-        } else {
-          toast.error(result.error || "Falha ao iniciar análise competitiva");
-        }
-      } catch (error) {
-        toast.error("Erro inesperado ao iniciar análise");
-        console.error('Error starting analysis:', error);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // Use simulation mode
-      toast.info("Usando modo simulação. Configure as APIs do Google para dados reais.");
+    try {
       setLoading(true);
       
-      setTimeout(() => {
-        // Create a mock analysis ID for simulation
-        const mockAnalysisId = `sim_${Date.now()}`;
-        
-        toast.success("Análise simulada gerada com sucesso");
-        onAnalysisStarted(mockAnalysisId);
-        setLoading(false);
-      }, 1500);
+      const result = await CompetitorAnalysisService.startAnalysis(
+        selectedAudit,
+        clientDomain,
+        competitors
+      );
+
+      if (result.success && result.analysisId) {
+        toast.success("Análise competitiva iniciada com sucesso");
+        onAnalysisStarted(result.analysisId);
+      } else {
+        toast.error(result.error || "Falha ao iniciar análise competitiva");
+      }
+    } catch (error) {
+      toast.error("Erro inesperado ao iniciar análise");
+      console.error('Error starting analysis:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -208,7 +197,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             Análise Competitiva SEO
           </CardTitle>
           <CardDescription>
-            Compare seu site com concorrentes em tempo real. Use uma auditoria existente para dados reais ou configure manualmente para simulação.
+            Compare seu site com concorrentes usando dados reais do Google. Selecione uma auditoria base para iniciar a análise.
           </CardDescription>
         </CardHeader>
         
@@ -242,7 +231,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
 
               {/* Audit Selection */}
               <div className="space-y-3">
-                <Label>Auditoria Base (Para Dados Reais)</Label>
+                <Label>Auditoria Base *</Label>
                 {loadingAudits ? (
                   <div className="flex items-center gap-2 p-3 border rounded-md">
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -251,7 +240,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
                 ) : audits.length > 0 ? (
                   <Select value={selectedAudit} onValueChange={handleAuditSelect}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Opcional: usar auditoria para dados reais" />
+                      <SelectValue placeholder="Selecione uma auditoria base" />
                     </SelectTrigger>
                     <SelectContent>
                       {audits.map((audit) => (
@@ -272,7 +261,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Nenhuma auditoria encontrada. <a href="/audit" className="underline">Fazer uma auditoria</a> para análise com dados reais.
+                      Nenhuma auditoria encontrada. <a href="/audit" className="underline">Criar uma auditoria</a> primeiro para realizar a análise competitiva.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -423,22 +412,18 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
               )}
             </div>
 
-            {/* Analysis Type Info */}
+            {/* Analysis Info */}
             <Alert>
               <Target className="h-4 w-4" />
               <AlertDescription>
-                {selectedAudit ? (
-                  <span><strong>Análise Real:</strong> Usaremos dados reais do Google baseados na auditoria selecionada.</span>
-                ) : (
-                  <span><strong>Simulação:</strong> Geraremos dados simulados realísticos para demonstração.</span>
-                )}
+                <strong>Análise Competitiva:</strong> Compararemos o desempenho SEO do seu site com os concorrentes usando dados reais do Google. A edge function possui fallbacks automáticos caso as APIs não estejam configuradas.
               </AlertDescription>
             </Alert>
 
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={!clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0 || loading}
+              disabled={!selectedAudit || !clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0 || loading}
               className="w-full"
               size="lg"
             >

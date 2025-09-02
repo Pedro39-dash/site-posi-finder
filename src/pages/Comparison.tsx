@@ -65,7 +65,7 @@ const Comparison = () => {
                     Análise Competitiva SEO
                   </h1>
                   <p className="text-muted-foreground mt-2">
-                    {state === 'form' && "Configure sua análise competitiva com dados reais ou simulação"}
+                    {state === 'form' && "Configure sua análise competitiva com dados reais do Google"}
                     {state === 'results' && "Resultados da análise competitiva"}
                   </p>
                 </div>
