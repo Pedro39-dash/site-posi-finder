@@ -258,10 +258,14 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Nenhuma auditoria encontrada. <a href="/audit" className="underline">Criar uma auditoria</a> primeiro para realizar a análise competitiva.
+                  <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <AlertDescription className="text-amber-800 dark:text-amber-200">
+                      <strong>Auditoria Obrigatória:</strong> Você precisa ter pelo menos uma auditoria SEO completada para realizar a análise competitiva. 
+                      <br />
+                      <a href="/audit" className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100">
+                        ➜ Criar sua primeira auditoria agora
+                      </a>
                     </AlertDescription>
                   </Alert>
                 )}
@@ -420,6 +424,22 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
               </AlertDescription>
             </Alert>
 
+            {/* Requirements Check */}
+            {(!selectedAudit || !clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0) && (
+              <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-800 dark:text-blue-200">
+                  <strong>Para iniciar a análise, você precisa:</strong>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {!selectedAudit && <li>• Selecionar uma auditoria base</li>}
+                    {!clientDomain.trim() && <li>• Informar o domínio do cliente</li>}
+                    {competitors.length === 0 && <li>• Adicionar pelo menos um concorrente</li>}
+                    {selectedKeywords.length === 0 && <li>• Adicionar pelo menos uma palavra-chave</li>}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Submit Button */}
             <Button
               type="submit"
@@ -429,12 +449,12 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  {selectedAudit ? "Iniciando análise real..." : "Gerando simulação..."}
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Iniciando análise...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  <Search className="h-4 w-4" />
+                  <Target className="h-4 w-4" />
                   Iniciar Análise Competitiva
                 </span>
               )}
