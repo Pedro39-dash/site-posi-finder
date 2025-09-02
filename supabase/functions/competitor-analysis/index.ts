@@ -181,33 +181,9 @@ async function performCompetitiveAnalysis(
       return { success: true };
     }
 
-    // Phase 2: API connectivity test
-    const apiKey = Deno.env.get('GOOGLE_CUSTOM_SEARCH_API_KEY');
-    const cx = Deno.env.get('GOOGLE_CUSTOM_SEARCH_CX');
-    
-    if (!apiKey || !cx) {
-      console.error('❌ Missing API credentials - falling back to simulation');
-      shouldUseFallback = true;
-    } else {
-      try {
-        console.log(`🧪 Starting comprehensive API test with ${finalKeywords.length} keywords...`);
-        await testApiConnectivity(apiKey, cx, finalKeywords);
-        console.log(`✅ API connectivity confirmed - proceeding with REAL analysis!`);
-      } catch (error) {
-        console.log(`❌ API test failed - using simulation fallback: ${error.message}`);
-        shouldUseFallback = true;
-      }
-    }
-
-    // If we need fallback, use simulated analysis
-    if (shouldUseFallback) {
-      console.log(`🎮 Switching to simulation mode with manual keywords...`);
-      const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors, finalKeywords);
-      if (!simulationResult.success) {
-        throw new Error(`Simulation failed: ${simulationResult.error}`);
-      }
-      return { success: true };
-    }
+    // FASE 2: Use web-scraper for real Google search results
+    console.log(`🔍 FASE 2: Starting real Google search analysis with ${finalKeywords.length} keywords...`);
+    console.log('🌐 Using web-scraper for direct Google searches - no API dependency!');
 
     // Update status to show progress
     await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
