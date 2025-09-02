@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.competitor-analysis]
 verify_jwt = true
+
+[functions.web-scraper]
+verify_jwt = true

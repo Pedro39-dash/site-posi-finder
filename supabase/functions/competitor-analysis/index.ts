@@ -439,73 +439,86 @@ async function extractKeywordsFromAudit(supabase: any, auditReportId: string | n
 }
 
 async function analyzeKeywordPositions(keyword: string, targetDomain: string): Promise<KeywordAnalysis> {
-  const apiKey = Deno.env.get('GOOGLE_CUSTOM_SEARCH_API_KEY');
-  const cx = Deno.env.get('GOOGLE_CUSTOM_SEARCH_CX');
-
-  if (!apiKey || !cx) {
-    throw new Error('Google Custom Search API credentials not configured');
-  }
-
-  const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(keyword)}&num=10`;
+  console.log(`🔍 WEB SCRAPER: Starting analysis for "${keyword}" targeting ${targetDomain}`);
   
-  // Phase 4: Detailed debug logging
-  console.log(`🔗 Search URL: ${searchUrl.replace(apiKey, 'REDACTED')}`);
+  try {
+    // Call our new web scraper function
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-  const response = await fetch(searchUrl);
-  const data: GoogleSearchResponse = await response.json();
-
-  if (!response.ok) {
-    // FASE 4: Detailed error logging for debugging
-    console.error(`❌ FASE 4: Google Search API Error Details:`, {
-      status: response.status,
-      statusText: response.statusText,
-      keyword,
-      encodedKeyword: encodeURIComponent(keyword),
-      url: searchUrl.replace(apiKey!, 'REDACTED'),
-      fullResponse: data,
-      timestamp: new Date().toISOString()
+    const { data: scraperResponse, error } = await supabase.functions.invoke('web-scraper', {
+      body: { 
+        keyword,
+        maxResults: 20
+      }
     });
-    throw new Error(`Google Search API error ${response.status}: ${JSON.stringify(data)}`);
-  }
 
-  // FASE 4: Enhanced success logging
-  console.log(`✅ FASE 4: API Success for "${keyword}": Found ${data.items?.length || 0} results`);
-  console.log(`🔍 FASE 4: Search results preview:`, data.items?.slice(0, 3).map(item => ({
-    title: item.title?.substring(0, 50),
-    domain: extractDomain(item.link)
-  })));
-
-  const competitorPositions: CompetitorPosition[] = [];
-  let targetDomainPosition: number | null = null;
-
-  data.items?.forEach((item, index) => {
-    const domain = extractDomain(item.link);
-    const position = index + 1;
-
-    if (domain === targetDomain) {
-      targetDomainPosition = position;
+    if (error) {
+      console.error(`❌ WEB SCRAPER ERROR:`, error);
+      throw new Error(`Web scraper failed: ${error.message}`);
     }
 
-    competitorPositions.push({
-      domain,
-      position,
-      url: item.link,
-      title: item.title
+    if (!scraperResponse.success) {
+      console.error(`❌ WEB SCRAPER FAILED:`, scraperResponse.error);
+      throw new Error(`Web scraper failed: ${scraperResponse.error}`);
+    }
+
+    const results = scraperResponse.results || [];
+    console.log(`✅ WEB SCRAPER: Retrieved ${results.length} real search results for "${keyword}"`);
+
+    // Convert scraper results to our analysis format
+    const competitorPositions: CompetitorPosition[] = [];
+    let targetDomainPosition: number | null = null;
+
+    results.forEach((result: any) => {
+      const domain = result.domain;
+      const position = result.position;
+
+      // Check if this is our target domain
+      if (domain === targetDomain || domain === `www.${targetDomain}`) {
+        targetDomainPosition = position;
+        console.log(`🎯 WEB SCRAPER: Found target domain ${targetDomain} at position ${position}`);
+      }
+
+      competitorPositions.push({
+        domain,
+        position,
+        url: result.url,
+        title: result.title
+      });
     });
-  });
 
-  // Estimate competition level based on results diversity
-  const uniqueDomains = new Set(competitorPositions.map(p => p.domain));
-  const competitionLevel: 'low' | 'medium' | 'high' = 
-    uniqueDomains.size <= 3 ? 'high' : 
-    uniqueDomains.size <= 6 ? 'medium' : 'low';
+    // Log competitor analysis
+    const competitors = competitorPositions
+      .filter(p => p.domain !== targetDomain && !p.domain.includes(targetDomain))
+      .slice(0, 10);
+    
+    console.log(`🏢 WEB SCRAPER: Top competitors found:`, competitors.slice(0, 5).map(c => ({
+      domain: c.domain,
+      position: c.position
+    })));
 
-  return {
-    keyword,
-    target_domain_position: targetDomainPosition,
-    competitor_positions: competitorPositions,
-    competition_level: competitionLevel
-  };
+    // Estimate competition level based on results diversity
+    const uniqueDomains = new Set(competitorPositions.map(p => p.domain));
+    const competitionLevel: 'low' | 'medium' | 'high' = 
+      uniqueDomains.size <= 3 ? 'high' : 
+      uniqueDomains.size <= 6 ? 'medium' : 'low';
+
+    console.log(`📊 WEB SCRAPER: Competition level for "${keyword}": ${competitionLevel} (${uniqueDomains.size} unique domains)`);
+
+    return {
+      keyword,
+      target_domain_position: targetDomainPosition,
+      competitor_positions: competitorPositions,
+      competition_level: competitionLevel
+    };
+
+  } catch (error) {
+    console.error(`❌ WEB SCRAPER: Failed to analyze keyword "${keyword}":`, error.message);
+    throw error;
+  }
 }
 
 function extractDomain(url: string): string {
