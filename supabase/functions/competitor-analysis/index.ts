@@ -50,14 +50,20 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Create initial competitive analysis entry
+    const analysisInsert = {
+      user_id: userId,
+      target_domain: targetDomain,
+      status: 'analyzing'
+    };
+    
+    // Only add audit_report_id if it's provided
+    if (auditReportId) {
+      analysisInsert.audit_report_id = auditReportId;
+    }
+
     const { data: analysisData, error: analysisError } = await supabase
       .from('competitor_analyses')
-      .insert({
-        user_id: userId,
-        audit_report_id: auditReportId,
-        target_domain: targetDomain,
-        status: 'analyzing'
-      })
+      .insert(analysisInsert)
       .select()
       .single();
 
@@ -120,7 +126,7 @@ serve(async (req) => {
 async function performCompetitiveAnalysis(
   supabase: any,
   analysisId: string,
-  auditReportId: string,
+  auditReportId: string | null,
   targetDomain: string,
   additionalCompetitors: string[]
 ) {
@@ -172,14 +178,15 @@ async function performCompetitiveAnalysis(
 
     // FASE 2: Immediate fallback if no keywords (don't waste time on API test)
     if (optimizedKeywords.length === 0) {
-      console.log(`❌ FASE 2: No valid keywords found after filtering - immediate simulation fallback`);
+      console.log(`❌ FASE 2: No valid keywords found after filtering - using simulation fallback`);
       
       // Update metadata to show why simulation was used
       await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
-        reason: 'no_valid_keywords',
+        reason: auditReportId ? 'no_valid_keywords' : 'no_audit_provided',
         raw_keywords_count: rawKeywords.length,
         optimized_keywords_count: 0,
-        sample_raw_keywords: rawKeywords.slice(0, 5)
+        sample_raw_keywords: rawKeywords.slice(0, 5),
+        audit_report_id: auditReportId
       });
       
       const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
@@ -385,8 +392,14 @@ async function performCompetitiveAnalysis(
   }
 }
 
-async function extractKeywordsFromAudit(supabase: any, auditReportId: string): Promise<{ success: boolean; keywords?: string[]; error?: string }> {
+async function extractKeywordsFromAudit(supabase: any, auditReportId: string | null): Promise<{ success: boolean; keywords?: string[]; error?: string }> {
   try {
+    // If no audit report provided, return empty keywords (will trigger fallback)
+    if (!auditReportId) {
+      console.log('📝 No audit report provided - using fallback keyword generation');
+      return { success: true, keywords: [] };
+    }
+
     // First get the audit category ID
     const { data: categories, error: categoryError } = await supabase
       .from('audit_categories')

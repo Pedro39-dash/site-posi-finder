@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, X, Target, ArrowRight, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, X, Target, ArrowRight, RefreshCw } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { useProjects } from "@/contexts/ProjectContext";
-import { AuditService, AuditReport } from "@/services/auditService";
 import { CompetitorAnalysisService } from "@/services/competitorAnalysisService";
 import { toast } from "sonner";
 
@@ -19,11 +18,6 @@ interface DirectCompetitiveFormProps {
 
 const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps) => {
   const { projects, selectedProject, setSelectedProject } = useProjects();
-  
-  // Project and audit data
-  const [audits, setAudits] = useState<AuditReport[]>([]);
-  const [selectedAudit, setSelectedAudit] = useState<string>("");
-  const [loadingAudits, setLoadingAudits] = useState(true);
   
   // Form data
   const [clientDomain, setClientDomain] = useState<string>("");
@@ -35,10 +29,6 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
   
   // UI states
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    loadUserAudits();
-  }, []);
 
   useEffect(() => {
     if (selectedProject) {
@@ -54,49 +44,16 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     }
   }, [selectedProject]);
 
-  const loadUserAudits = async () => {
-    try {
-      setLoadingAudits(true);
-      const result = await AuditService.getUserAudits(20);
-      if (result.success && result.audits) {
-        const completedAudits = result.audits.filter(audit => audit.status === 'completed');
-        setAudits(completedAudits);
-      }
-    } catch (error) {
-      console.error('Error loading audits:', error);
-    } finally {
-      setLoadingAudits(false);
-    }
-  };
-
   const handleProjectChange = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     setSelectedProject(project || null);
   };
 
-  const handleAuditSelect = (auditId: string) => {
-    setSelectedAudit(auditId);
-    const selectedAuditData = audits.find(audit => audit.id === auditId);
-    if (selectedAuditData) {
-      const domain = extractDomainFromUrl(selectedAuditData.url);
-      setClientDomain(domain);
-    }
-  };
-
-  const extractDomainFromUrl = (url: string): string => {
-    try {
-      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-      return urlObj.hostname.replace(/^www\./, '');
-    } catch {
-      return url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-    }
-  };
-
   const addCompetitor = () => {
     if (newCompetitor.trim() && !competitors.includes(newCompetitor.trim())) {
-      const domain = extractDomainFromUrl(newCompetitor.trim());
-      if (domain !== clientDomain) {
-        setCompetitors([...competitors, domain]);
+      const cleanedCompetitor = newCompetitor.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+      if (cleanedCompetitor !== clientDomain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]) {
+        setCompetitors([...competitors, cleanedCompetitor]);
         setNewCompetitor("");
       } else {
         toast.error("Não é possível adicionar o próprio domínio como concorrente");
@@ -138,11 +95,6 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     e.preventDefault();
     
     // Validation
-    if (!selectedAudit) {
-      toast.error("Selecione uma auditoria base para realizar a análise");
-      return;
-    }
-
     if (!clientDomain.trim()) {
       toast.error("Digite o domínio do cliente");
       return;
@@ -162,7 +114,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
       setLoading(true);
       
       const result = await CompetitorAnalysisService.startAnalysis(
-        selectedAudit,
+        null, // No audit required
         clientDomain,
         competitors
       );
@@ -181,13 +133,6 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     }
   };
 
-  const getAuditScoreBadge = (score: number) => {
-    if (score >= 80) return <Badge className="bg-green-100 text-green-800">Excelente</Badge>;
-    if (score >= 60) return <Badge className="bg-yellow-100 text-yellow-800">Bom</Badge>;
-    if (score >= 40) return <Badge className="bg-orange-100 text-orange-800">Regular</Badge>;
-    return <Badge className="bg-red-100 text-red-800">Precisa Melhorar</Badge>;
-  };
-
   return (
     <div className="max-w-4xl mx-auto">
       <Card>
@@ -197,7 +142,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             Análise Competitiva SEO
           </CardTitle>
           <CardDescription>
-            Compare seu site com concorrentes usando dados reais do Google. Selecione uma auditoria base para iniciar a análise.
+            Analise seu site diretamente comparando com concorrentes usando dados reais do Google. A análise coletará os dados necessários durante o processo.
           </CardDescription>
         </CardHeader>
         
@@ -205,71 +150,26 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
           <form onSubmit={handleSubmit} className="space-y-8">
             
             {/* Data Source Selection */}
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Project Selection */}
-              <div className="space-y-3">
-                <Label>Selecionar Projeto (Opcional)</Label>
-                <Select
-                  value={selectedProject?.id || ""}
-                  onValueChange={handleProjectChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Carregar dados de um projeto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{project.name}</span>
-                          <span className="text-sm text-muted-foreground">{project.mainDomain}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Audit Selection */}
-              <div className="space-y-3">
-                <Label>Auditoria Base *</Label>
-                {loadingAudits ? (
-                  <div className="flex items-center gap-2 p-3 border rounded-md">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Carregando auditorias...</span>
-                  </div>
-                ) : audits.length > 0 ? (
-                  <Select value={selectedAudit} onValueChange={handleAuditSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma auditoria base" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {audits.map((audit) => (
-                        <SelectItem key={audit.id} value={audit.id}>
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate max-w-[200px]">
-                                {extractDomainFromUrl(audit.url)}
-                              </span>
-                              {getAuditScoreBadge(audit.overall_score)}
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    <AlertDescription className="text-amber-800 dark:text-amber-200">
-                      <strong>Auditoria Obrigatória:</strong> Você precisa ter pelo menos uma auditoria SEO completada para realizar a análise competitiva. 
-                      <br />
-                      <a href="/audit" className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100">
-                        ➜ Criar sua primeira auditoria agora
-                      </a>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
+            <div className="space-y-3">
+              <Label>Selecionar Projeto (Opcional)</Label>
+              <Select
+                value={selectedProject?.id || ""}
+                onValueChange={handleProjectChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Carregar dados de um projeto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{project.name}</span>
+                        <span className="text-sm text-muted-foreground">{project.mainDomain}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />
@@ -425,13 +325,11 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             </Alert>
 
             {/* Requirements Check */}
-            {(!selectedAudit || !clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0) && (
+            {(!clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0) && (
               <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <AlertDescription className="text-blue-800 dark:text-blue-200">
                   <strong>Para iniciar a análise, você precisa:</strong>
                   <ul className="mt-2 space-y-1 text-sm">
-                    {!selectedAudit && <li>• Selecionar uma auditoria base</li>}
                     {!clientDomain.trim() && <li>• Informar o domínio do cliente</li>}
                     {competitors.length === 0 && <li>• Adicionar pelo menos um concorrente</li>}
                     {selectedKeywords.length === 0 && <li>• Adicionar pelo menos uma palavra-chave</li>}
@@ -443,7 +341,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={!selectedAudit || !clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0 || loading}
+              disabled={!clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0 || loading}
               className="w-full"
               size="lg"
             >

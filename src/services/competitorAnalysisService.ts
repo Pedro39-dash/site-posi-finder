@@ -70,7 +70,7 @@ export interface CompetitiveAnalysisData {
 export class CompetitorAnalysisService {
   
   static async startAnalysis(
-    auditReportId: string, 
+    auditReportId: string | null, 
     targetDomain: string, 
     additionalCompetitors: string[] = []
   ): Promise<{ success: boolean; analysisId?: string; error?: string }> {
