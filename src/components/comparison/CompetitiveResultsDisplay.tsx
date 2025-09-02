@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
-import { ArrowUp, ArrowDown, Trophy, Target, RefreshCw, AlertTriangle, TrendingUp, Users, Eye } from "lucide-react";
+import { ArrowUp, ArrowDown, Trophy, Target, RefreshCw, AlertTriangle, TrendingUp, Users, Eye, BarChart3, Zap, ArrowUpCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CompetitorAnalysisService, CompetitiveAnalysisData } from "@/services/competitorAnalysisService";
+import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from "@/services/competitorAnalysisService";
+import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead } from "@/utils/competitiveAnalysis";
+import KeywordDetailModal from "./KeywordDetailModal";
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -17,6 +19,8 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const [analysisData, setAnalysisData] = useState<CompetitiveAnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   useEffect(() => {
     loadAnalysisData();
@@ -92,6 +96,9 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
 
   const { analysis, competitors, keywords, opportunities } = analysisData;
 
+  // Calculate enhanced competitive metrics
+  const competitiveMetrics = calculateCompetitiveMetrics(keywords, competitors);
+
   // Show loading state if analysis is still running
   if (analysis.status === 'analyzing' || analysis.status === 'pending') {
     const metadata = analysis.metadata || {};
@@ -159,6 +166,30 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     return "outline";
   };
 
+  const getDifficultyColor = (level: string) => {
+    switch (level) {
+      case 'low': return 'text-green-600';
+      case 'medium': return 'text-yellow-600';
+      case 'high': return 'text-orange-600';
+      case 'very-high': return 'text-red-600';
+      default: return 'text-muted-foreground';
+    }
+  };
+
+  const getPotentialColor = (level: string) => {
+    switch (level) {
+      case 'high': return 'text-green-600';
+      case 'medium': return 'text-yellow-600';
+      case 'low': return 'text-red-600';
+      default: return 'text-muted-foreground';
+    }
+  };
+
+  const handleViewDetails = (keyword: CompetitorKeyword) => {
+    setSelectedKeyword(keyword);
+    setIsDetailModalOpen(true);
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -172,20 +203,36 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
         </p>
       </div>
 
-      {/* Main Metrics Cards */}
+      {/* Main Metrics Cards - Enhanced with Insights */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+        <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Score Competitivo</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-primary">Posição Média Competitiva</CardTitle>
+            <BarChart3 className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">
-              {analysis.overall_competitiveness_score}%
+              {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap}
             </div>
             <p className="text-xs text-muted-foreground">
-              {analysis.overall_competitiveness_score >= 70 ? 'Muito competitivo' : 
-               analysis.overall_competitiveness_score >= 50 ? 'Moderadamente competitivo' : 'Baixa competitividade'}
+              {competitiveMetrics.averagePositionGap > 0 ? 
+                `${competitiveMetrics.averagePositionGap} posições atrás` : 
+                'Liderando na maioria das palavras-chave'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-accent/20 bg-accent/5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-accent">Potencial de Tráfego Perdido</CardTitle>
+            <Zap className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-accent">
+              +{competitiveMetrics.lostTrafficPotential}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              de tráfego orgânico potencial
             </p>
           </CardContent>
         </Card>
@@ -205,71 +252,63 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Concorrente Vence</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{competitorWins}</div>
-            <p className="text-xs text-muted-foreground">
-              oportunidades identificadas
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Oportunidades</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Oportunidades Rápidas</CardTitle>
+            <ArrowUpCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-600">{opportunities.length}</div>
-            <p className="text-xs text-muted-foreground">para melhorar</p>
+            <p className="text-xs text-muted-foreground">melhorias de baixo esforço</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Top Competitor Summary */}
-      {topCompetitor && (
-        <Card className="bg-accent/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-accent" />
-              Principal Concorrente Identificado
-            </CardTitle>
-            <CardDescription>
-              Concorrente que mais compete com você nas palavras-chave analisadas
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <p className="text-lg font-semibold">
-                  {getDomainName(topCompetitor.domain)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Posição média: {topCompetitor.average_position}ª • 
-                  Share of Voice: {topCompetitor.share_of_voice}%
-                </p>
+      {/* Top Competitors - Enhanced */}
+      <Card className="bg-accent/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-accent" />
+            Top Concorrentes Identificados
+          </CardTitle>
+          <CardDescription>
+            Concorrentes que mais competem com você nas palavras-chave analisadas
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {competitiveMetrics.topCompetitors.slice(0, 5).map((competitor, index) => (
+              <div key={index} className="flex items-center justify-between p-4 border rounded-lg bg-white">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="font-semibold">{competitor.domain}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Posição média: {competitor.averagePosition}ª • Share of Voice: {competitor.shareOfVoice}%
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Badge variant={index === 0 ? "destructive" : index === 1 ? "secondary" : "outline"}>
+                    {competitor.winsCount} vitórias
+                  </Badge>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {index === 0 ? 'Principal rival' : index === 1 ? 'Segundo rival' : 'Concorrente secundário'}
+                  </p>
+                </div>
               </div>
-              <div className="flex gap-4">
-                <Badge variant="secondary">
-                  {topCompetitor.total_keywords_found} keywords encontradas
-                </Badge>
-                <Badge variant="default">
-                  Score: {topCompetitor.relevance_score}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Keywords Analysis Table */}
+
+      {/* Enhanced Keywords Analysis Table */}
       <Card>
         <CardHeader>
           <CardTitle>Análise Detalhada por Palavra-chave</CardTitle>
           <CardDescription>
-            Comparação posição por posição das {keywords.length} palavras-chave analisadas
+            Comparação completa das {keywords.length} palavras-chave analisadas com insights acionáveis
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -278,21 +317,32 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
               <TableHeader>
                 <TableRow>
                   <TableHead>Palavra-chave</TableHead>
-                  <TableHead className="text-center">Sua Posição</TableHead>
-                  <TableHead className="text-center">Melhor Concorrente</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">Minha Posição</TableHead>
+                  <TableHead className="text-center">Concorrentes (Posição)</TableHead>
+                  <TableHead className="text-center">Dificuldade de Superação</TableHead>
+                  <TableHead className="text-center">Potencial</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {keywords.slice(0, 20).map((keyword) => {
-                  const bestCompetitorPos = Math.min(...keyword.competitor_positions.map(cp => cp.position));
+                  const competitorsAhead = getCompetitorsAhead(keyword);
+                  const difficulty = getKeywordCompetitiveDifficulty(keyword);
+                  const potential = getKeywordPotential(keyword);
                   const myPosition = keyword.target_domain_position;
-                  const isWinning = myPosition && (bestCompetitorPos > myPosition);
+                  const isWinning = competitorsAhead.length === 0 && myPosition;
                   
                   return (
-                    <TableRow key={keyword.id}>
-                      <TableCell className="font-medium">
-                        {keyword.keyword}
+                    <TableRow key={keyword.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium max-w-xs">
+                        <div>
+                          <p className="truncate">{keyword.keyword}</p>
+                          {keyword.search_volume && (
+                            <p className="text-xs text-muted-foreground">
+                              Vol: {keyword.search_volume}
+                            </p>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant={getPositionBadgeVariant(myPosition)}>
@@ -300,26 +350,62 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={getPositionBadgeVariant(bestCompetitorPos)}>
-                          {bestCompetitorPos}ª
-                        </Badge>
+                        <div className="space-y-1">
+                          {competitorsAhead.slice(0, 3).map((comp, index) => (
+                            <div key={index} className="flex items-center justify-center gap-1">
+                              <span className="text-xs truncate max-w-20">{comp.domain}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {comp.position}ª
+                              </Badge>
+                            </div>
+                          ))}
+                          {competitorsAhead.length > 3 && (
+                            <p className="text-xs text-muted-foreground">
+                              +{competitorsAhead.length - 3} mais
+                            </p>
+                          )}
+                          {competitorsAhead.length === 0 && (
+                            <Badge variant="default" className="text-xs">
+                              <Trophy className="h-3 w-3 mr-1" />
+                              Liderando
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        {isWinning ? (
-                          <Badge variant="default" className="gap-1">
-                            <Trophy className="h-3 w-3" />
-                            Vencendo
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${getDifficultyColor(difficulty.level)}`}
+                        >
+                          {difficulty.level.toUpperCase()}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Score: {difficulty.score}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="space-y-1">
+                          <Badge 
+                            variant="secondary" 
+                            className={`text-xs ${getPotentialColor(potential.improvementPotential)}`}
+                          >
+                            {potential.improvementPotential.toUpperCase()}
                           </Badge>
-                        ) : myPosition && bestCompetitorPos < myPosition ? (
-                          <Badge variant="destructive" className="gap-1">
-                            <Target className="h-3 w-3" />
-                            Oportunidade
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">
-                            Empate/Não ranqueado
-                          </Badge>
-                        )}
+                          <p className="text-xs text-muted-foreground">
+                            Projeção: {potential.projectedPosition}ª
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewDetails(keyword)}
+                          className="text-xs"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          Ver Detalhes
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -396,6 +482,14 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           </div>
         </CardContent>
       </Card>
+
+      {/* Keyword Detail Modal */}
+      <KeywordDetailModal
+        keyword={selectedKeyword}
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        targetDomain={analysis.target_domain}
+      />
     </div>
   );
 };
