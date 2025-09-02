@@ -40,7 +40,7 @@ serve(async (req) => {
   }
 
   try {
-    const { auditReportId, targetDomain, userId, additionalCompetitors = [] } = await req.json();
+    const { auditReportId, targetDomain, userId, additionalCompetitors = [], keywords = [] } = await req.json();
 
     console.log(`🚀 Starting competitive analysis for: ${targetDomain}, Audit: ${auditReportId}`);
 
@@ -79,7 +79,7 @@ serve(async (req) => {
 
     // FASE 3: Execute analysis synchronously instead of background
     try {
-      await performCompetitiveAnalysis(supabase, analysisData.id, auditReportId, targetDomain, additionalCompetitors);
+      await performCompetitiveAnalysis(supabase, analysisData.id, auditReportId, targetDomain, additionalCompetitors, keywords);
       
       return new Response(JSON.stringify({ 
         success: true, 
@@ -128,7 +128,8 @@ async function performCompetitiveAnalysis(
   analysisId: string,
   auditReportId: string | null,
   targetDomain: string,
-  additionalCompetitors: string[]
+  additionalCompetitors: string[],
+  manualKeywords: string[] = []
 ) {
   const analysisStartTime = Date.now();
   // FASE 2: Increase timeouts significantly
@@ -138,54 +139,38 @@ async function performCompetitiveAnalysis(
 
   try {
     console.log(`🔍 Starting analysis for ${targetDomain}`);
+    console.log(`📝 Manual keywords provided: ${manualKeywords.length} - [${manualKeywords.join(', ')}]`);
+    console.log(`🏢 Additional competitors: ${additionalCompetitors.length} - [${additionalCompetitors.join(', ')}]`);
 
-    // Phase 1: Immediate API Validation
-    const apiKey = Deno.env.get('GOOGLE_CUSTOM_SEARCH_API_KEY');
-    const cx = Deno.env.get('GOOGLE_CUSTOM_SEARCH_CX');
+    // PRIORITIZE MANUAL KEYWORDS FIRST
+    let finalKeywords: string[] = [];
     
-    if (!apiKey || !cx) {
-      console.error('❌ Missing API credentials - falling back to simulation');
-      shouldUseFallback = true;
+    if (manualKeywords && manualKeywords.length > 0) {
+      console.log(`✅ Using ${manualKeywords.length} manually provided keywords`);
+      finalKeywords = manualKeywords.slice(0, 10); // Limit to 10 keywords for performance
     } else {
-      // Test API connectivity with a simple query
-      try {
-        console.log('🧪 Testing API connectivity...');
-        await testApiConnectivity(apiKey, cx);
-        console.log('✅ API connectivity test passed');
-      } catch (error) {
-        console.error('❌ API connectivity test failed:', error.message);
-        shouldUseFallback = true;
+      console.log(`📋 No manual keywords provided, extracting from audit...`);
+      // Extract keywords from audit report as fallback
+      const keywordsResult = await extractKeywordsFromAudit(supabase, auditReportId);
+      if (!keywordsResult.success) {
+        throw new Error(`Failed to extract keywords: ${keywordsResult.error}`);
       }
+
+      const rawKeywords = keywordsResult.keywords || [];
+      console.log(`📝 Raw keywords extracted from audit: ${rawKeywords.length} - [${rawKeywords.slice(0, 5).join(', ')}...]`);
+
+      // Optimize keywords with filtering
+      finalKeywords = optimizeKeywordsSmarter(rawKeywords);
+      console.log(`🎯 Keywords after optimization: ${finalKeywords.length}`);
     }
 
-    // If we need fallback, use simulated analysis
-    if (shouldUseFallback) {
-      return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
-    }
-
-    // Extract keywords from audit report
-    const keywordsResult = await extractKeywordsFromAudit(supabase, auditReportId);
-    if (!keywordsResult.success) {
-      throw new Error(`Failed to extract keywords: ${keywordsResult.error}`);
-    }
-
-    const rawKeywords = keywordsResult.keywords || [];
-    console.log(`📝 FASE 1: Raw keywords extracted: ${rawKeywords.length} - [${rawKeywords.slice(0, 5).join(', ')}...]`);
-
-    // FASE 1: Optimize keywords with much more flexible filtering
-    const optimizedKeywords = optimizeKeywordsSmarter(rawKeywords);
-    console.log(`🎯 FASE 1: Keywords after optimization: ${optimizedKeywords.length}`);
-
-    // FASE 2: Immediate fallback if no keywords (don't waste time on API test)
-    if (optimizedKeywords.length === 0) {
-      console.log(`❌ FASE 2: No valid keywords found after filtering - using simulation fallback`);
+    // If still no keywords, use simulation
+    if (finalKeywords.length === 0) {
+      console.log(`❌ No valid keywords found - using simulation fallback`);
       
-      // Update metadata to show why simulation was used
       await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
-        reason: auditReportId ? 'no_valid_keywords' : 'no_audit_provided',
-        raw_keywords_count: rawKeywords.length,
-        optimized_keywords_count: 0,
-        sample_raw_keywords: rawKeywords.slice(0, 5),
+        reason: auditReportId ? 'no_valid_keywords' : 'no_keywords_provided',
+        manual_keywords_count: manualKeywords.length,
         audit_report_id: auditReportId
       });
       
@@ -196,25 +181,27 @@ async function performCompetitiveAnalysis(
       return { success: true };
     }
 
-    // FASE 2: Test API connectivity with the actual keywords we'll use
-    try {
-      console.log(`🧪 FASE 2: Starting comprehensive API test with ${optimizedKeywords.length} keywords...`);
-      await testApiConnectivity(apiKey, cx, optimizedKeywords);
-      console.log(`✅ FASE 2: API connectivity confirmed - proceeding with REAL analysis!`);
-    } catch (error) {
-      console.log(`❌ FASE 2: API test failed - using simulation fallback: ${error.message}`);
-      
-      // Update metadata to show detailed reason for simulation mode
-      await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
-        reason: 'api_connectivity_failed',
-        api_error: error.message,
-        available_keywords: optimizedKeywords.length,
-        keywords_sample: optimizedKeywords.slice(0, 3),
-        fallback_triggered: true,
-        test_timestamp: new Date().toISOString()
-      });
-      
-      console.log(`🎮 FASE 2: Switching to simulation mode due to API issues...`);
+    // Phase 2: API connectivity test
+    const apiKey = Deno.env.get('GOOGLE_CUSTOM_SEARCH_API_KEY');
+    const cx = Deno.env.get('GOOGLE_CUSTOM_SEARCH_CX');
+    
+    if (!apiKey || !cx) {
+      console.error('❌ Missing API credentials - falling back to simulation');
+      shouldUseFallback = true;
+    } else {
+      try {
+        console.log(`🧪 Starting comprehensive API test with ${finalKeywords.length} keywords...`);
+        await testApiConnectivity(apiKey, cx, finalKeywords);
+        console.log(`✅ API connectivity confirmed - proceeding with REAL analysis!`);
+      } catch (error) {
+        console.log(`❌ API test failed - using simulation fallback: ${error.message}`);
+        shouldUseFallback = true;
+      }
+    }
+
+    // If we need fallback, use simulated analysis
+    if (shouldUseFallback) {
+      console.log(`🎮 Switching to simulation mode...`);
       const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
       if (!simulationResult.success) {
         throw new Error(`Simulation failed: ${simulationResult.error}`);
@@ -225,30 +212,30 @@ async function performCompetitiveAnalysis(
     // Update status to show progress
     await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
       stage: 'keyword_analysis',
-      total_keywords: optimizedKeywords.length,
-      processed_keywords: 0
+      total_keywords: finalKeywords.length,
+      processed_keywords: 0,
+      manual_keywords_used: manualKeywords.length > 0
     });
 
     // Phase 3: Perform analysis with timeout control
     const keywordAnalyses: KeywordAnalysis[] = [];
     const competitorDomains = new Set<string>();
     let consecutiveFailures = 0;
-    const MAX_CONSECUTIVE_FAILURES = 2; // FASE 3: Allow more failures before fallback
+    const MAX_CONSECUTIVE_FAILURES = 2;
     
-    for (let i = 0; i < optimizedKeywords.length; i++) {
+    for (let i = 0; i < finalKeywords.length; i++) {
       // Check timeout
       if (Date.now() - analysisStartTime > ANALYSIS_TIMEOUT) {
         console.warn('⏰ Analysis timeout reached - stopping processing');
         break;
       }
 
-      const keyword = optimizedKeywords[i];
-      console.log(`🔍 [${i + 1}/${optimizedKeywords.length}] Analyzing: "${keyword}"`);
+      const keyword = finalKeywords[i];
+      console.log(`🔍 [${i + 1}/${finalKeywords.length}] Analyzing: "${keyword}"`);
       
       try {
-        // FASE 4: Add timing logs for debugging
         const keywordStartTime = Date.now();
-        console.log(`⏱️ FASE 4: Starting analysis for keyword "${keyword}" at ${keywordStartTime}`);
+        console.log(`⏱️ Starting analysis for keyword "${keyword}" at ${keywordStartTime}`);
         
         // Individual keyword timeout with retry
         const keywordPromise = analyzeKeywordPositionsWithRetry(keyword, targetDomain, 2);
@@ -259,7 +246,7 @@ async function performCompetitiveAnalysis(
         const analysis = await Promise.race([keywordPromise, timeoutPromise]) as KeywordAnalysis;
         
         const keywordEndTime = Date.now();
-        console.log(`✅ FASE 4: Keyword "${keyword}" completed in ${keywordEndTime - keywordStartTime}ms`);
+        console.log(`✅ Keyword "${keyword}" completed in ${keywordEndTime - keywordStartTime}ms`);
         
         // Collect competitor domains
         analysis.competitor_positions.forEach(pos => {
@@ -269,15 +256,15 @@ async function performCompetitiveAnalysis(
         });
         
         keywordAnalyses.push(analysis);
-        consecutiveFailures = 0; // Reset failure counter
+        consecutiveFailures = 0;
         
       } catch (error) {
         consecutiveFailures++;
         console.warn(`⚠️ Failed to analyze keyword "${keyword}":`, error.message);
         
-        // FASE 3: More intelligent fallback logic
+        // More intelligent fallback logic
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          console.error(`❌ FASE 3: Too many consecutive failures (${consecutiveFailures}) - switching to simulation mode`);
+          console.error(`❌ Too many consecutive failures (${consecutiveFailures}) - switching to simulation mode`);
           return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
         }
       }
@@ -285,7 +272,7 @@ async function performCompetitiveAnalysis(
       // Update progress
       await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
         stage: 'keyword_analysis',
-        total_keywords: optimizedKeywords.length,
+        total_keywords: finalKeywords.length,
         processed_keywords: i + 1,
         success_rate: keywordAnalyses.length / (i + 1)
       });
@@ -370,13 +357,16 @@ async function performCompetitiveAnalysis(
         metadata: {
           keywords_analyzed: keywordAnalyses.length,
           competitors_found: competitorDomains.size,
-          opportunities_identified: opportunities.length
+          opportunities_identified: opportunities.length,
+          manual_keywords_used: manualKeywords.length > 0,
+          keywords_source: manualKeywords.length > 0 ? 'manual' : 'audit'
         }
       })
       .eq('id', analysisId);
 
     console.log(`✅ Competitive analysis completed successfully for ${targetDomain}`);
     console.log(`📊 Final Results: ${overallScore}% competitiveness score from ${keywordAnalyses.length} keywords`);
+    console.log(`🎯 Keywords used: [${finalKeywords.join(', ')}]`);
 
   } catch (error) {
     console.error('❌ Error in performCompetitiveAnalysis:', error);

@@ -72,7 +72,8 @@ export class CompetitorAnalysisService {
   static async startAnalysis(
     auditReportId: string | null, 
     targetDomain: string, 
-    additionalCompetitors: string[] = []
+    additionalCompetitors: string[] = [],
+    keywords: string[] = []
   ): Promise<{ success: boolean; analysisId?: string; error?: string }> {
     try {
       console.log(`🚀 Starting competitive analysis for: ${targetDomain}`);
@@ -91,7 +92,8 @@ export class CompetitorAnalysisService {
           auditReportId,
           targetDomain,
           userId: user.id,
-          additionalCompetitors
+          additionalCompetitors,
+          keywords
         }
       });
 

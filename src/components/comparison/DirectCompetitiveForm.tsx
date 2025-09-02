@@ -116,7 +116,8 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
       const result = await CompetitorAnalysisService.startAnalysis(
         null, // No audit required
         clientDomain,
-        competitors
+        competitors,
+        selectedKeywords
       );
 
       if (result.success && result.analysisId) {
