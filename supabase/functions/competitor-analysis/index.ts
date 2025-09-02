@@ -174,7 +174,7 @@ async function performCompetitiveAnalysis(
         audit_report_id: auditReportId
       });
       
-      const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
+      const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors, manualKeywords);
       if (!simulationResult.success) {
         throw new Error(`Simulation failed: ${simulationResult.error}`);
       }
@@ -201,8 +201,8 @@ async function performCompetitiveAnalysis(
 
     // If we need fallback, use simulated analysis
     if (shouldUseFallback) {
-      console.log(`🎮 Switching to simulation mode...`);
-      const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
+      console.log(`🎮 Switching to simulation mode with manual keywords...`);
+      const simulationResult = await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors, finalKeywords);
       if (!simulationResult.success) {
         throw new Error(`Simulation failed: ${simulationResult.error}`);
       }
@@ -265,7 +265,7 @@ async function performCompetitiveAnalysis(
         // More intelligent fallback logic
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
           console.error(`❌ Too many consecutive failures (${consecutiveFailures}) - switching to simulation mode`);
-          return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
+          return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors, finalKeywords);
         }
       }
       
@@ -794,19 +794,43 @@ async function performSimulatedAnalysis(
   supabase: any,
   analysisId: string,
   targetDomain: string,
-  additionalCompetitors: string[]
+  additionalCompetitors: string[],
+  manualKeywords: string[] = []
 ): Promise<{ success: boolean; error?: string }> {
   console.log('🎮 FASE 4: Starting simulated competitive analysis with realistic competitors...');
+  console.log(`📝 SIMULATION: Using ${manualKeywords.length} manual keywords: [${manualKeywords.join(', ')}]`);
   
   try {
     // Simulate some processing time
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // FASE 4: Create REALISTIC competitors based on target domain sector
+    // FASE 4: Create REALISTIC competitors based on manual keywords context or domain
     let realisticCompetitors: string[] = [];
     
-    // Detect domain sector and create appropriate competitors
-    if (targetDomain.includes('copex') || targetDomain.includes('construc') || targetDomain.includes('obra')) {
+    // Generate contextual competitors based on manual keywords first
+    if (manualKeywords.length > 0) {
+      const keywordContext = manualKeywords.join(' ').toLowerCase();
+      
+      if (keywordContext.includes('polimento') || keywordContext.includes('inox') || keywordContext.includes('aço') || keywordContext.includes('metalurgia')) {
+        // Metal/steel/polishing industry
+        realisticCompetitors = [
+          'aperam.com.br',
+          'gerdau.com.br', 
+          'usiminas.com.br',
+          'arcelor.com.br',
+          'metalplan.com.br'
+        ];
+      } else if (keywordContext.includes('construção') || keywordContext.includes('obra') || keywordContext.includes('engenharia')) {
+        // Construction sector
+        realisticCompetitors = [
+          'mrv.com.br',
+          'cyrela.com.br',
+          'pdg.com.br',
+          'tecnisa.com.br'
+        ];
+      } else {
+        // Keep domain-based detection as fallback
+        if (targetDomain.includes('copex') || targetDomain.includes('construc') || targetDomain.includes('obra')) {
       // Construction/Industrial equipment sector
       realisticCompetitors = [
         'caterpillar.com.br',
@@ -835,23 +859,59 @@ async function performSimulatedAnalysis(
         'fleury.com.br',
         'dasa.com.br'
       ];
+        } else {
+          // Generic Brazilian business competitors
+          realisticCompetitors = [
+            'petrobras.com.br',
+            'vale.com',
+            'itau.com.br',
+            'bradesco.com.br'
+          ];
+        }
+      }
     } else {
-      // Generic Brazilian business competitors
-      realisticCompetitors = [
-        'petrobras.com.br',
-        'vale.com',
-        'itau.com.br',
-        'bradesco.com.br',
-        'santander.com.br',
-        'magazine-luiza.com.br',
-        'americanas.com.br'
+      // Fallback to domain-based detection if no manual keywords
+      if (targetDomain.includes('copex') || targetDomain.includes('construc') || targetDomain.includes('obra')) {
+        realisticCompetitors = [
+          'caterpillar.com.br',
+          'volvo.com.br', 
+          'komatsu.com.br'
+        ];
+      } else {
+        realisticCompetitors = [
+          'petrobras.com.br',
+          'vale.com'
+        ];
+      }
+    }
+    console.log(`🏢 FASE 4: Generated realistic competitors: [${realisticCompetitors.slice(0, 6).join(', ')}]`);
+    
+    // Combine with manual competitors (manual ones take priority)
+    const allCompetitors = [...additionalCompetitors, ...realisticCompetitors.slice(0, 3)]
+      .filter((domain, index, array) => array.indexOf(domain) === index) // Remove duplicates
+      .slice(0, 5); // Max 5 competitors (user manual + 2-3 contextual)
+    
+    console.log(`🏆 FASE 4: Final competitor list: [${allCompetitors.join(', ')}]`);
+
+    // USE MANUAL KEYWORDS if provided, otherwise generate generic ones
+    let finalKeywords: string[] = [];
+    if (manualKeywords && manualKeywords.length > 0) {
+      finalKeywords = manualKeywords;
+      console.log(`📝 SIMULATION: Using ${manualKeywords.length} manual keywords provided by user`);
+    } else {
+      // Fallback to generic keywords based on domain
+      finalKeywords = [
+        'serviços ' + targetDomain.split('.')[0],
+        targetDomain.split('.')[0] + ' profissional',
+        'empresa ' + targetDomain.split('.')[0]
       ];
+      console.log(`📝 SIMULATION: No manual keywords, using generic ones`);
     }
     
     // Add additional competitors and limit to 6
     const finalCompetitors = [
       ...additionalCompetitors, // Prioritize manual competitors first
-      ...realisticCompetitors.filter(comp => !additionalCompetitors.includes(comp))
+      ...allCompetitors.filter(comp => !additionalCompetitors.includes(comp))
     ].slice(0, 6);
     
     console.log(`🏢 FASE 4: Generated realistic competitors: [${finalCompetitors.join(', ')}]`);
@@ -872,17 +932,8 @@ async function performSimulatedAnalysis(
         });
     }
     
-    // FASE 4: Create realistic keywords and opportunities
-    const simulatedKeywords = [
-      'equipamentos industriais',
-      'maquinas construcao',
-      'locacao equipamentos',
-      targetDomain.includes('copex') ? 'equipamentos pesados' : 'servicos profissionais',
-      'solucoes industriais'
-    ];
-    
-    // Save simulated keywords
-    for (const keyword of simulatedKeywords) {
+    // Save simulated keywords (USE MANUAL KEYWORDS if provided)
+    for (const keyword of finalKeywords) {
       await supabase
         .from('competitor_keywords')
         .insert({
@@ -899,29 +950,32 @@ async function performSimulatedAnalysis(
         });
     }
     
-    // Save realistic opportunities
+    // Save realistic opportunities using the actual keywords analyzed
     const opportunities = [
       {
-        keyword: simulatedKeywords[0],
+        keyword: finalKeywords[0] || 'polimento em inox',
         opportunity_type: 'low_position',
         target_position: 8,
         best_competitor_position: 2,
         best_competitor_domain: finalCompetitors[0],
         priority_score: 85,
         gap_size: 6,
-        recommended_action: `Melhorar conteúdo para "${simulatedKeywords[0]}" para competir com ${finalCompetitors[0]}`
-      },
-      {
-        keyword: simulatedKeywords[1],
+        recommended_action: `Melhorar conteúdo para "${finalKeywords[0] || 'polimento em inox'}" para competir com ${finalCompetitors[0]}`
+      }
+    ];
+    
+    if (finalKeywords.length > 1) {
+      opportunities.push({
+        keyword: finalKeywords[1],
         opportunity_type: 'missing_keyword',
         target_position: null,
         best_competitor_position: 1,
-        best_competitor_domain: finalCompetitors[1],
+        best_competitor_domain: finalCompetitors[1] || finalCompetitors[0],
         priority_score: 90,
         gap_size: 100,
-        recommended_action: `Criar conteúdo otimizado para "${simulatedKeywords[1]}"`
-      }
-    ];
+        recommended_action: `Criar conteúdo otimizado para "${finalKeywords[1]}"`
+      });
+    }
     
     for (const opportunity of opportunities) {
       await supabase
@@ -937,19 +991,18 @@ async function performSimulatedAnalysis(
       .from('competitor_analyses')
       .update({
         status: 'completed',
-        total_keywords: simulatedKeywords.length,
+        total_keywords: finalKeywords.length,
         total_competitors: finalCompetitors.length,
         overall_competitiveness_score: 72, // Realistic score
         completed_at: new Date().toISOString(),
         metadata: {
           simulation_mode: true,
-          reason: 'API connectivity issues or insufficient valid keywords',
-          keywords_analyzed: simulatedKeywords.length,
+          manual_keywords_used: manualKeywords.length > 0,
+          manual_keywords: manualKeywords,
+          keywords_analyzed: finalKeywords.length,
           competitors_found: finalCompetitors.length,
           opportunities_identified: opportunities.length,
-          fallback_activated: true,
-          competitor_types: 'realistic_brazilian_market',
-          sector_detected: targetDomain.includes('copex') ? 'construction_equipment' : 'generic_business',
+          sector_detected: manualKeywords.join(' ').includes('polimento') ? 'metalworking_industry' : 'generic_business',
           completion_time: new Date().toISOString()
         }
       })
