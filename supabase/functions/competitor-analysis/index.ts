@@ -181,16 +181,17 @@ async function performCompetitiveAnalysis(
       return { success: true };
     }
 
-    // FASE 2: Use web-scraper for real Google search results
+    // FASE 2: Use SerpApi for real Google search results
     console.log(`🔍 FASE 2: Starting real Google search analysis with ${finalKeywords.length} keywords...`);
-    console.log('🌐 Using web-scraper for direct Google searches - no API dependency!');
+    console.log('🌐 Using SerpApi for professional SERP data - reliable and accurate!');
 
     // Update status to show progress
     await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
       stage: 'keyword_analysis',
       total_keywords: finalKeywords.length,
       processed_keywords: 0,
-      manual_keywords_used: manualKeywords.length > 0
+      manual_keywords_used: manualKeywords.length > 0,
+      api_source: 'serpapi'
     });
 
     // Phase 3: Perform analysis with timeout control
@@ -259,24 +260,25 @@ async function performCompetitiveAnalysis(
 
     // Check if we have enough successful analyses
     if (keywordAnalyses.length < 2) {
-      console.error(`❌ CRITICAL: Web scraping failed for most keywords (${keywordAnalyses.length}/${finalKeywords.length} successful)`);
+      console.error(`❌ CRITICAL: SerpApi analysis failed for most keywords (${keywordAnalyses.length}/${finalKeywords.length} successful)`);
       
       // Update analysis status to failed with detailed error
       await supabase
         .from('competitor_analyses')
         .update({ 
           status: 'failed',
-          error_message: `Análise falhou: Web scraping não conseguiu extrair resultados do Google para a maioria das palavras-chave (${keywordAnalyses.length}/${finalKeywords.length} bem-sucedidas). Possíveis causas: bloqueio por bot detection, CAPTCHA, ou mudanças na estrutura HTML do Google. Tente novamente mais tarde ou com palavras-chave diferentes.`,
+          error_message: `Análise falhou: SerpApi não conseguiu obter resultados para a maioria das palavras-chave (${keywordAnalyses.length}/${finalKeywords.length} bem-sucedidas). Possíveis causas: quota da API excedida, problemas de conectividade, ou palavras-chave muito específicas. Verifique sua chave da API SerpApi e tente novamente.`,
           completed_at: new Date().toISOString(),
           metadata: {
             total_keywords: finalKeywords.length,
             successful_analyses: keywordAnalyses.length,
-            error_details: 'Google search results parsing failed - insufficient valid results'
+            error_details: 'SerpApi analysis failed - insufficient valid results',
+            api_source: 'serpapi'
           }
         })
         .eq('id', analysisId);
       
-      throw new Error(`Análise competitiva falhou: Web scraping não conseguiu extrair resultados válidos do Google para ${finalKeywords.length - keywordAnalyses.length} de ${finalKeywords.length} palavras-chave. Isso pode ser devido a bloqueios do Google, CAPTCHA ou mudanças na estrutura da página. Tente novamente mais tarde.`);
+      throw new Error(`Análise competitiva falhou: SerpApi não conseguiu extrair resultados válidos para ${finalKeywords.length - keywordAnalyses.length} de ${finalKeywords.length} palavras-chave. Isso pode ser devido a quota excedida, problemas de conectividade ou palavras-chave muito específicas. Tente novamente mais tarde.`);
     }
 
     // Add manually specified competitors
@@ -431,53 +433,51 @@ async function extractKeywordsFromAudit(supabase: any, auditReportId: string | n
 }
 
 async function analyzeKeywordPositions(keyword: string, targetDomain: string): Promise<KeywordAnalysis> {
-  console.log(`🔍 WEB SCRAPER: Starting analysis for "${keyword}" targeting ${targetDomain}`);
+  console.log(`🔍 SERPAPI: Starting analysis for "${keyword}" targeting ${targetDomain}`);
   
   try {
-    // Call our new web scraper function
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    const { data: scraperResponse, error } = await supabase.functions.invoke('web-scraper', {
-      body: { 
-        keyword,
-        maxResults: 20
-      }
-    });
-
-    if (error) {
-      console.error(`❌ WEB SCRAPER ERROR:`, error);
-      throw new Error(`Web scraper failed: ${error.message}`);
+    const serpApiKey = Deno.env.get('SERPAPI_KEY');
+    if (!serpApiKey) {
+      throw new Error('SERPAPI_KEY not configured');
     }
 
-    if (!scraperResponse.success) {
-      console.error(`❌ WEB SCRAPER FAILED:`, scraperResponse.error);
-      throw new Error(`Web scraper failed: ${scraperResponse.error}`);
+    // Call SerpApi for organic search results
+    const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=20&api_key=${serpApiKey}`;
+    
+    console.log(`🌐 SERPAPI: Fetching results for "${keyword}"`);
+    const response = await fetch(serpApiUrl);
+    
+    if (!response.ok) {
+      throw new Error(`SerpApi request failed: ${response.status} ${response.statusText}`);
     }
 
-    const results = scraperResponse.results || [];
-    console.log(`✅ WEB SCRAPER: Retrieved ${results.length} real search results for "${keyword}"`);
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`SerpApi error: ${data.error}`);
+    }
 
-    // Convert scraper results to our analysis format
+    const organicResults = data.organic_results || [];
+    console.log(`✅ SERPAPI: Retrieved ${organicResults.length} organic search results for "${keyword}"`);
+
+    // Convert SerpApi results to our analysis format
     const competitorPositions: CompetitorPosition[] = [];
     let targetDomainPosition: number | null = null;
 
-    results.forEach((result: any) => {
-      const domain = result.domain;
-      const position = result.position;
+    organicResults.forEach((result: any, index: number) => {
+      const domain = extractDomain(result.link);
+      const position = result.position || (index + 1);
 
       // Check if this is our target domain
-      if (domain === targetDomain || domain === `www.${targetDomain}`) {
+      if (domain === targetDomain || domain === `www.${targetDomain}` || targetDomain.includes(domain)) {
         targetDomainPosition = position;
-        console.log(`🎯 WEB SCRAPER: Found target domain ${targetDomain} at position ${position}`);
+        console.log(`🎯 SERPAPI: Found target domain ${targetDomain} at position ${position}`);
       }
 
       competitorPositions.push({
         domain,
         position,
-        url: result.url,
+        url: result.link,
         title: result.title
       });
     });
@@ -487,7 +487,7 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       .filter(p => p.domain !== targetDomain && !p.domain.includes(targetDomain))
       .slice(0, 10);
     
-    console.log(`🏢 WEB SCRAPER: Top competitors found:`, competitors.slice(0, 5).map(c => ({
+    console.log(`🏢 SERPAPI: Top competitors found:`, competitors.slice(0, 5).map(c => ({
       domain: c.domain,
       position: c.position
     })));
@@ -498,7 +498,7 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       uniqueDomains.size <= 3 ? 'high' : 
       uniqueDomains.size <= 6 ? 'medium' : 'low';
 
-    console.log(`📊 WEB SCRAPER: Competition level for "${keyword}": ${competitionLevel} (${uniqueDomains.size} unique domains)`);
+    console.log(`📊 SERPAPI: Competition level for "${keyword}": ${competitionLevel} (${uniqueDomains.size} unique domains)`);
 
     return {
       keyword,
@@ -508,7 +508,7 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     };
 
   } catch (error) {
-    console.error(`❌ WEB SCRAPER: Failed to analyze keyword "${keyword}":`, error.message);
+    console.error(`❌ SERPAPI: Failed to analyze keyword "${keyword}":`, error.message);
     throw error;
   }
 }
@@ -1022,7 +1022,7 @@ async function performSimulatedAnalysis(
   }
 }
 
-// FASE 2: Retry logic with exponential backoff
+// FASE 2: Retry logic with exponential backoff for SerpApi calls
 async function analyzeKeywordPositionsWithRetry(
   keyword: string, 
   targetDomain: string, 
@@ -1032,25 +1032,25 @@ async function analyzeKeywordPositionsWithRetry(
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`🔄 FASE 2: Attempt ${attempt}/${maxRetries} for keyword: "${keyword}"`);
+      console.log(`🔄 SERPAPI: Attempt ${attempt}/${maxRetries} for keyword: "${keyword}"`);
       const result = await analyzeKeywordPositions(keyword, targetDomain);
       
-      console.log(`✅ FASE 2: Success on attempt ${attempt} for keyword "${keyword}"`);
+      console.log(`✅ SERPAPI: Success on attempt ${attempt} for keyword "${keyword}"`);
       return result;
     } catch (error) {
       lastError = error as Error;
-      console.warn(`⚠️ FASE 2: Attempt ${attempt} failed for keyword "${keyword}":`, error.message);
+      console.warn(`⚠️ SERPAPI: Attempt ${attempt} failed for keyword "${keyword}":`, error.message);
       
       // FASE 2: Exponential backoff delay
       if (attempt < maxRetries) {
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 3000); // 1s, 2s, 3s max
-        console.log(`⏳ FASE 2: Waiting ${delay}ms before retry...`);
+        console.log(`⏳ SERPAPI: Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
   
-  console.error(`❌ FASE 2: All attempts failed for keyword "${keyword}"`);
+  console.error(`❌ SERPAPI: All attempts failed for keyword "${keyword}"`);
   throw lastError || new Error(`Failed to analyze keyword "${keyword}" after ${maxRetries} attempts`);
 }
 
