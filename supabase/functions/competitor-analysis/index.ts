@@ -258,27 +258,36 @@ async function performCompetitiveAnalysis(
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    // Check if we have enough successful analyses
-    if (keywordAnalyses.length < 2) {
-      console.error(`❌ CRITICAL: SerpApi analysis failed for most keywords (${keywordAnalyses.length}/${finalKeywords.length} successful)`);
+    // Check if we have enough successful analyses - proportional validation
+    const requiredSuccesses = Math.max(1, Math.ceil(finalKeywords.length * 0.5)); // At least 1 success, or 50% for multiple keywords
+    const successRate = finalKeywords.length > 0 ? (keywordAnalyses.length / finalKeywords.length) * 100 : 0;
+    
+    console.log(`📊 Analysis Results: ${keywordAnalyses.length}/${finalKeywords.length} keywords successful (${successRate.toFixed(1)}%)`);
+    console.log(`✅ Required successes: ${requiredSuccesses}, Achieved: ${keywordAnalyses.length}`);
+    
+    if (keywordAnalyses.length < requiredSuccesses) {
+      console.error(`❌ CRITICAL: SerpApi analysis failed - insufficient successful results`);
+      console.error(`❌ Details: ${keywordAnalyses.length} successful out of ${finalKeywords.length} keywords (need at least ${requiredSuccesses})`);
       
       // Update analysis status to failed with detailed error
       await supabase
         .from('competitor_analyses')
         .update({ 
           status: 'failed',
-          error_message: `Análise falhou: SerpApi não conseguiu obter resultados para a maioria das palavras-chave (${keywordAnalyses.length}/${finalKeywords.length} bem-sucedidas). Possíveis causas: quota da API excedida, problemas de conectividade, ou palavras-chave muito específicas. Verifique sua chave da API SerpApi e tente novamente.`,
+          error_message: `Análise falhou: SerpApi conseguiu analisar apenas ${keywordAnalyses.length} de ${finalKeywords.length} palavras-chave (${successRate.toFixed(1)}% de sucesso). Mínimo necessário: ${requiredSuccesses} palavras-chave. Possíveis causas: quota da API excedida, problemas de conectividade, ou palavras-chave muito específicas. Verifique sua chave da API SerpApi e tente novamente.`,
           completed_at: new Date().toISOString(),
           metadata: {
             total_keywords: finalKeywords.length,
             successful_analyses: keywordAnalyses.length,
+            required_successes: requiredSuccesses,
+            success_rate: successRate,
             error_details: 'SerpApi analysis failed - insufficient valid results',
             api_source: 'serpapi'
           }
         })
         .eq('id', analysisId);
       
-      throw new Error(`Análise competitiva falhou: SerpApi não conseguiu extrair resultados válidos para ${finalKeywords.length - keywordAnalyses.length} de ${finalKeywords.length} palavras-chave. Isso pode ser devido a quota excedida, problemas de conectividade ou palavras-chave muito específicas. Tente novamente mais tarde.`);
+      throw new Error(`Análise competitiva falhou: SerpApi conseguiu analisar apenas ${keywordAnalyses.length} de ${finalKeywords.length} palavras-chave (taxa de sucesso: ${successRate.toFixed(1)}%). Isso pode ser devido a quota da API excedida, problemas de conectividade ou palavras-chave muito específicas. Tente novamente mais tarde.`);
     }
 
     // Add manually specified competitors
