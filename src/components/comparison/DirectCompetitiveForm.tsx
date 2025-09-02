@@ -142,7 +142,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             Análise Competitiva SEO
           </CardTitle>
           <CardDescription>
-            Analise seu site diretamente comparando com concorrentes usando dados reais do Google. A análise coletará os dados necessários durante o processo.
+            Analise seu site diretamente comparando com concorrentes usando dados reais do Google. A análise coletará automaticamente os dados necessários durante o processo.
           </CardDescription>
         </CardHeader>
         
