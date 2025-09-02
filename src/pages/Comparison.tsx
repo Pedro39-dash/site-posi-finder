@@ -4,6 +4,9 @@ import ComparisonFormEnhanced from "@/components/comparison/ComparisonFormEnhanc
 import ComparisonResultsEnhanced, { ComparisonResultEnhanced } from "@/components/comparison/ComparisonResultsEnhanced";
 import CompetitiveAnalysisForm from "@/components/comparison/CompetitiveAnalysisForm";
 import CompetitiveAnalysisResults from "@/components/comparison/CompetitiveAnalysisResults";
+import CompetitiveOverview from "@/components/comparison/CompetitiveOverview";
+import CompetitiveDetailedTable from "@/components/comparison/CompetitiveDetailedTable";
+import KeywordAnalysisModal from "@/components/comparison/KeywordAnalysisModal";
 import SimulationNotice from "@/components/SimulationNotice";
 import { useProjects } from "@/contexts/ProjectContext";
 import { Button } from "@/components/ui/button";
@@ -21,6 +24,9 @@ const Comparison = () => {
   
   // State for real competitive analysis
   const [analysisId, setAnalysisId] = useState<string | null>(null);
+
+  // State for keyword analysis modal
+  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
 
   // Enhanced mock function for domain comparison - CORRECTED DATA GENERATION
   const generateComparisonResults = (websites: string[], keywords: string[]): ComparisonResultEnhanced[] => {
@@ -100,6 +106,14 @@ const Comparison = () => {
     setAnalysisId(null);
   };
 
+  const handleKeywordDetails = (keyword: string) => {
+    setSelectedKeyword(keyword);
+  };
+
+  const handleCloseKeywordModal = () => {
+    setSelectedKeyword(null);
+  };
+
   return (
     <>
       <Helmet>
@@ -153,8 +167,23 @@ const Comparison = () => {
                     <ComparisonFormEnhanced onCompare={handleComparison} />
                   </div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-8">
                     <SimulationNotice />
+                    
+                    {/* Etapa 1: Visão Geral da Situação */}
+                    <CompetitiveOverview 
+                      results={comparisonResults.results}
+                      websites={comparisonResults.websites}
+                    />
+                    
+                    {/* Etapa 2: Tabela de Análise Detalhada */}
+                    <CompetitiveDetailedTable
+                      results={comparisonResults.results}
+                      websites={comparisonResults.websites}
+                      onKeywordDetails={handleKeywordDetails}
+                    />
+                    
+                    {/* Componentes originais mantidos para compatibilidade */}
                     <ComparisonResultsEnhanced
                       websites={comparisonResults.websites}
                       results={comparisonResults.results}
@@ -168,6 +197,17 @@ const Comparison = () => {
           </main>
         </div>
       </div>
+
+      {/* Etapa 3: Modal de Análise Aprofundada */}
+      {selectedKeyword && comparisonResults && (
+        <KeywordAnalysisModal
+          isOpen={!!selectedKeyword}
+          onClose={handleCloseKeywordModal}
+          keyword={selectedKeyword}
+          results={comparisonResults.results}
+          websites={comparisonResults.websites}
+        />
+      )}
     </>
   );
 };
