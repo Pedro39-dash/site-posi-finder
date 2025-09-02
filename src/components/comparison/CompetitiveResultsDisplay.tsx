@@ -367,9 +367,40 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={getPositionBadgeVariant(myPosition)}>
-                          {myPosition ? `${myPosition}ª` : "Não encontrado"}
-                        </Badge>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant={getPositionBadgeVariant(myPosition)}
+                                className={myPosition ? "" : "border-orange-300 text-orange-700 bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:bg-orange-900/20"}
+                              >
+                                {myPosition ? (
+                                  `${myPosition}ª`
+                                ) : (
+                                  <>
+                                    <Target className="h-3 w-3 mr-1" />
+                                    Oportunidade
+                                  </>
+                                )}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-sm">
+                              {myPosition ? (
+                                <p>Você está na posição {myPosition} para "{keyword.keyword}"</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  <p className="font-medium">Não rankeando no top 100</p>
+                                  <p className="text-sm">
+                                    "{keyword.keyword}" representa uma oportunidade de crescimento com {keyword.search_volume ? `${keyword.search_volume.toLocaleString()} buscas mensais` : 'potencial de tráfego inexplorado'}.
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    💡 Seus concorrentes já estão rankeando - analise suas estratégias!
+                                  </p>
+                                </div>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="space-y-1">
