@@ -135,21 +135,33 @@ function parseGoogleResults(html: string, keyword: string): SearchResult[] {
   const results: SearchResult[] = [];
   
   try {
-    // Multiple patterns to catch different Google result formats
+    console.log(`🔍 Parsing HTML content for "${keyword}" (${html.length} chars)`);
+    
+    // 2024/2025 Google patterns - more robust, less dependent on CSS classes
     const patterns = [
-      // Standard organic results
+      // Modern Google result structure with data attributes
+      /<div[^>]*data-ved[^>]*>.*?<a[^>]*href="([^"]*)"[^>]*>.*?<h3[^>]*>([^<]*)<\/h3>/gs,
+      // Generic h3 with link pattern (most reliable)
+      /<h3[^>]*><a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a><\/h3>/gs,
+      // Div with h3 and link inside
+      /<div[^>]*>.*?<h3[^>]*>.*?<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>.*?<\/h3>/gs,
+      // Alternative link-first pattern
+      /<a[^>]*href="([^"]*)"[^>]*>.*?<h3[^>]*>([^<]*)<\/h3>/gs,
+      // Legacy classes (still might work)
       /<div class="g"[^>]*>.*?<h3[^>]*>.*?<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>.*?<\/h3>/gs,
-      // Alternative format
       /<div class="yuRUbf"[^>]*>.*?<a[^>]*href="([^"]*)"[^>]*>.*?<h3[^>]*>([^<]*)<\/h3>/gs,
-      // Another common format  
       /<div class="MjjYud"[^>]*>.*?<a[^>]*href="([^"]*)"[^>]*>.*?<h3[^>]*>([^<]*)<\/h3>/gs
     ];
 
     let position = 1;
     const foundUrls = new Set<string>();
+    let totalMatches = 0;
 
-    for (const pattern of patterns) {
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i];
       const matches = [...html.matchAll(pattern)];
+      console.log(`🔍 Pattern ${i + 1}: Found ${matches.length} matches`);
+      totalMatches += matches.length;
       
       for (const match of matches) {
         if (position > 20) break; // Limit to top 20 results
@@ -157,25 +169,50 @@ function parseGoogleResults(html: string, keyword: string): SearchResult[] {
         const url = match[1];
         const title = match[2];
         
+        if (!url || !title) continue;
+        
         // Skip if we already found this URL
         if (foundUrls.has(url)) continue;
         
-        // Skip Google's own URLs and ads
+        // Skip Google's own URLs, ads, and invalid URLs
         if (url.includes('google.com') || 
             url.includes('googleadservices.com') ||
             url.includes('googlesyndication.com') ||
+            url.includes('accounts.google.com') ||
+            url.includes('support.google.com') ||
             url.startsWith('/search') ||
-            url.startsWith('#')) continue;
+            url.startsWith('/url?') ||
+            url.startsWith('#') ||
+            url.startsWith('javascript:')) continue;
 
         // Clean and validate URL
-        const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
-        const domain = extractDomain(cleanUrl);
+        let cleanUrl = url;
+        if (url.startsWith('/url?q=')) {
+          // Extract actual URL from Google redirect
+          const urlMatch = url.match(/\/url\?q=([^&]*)/);
+          if (urlMatch) {
+            cleanUrl = decodeURIComponent(urlMatch[1]);
+          }
+        }
         
+        if (!cleanUrl.startsWith('http')) {
+          cleanUrl = `https://${cleanUrl}`;
+        }
+        
+        const domain = extractDomain(cleanUrl);
         if (!domain || domain.includes('google')) continue;
 
-        // Clean title
-        const cleanTitle = title.replace(/<[^>]*>/g, '').trim();
-        if (!cleanTitle) continue;
+        // Clean title - remove HTML tags and decode entities
+        const cleanTitle = title
+          .replace(/<[^>]*>/g, '')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .trim();
+          
+        if (!cleanTitle || cleanTitle.length < 3) continue;
 
         foundUrls.add(url);
         
@@ -187,36 +224,97 @@ function parseGoogleResults(html: string, keyword: string): SearchResult[] {
           snippet: '' // Could extract snippet later if needed
         });
 
+        console.log(`✅ Result ${position}: ${domain} - ${cleanTitle.substring(0, 50)}...`);
         position++;
+      }
+      
+      // If we found results with this pattern, break early
+      if (results.length > 0) {
+        console.log(`✅ Found ${results.length} results with pattern ${i + 1}, stopping search`);
+        break;
       }
     }
 
-    // Fallback: try simpler pattern if no results found
+    // Enhanced fallback: try to find any <a> tags with hrefs in organic content
     if (results.length === 0) {
-      console.log(`⚠️ No results with standard patterns, trying fallback for "${keyword}"`);
-      const fallbackPattern = /href="(https?:\/\/[^"]*)"[^>]*>.*?<h3[^>]*>([^<]*)<\/h3>/gs;
+      console.log(`⚠️ No results with standard patterns (${totalMatches} total matches), trying enhanced fallback`);
+      
+      // Look for common organic result indicators
+      const fallbackPattern = /<a[^>]*href="([^"]*)"[^>]*[^>]*>([^<]*)</gs;
       const fallbackMatches = [...html.matchAll(fallbackPattern)];
       
+      console.log(`🔍 Fallback found ${fallbackMatches.length} potential links`);
+      
       let fallbackPosition = 1;
-      for (const match of fallbackMatches.slice(0, 10)) {
-        const url = match[1];
-        const title = match[2];
-        const domain = extractDomain(url);
+      const processedDomains = new Set<string>();
+      
+      for (const match of fallbackMatches) {
+        if (fallbackPosition > 15) break;
         
-        if (!domain || domain.includes('google')) continue;
+        const url = match[1];
+        const text = match[2];
+        
+        if (!url || !text || text.length < 10) continue;
+        
+        // More strict filtering for fallback
+        if (url.includes('google.com') || 
+            url.includes('youtube.com/googleads') ||
+            url.includes('support.google') ||
+            url.startsWith('/') ||
+            url.startsWith('javascript:') ||
+            url.startsWith('mailto:') ||
+            url.startsWith('#')) continue;
+        
+        let cleanUrl = url;
+        if (url.startsWith('/url?q=')) {
+          const urlMatch = url.match(/\/url\?q=([^&]*)/);
+          if (urlMatch) {
+            cleanUrl = decodeURIComponent(urlMatch[1]);
+          }
+        }
+        
+        if (!cleanUrl.startsWith('http')) continue;
+        
+        const domain = extractDomain(cleanUrl);
+        if (!domain || domain.includes('google') || processedDomains.has(domain)) continue;
+        
+        // Check if the text looks like a title (not just "click here", etc.)
+        const cleanText = text.replace(/<[^>]*>/g, '').trim();
+        if (cleanText.length < 10 || 
+            cleanText.toLowerCase().includes('click here') ||
+            cleanText.toLowerCase().includes('more info') ||
+            cleanText.toLowerCase().includes('learn more')) continue;
+        
+        processedDomains.add(domain);
         
         results.push({
-          title: title.replace(/<[^>]*>/g, '').trim(),
-          url,
+          title: cleanText,
+          url: cleanUrl,
           position: fallbackPosition,
-          domain
+          domain,
+          snippet: ''
         });
         
+        console.log(`🔄 Fallback ${fallbackPosition}: ${domain} - ${cleanText.substring(0, 50)}...`);
         fallbackPosition++;
       }
     }
 
-    console.log(`✅ Successfully parsed ${results.length} results for "${keyword}"`);
+    if (results.length === 0) {
+      console.error(`❌ CRITICAL: No search results found for "${keyword}"`);
+      console.log(`🔍 HTML preview (first 1000 chars): ${html.substring(0, 1000)}`);
+      
+      // Check for potential blocks
+      if (html.includes('detected unusual traffic') || 
+          html.includes('blocked') || 
+          html.includes('captcha') ||
+          html.includes('robot')) {
+        console.error(`🚫 Possible bot detection/CAPTCHA for "${keyword}"`);
+      }
+    } else {
+      console.log(`✅ Successfully parsed ${results.length} results for "${keyword}"`);
+    }
+    
     return results;
 
   } catch (error) {

@@ -259,8 +259,24 @@ async function performCompetitiveAnalysis(
 
     // Check if we have enough successful analyses
     if (keywordAnalyses.length < 2) {
-      console.warn('⚠️ Insufficient successful analyses - using fallback');
-      return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors);
+      console.error(`❌ CRITICAL: Web scraping failed for most keywords (${keywordAnalyses.length}/${finalKeywords.length} successful)`);
+      
+      // Update analysis status to failed with detailed error
+      await supabase
+        .from('competitor_analyses')
+        .update({ 
+          status: 'failed',
+          error_message: `Análise falhou: Web scraping não conseguiu extrair resultados do Google para a maioria das palavras-chave (${keywordAnalyses.length}/${finalKeywords.length} bem-sucedidas). Possíveis causas: bloqueio por bot detection, CAPTCHA, ou mudanças na estrutura HTML do Google. Tente novamente mais tarde ou com palavras-chave diferentes.`,
+          completed_at: new Date().toISOString(),
+          metadata: {
+            total_keywords: finalKeywords.length,
+            successful_analyses: keywordAnalyses.length,
+            error_details: 'Google search results parsing failed - insufficient valid results'
+          }
+        })
+        .eq('id', analysisId);
+      
+      throw new Error(`Análise competitiva falhou: Web scraping não conseguiu extrair resultados válidos do Google para ${finalKeywords.length - keywordAnalyses.length} de ${finalKeywords.length} palavras-chave. Isso pode ser devido a bloqueios do Google, CAPTCHA ou mudanças na estrutura da página. Tente novamente mais tarde.`);
     }
 
     // Add manually specified competitors
