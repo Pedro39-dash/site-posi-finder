@@ -59,14 +59,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <SidebarProvider defaultOpen={false}>
-      <div className="min-h-screen flex w-full">
+    <SidebarProvider defaultOpen={typeof window !== 'undefined' && window.innerWidth >= 1280}>
+      <div className="min-h-screen flex w-full max-w-screen-xl mx-auto">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <header className="h-12 flex items-center justify-between border-b bg-background px-4 sticky top-0 z-40">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="hover:bg-accent" />
-              <span className="font-semibold text-foreground">SEO Dashboard</span>
             </div>
             <div className="flex items-center gap-4">
               <ProjectSelector onCreateProject={handleCreateProject} />

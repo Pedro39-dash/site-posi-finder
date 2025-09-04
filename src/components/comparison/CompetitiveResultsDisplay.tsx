@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword, CompetitorDomain } from "@/services/competitorAnalysisService";
 import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis, getCTRByPosition } from "@/utils/competitiveAnalysis";
 import KeywordDetailModal from "./KeywordDetailModal";
+import PositionTrendChart from "./PositionTrendChart";
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -377,75 +378,8 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
         </Card>
       </div>
 
-      {/* Top Competitors - Simplified and Clearer */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          Principais Concorrentes
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <HelpCircle className="h-4 w-4 text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="max-w-xs">Sites que aparecem com mais frequência nas primeiras posições para as palavras-chave analisadas</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </h3>
-        
-        {competitiveMetrics.topCompetitors.length === 0 ? (
-          <Card className="p-6 text-center">
-            <p className="text-muted-foreground">Você está na liderança em todas as palavras-chave analisadas! 🎉</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {competitiveMetrics.topCompetitors.slice(0, 3).map((competitor, index) => {
-              const competitorKeywords = keywords.filter(k => 
-                k.competitor_positions.some(cp => 
-                  cp.domain === competitor.domain && 
-                  k.target_domain_position && 
-                  cp.position < k.target_domain_position
-                )
-              );
-              
-              return (
-                <Card key={competitor.domain} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-foreground">{competitor.domain}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          À frente em {competitor.winsCount} de {keywords.length} palavras-chave
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-primary">
-                        {Math.round((competitor.winsCount / keywords.length) * 100)}% das palavras
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {competitorKeywords.length > 0 && (
-                          `Exemplos: ${competitorKeywords.slice(0, 2).map(k => k.keyword).join(', ')}`
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-            
-            {competitiveMetrics.topCompetitors.length > 3 && (
-              <p className="text-sm text-muted-foreground text-center">
-                E mais {competitiveMetrics.topCompetitors.length - 3} concorrentes...
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
+      {/* Position Trend Chart */}
+      <PositionTrendChart targetDomain={analysis.target_domain} />
 
       {/* Keywords Analysis with Filters and Pagination */}
       <Card>
@@ -485,9 +419,9 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <TableRow>
                   <TableHead>Palavra-chave</TableHead>
                   <TableHead className="text-center">Minha Posição</TableHead>
-                  <TableHead className="text-center">Melhor Concorrente</TableHead>
-                  <TableHead className="text-center">Dificuldade</TableHead>
-                  <TableHead className="text-center">Potencial de Melhoria</TableHead>
+                  <TableHead className="text-center">Primeiro Lugar</TableHead>
+                  <TableHead className="text-center">Dificuldade de Ranqueamento</TableHead>
+                  <TableHead className="text-center">Projeção de Melhora</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -515,19 +449,9 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Badge 
-                                variant={getPositionBadgeVariant(myPosition)}
-                                className={myPosition ? "" : "border-orange-300 text-orange-700 bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:bg-orange-900/20"}
-                              >
-                                {myPosition ? (
-                                  `${myPosition}ª`
-                                ) : (
-                                  <>
-                                    <Target className="h-3 w-3 mr-1" />
-                                    Oportunidade
-                                  </>
-                                )}
-                              </Badge>
+                              <div className="text-center font-medium">
+                                {myPosition ? myPosition : '-'}
+                              </div>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-sm">
                               {myPosition ? (
@@ -548,21 +472,15 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         </TooltipProvider>
                       </TableCell>
                        <TableCell className="text-center">
-                        <div className="space-y-1">
+                        <div className="text-center">
                           {competitorsAhead.length > 0 ? (
-                            <div>
-                              <Badge variant="outline" className="text-xs">
-                                {competitorsAhead[0].domain}
-                              </Badge>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Posição {competitorsAhead[0].position}
-                              </p>
+                            <div className="font-medium">
+                              {competitorsAhead[0].domain}
                             </div>
                           ) : (
-                            <Badge variant="default" className="text-xs">
-                              <Trophy className="h-3 w-3 mr-1" />
+                            <div className="text-muted-foreground">
                               Você está na frente!
-                            </Badge>
+                            </div>
                           )}
                         </div>
                        </TableCell>
@@ -586,27 +504,22 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         </TooltipProvider>
                        </TableCell>
                        <TableCell className="text-center">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="space-y-1 cursor-help">
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-xs ${getPotentialColor(potential.improvementPotential)}`}
-                                >
-                                  {potential.improvementPotential === 'high' ? 'Alto' : 
-                                   potential.improvementPotential === 'medium' ? 'Médio' : 'Baixo'}
-                                </Badge>
-                                <p className="text-xs text-muted-foreground">
-                                  {potential.currentPosition ? `${potential.currentPosition} → ${potential.projectedPosition}` : `→ ${potential.projectedPosition}`}
-                                </p>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="max-w-xs">{potential.description}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                         <TooltipProvider>
+                           <Tooltip>
+                             <TooltipTrigger asChild>
+                               <div className="text-center cursor-help">
+                                 <div className="font-medium">
+                                   {potential.currentPosition && potential.projectedPosition 
+                                     ? `${potential.currentPosition - potential.projectedPosition}` 
+                                     : potential.projectedPosition || '-'}
+                                 </div>
+                               </div>
+                             </TooltipTrigger>
+                             <TooltipContent>
+                               <p className="max-w-xs">{potential.description}</p>
+                             </TooltipContent>
+                           </Tooltip>
+                         </TooltipProvider>
                        </TableCell>
                        <TableCell className="text-center">
                          <Button
