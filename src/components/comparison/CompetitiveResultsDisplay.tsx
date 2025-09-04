@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowUp, ArrowDown, Trophy, Target, RefreshCw, AlertTriangle, TrendingUp, TrendingDown, Users, Eye, BarChart3, Zap, ArrowUpCircle, HelpCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, Trophy, Target, RefreshCw, AlertTriangle, TrendingUp, TrendingDown, Users, Eye, BarChart3, Zap, ArrowUpCircle, HelpCircle, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,10 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const [error, setError] = useState<string | null>(null);
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [keywordFilter, setKeywordFilter] = useState<'all' | 'winning' | 'losing' | 'opportunities'>('all');
+  
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadAnalysisData();
@@ -201,102 +205,119 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     setIsDetailModalOpen(true);
   };
 
+  const getFilteredKeywords = () => {
+    switch (keywordFilter) {
+      case 'winning':
+        return keywords.filter(k => 
+          k.target_domain_position && 
+          k.competitor_positions.every(cp => !k.target_domain_position || cp.position > k.target_domain_position)
+        );
+      case 'losing':
+        return keywords.filter(k => 
+          k.competitor_positions.some(cp => 
+            !k.target_domain_position || (k.target_domain_position && cp.position < k.target_domain_position)
+          )
+        );
+      case 'opportunities':
+        return keywords.filter(k => {
+          const potential = getKeywordPotential(k);
+          return potential.improvementPotential === 'high';
+        });
+      default:
+        return keywords;
+    }
+  };
+
+  const getPaginatedKeywords = () => {
+    const filteredKeywords = getFilteredKeywords();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredKeywords.slice(startIndex, endIndex);
+  };
+
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Trophy className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Resultado da Análise Competitiva</h1>
-        </div>
-        <p className="text-lg text-muted-foreground">
-          Domínio: <span className="font-semibold text-primary">{analysis.target_domain}</span>
-        </p>
-      </div>
+      {/* Executive Summary */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Trophy className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Análise Competitiva - {analysis.target_domain}</CardTitle>
+          </div>
+          <CardDescription className="text-base">
+            {(() => {
+              const gapAnalysis = getGapAnalysis(competitiveMetrics.averagePositionGap, keywords.length);
+              return (
+                <div className="space-y-2">
+                  <p className="text-lg font-medium">
+                    Status Competitivo: <span className={`${gapAnalysis.color}`}>{gapAnalysis.description}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+                    {gapAnalysis.recommendation}
+                  </p>
+                </div>
+              );
+            })()}
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
-      {/* Main Metrics Cards - Enhanced with Insights */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Simplified Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {(() => {
           const gapAnalysis = getGapAnalysis(competitiveMetrics.averagePositionGap, keywords.length);
           return (
             <Card className={`${gapAnalysis.borderColor} ${gapAnalysis.bgColor}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <p className="text-sm font-medium text-muted-foreground">Gap Médio dos Concorrentes</p>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <div className="space-y-2">
-                              <p className="font-medium">Diferença média entre sua posição e o melhor concorrente</p>
-                              <p className="text-xs">Exemplo: Se você está na 12ª posição e o líder na 1ª, o gap é +11</p>
-                              <p className="text-xs text-muted-foreground">Baseado em {keywords.length} palavra{keywords.length !== 1 ? 's' : ''}-chave analisada{keywords.length !== 1 ? 's' : ''}</p>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <div className="space-y-1">
-                      <p className={`text-2xl font-bold ${gapAnalysis.color}`}>
-                        {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap}
-                      </p>
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {gapAnalysis.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {gapAnalysis.recommendation}
-                      </p>
-                    </div>
+              <CardContent className="p-6">
+                <div className="text-center space-y-3">
+                  <BarChart3 className={`h-12 w-12 mx-auto ${gapAnalysis.color}`} />
+                  <div>
+                    <p className={`text-3xl font-bold ${gapAnalysis.color}`}>
+                      {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap}
+                    </p>
+                    <p className="text-sm font-medium text-muted-foreground">Gap Médio dos Concorrentes</p>
                   </div>
-                  <BarChart3 className={`h-8 w-8 ${gapAnalysis.color}`} />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {gapAnalysis.description}
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           );
         })()}
 
-        <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+        <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+          <CardContent className="p-6">
+            <div className="text-center space-y-3">
+              <Trophy className="h-12 w-12 mx-auto text-green-600 dark:text-green-400" />
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Potencial de Tráfego Perdido</p>
-                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {formatNumber(competitiveMetrics.lostTrafficPotential)}
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  {keywordWins}
                 </p>
+                <p className="text-sm font-medium text-muted-foreground">Palavras-chave Vencendo</p>
               </div>
-              <TrendingDown className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+              <p className="text-xs text-muted-foreground">
+                {((keywordWins / keywords.length) * 100).toFixed(1)}% do total analisado
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
+          <CardContent className="p-6">
+            <div className="text-center space-y-3">
+              <Target className="h-12 w-12 mx-auto text-blue-600 dark:text-blue-400" />
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Suas Vitórias</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {keywordWins} nas palavras fornecidas
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  {quickOpportunities}
                 </p>
+                <p className="text-sm font-medium text-muted-foreground">Oportunidades Imediatas</p>
               </div>
-              <Trophy className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Oportunidades Rápidas</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {quickOpportunities} palavras-chave
-                </p>
-              </div>
-              <ArrowUpCircle className="h-8 w-8 text-blue-600" />
+              <p className="text-xs text-muted-foreground">
+                Potencial de {formatNumber(competitiveMetrics.lostTrafficPotential)} visitas
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -342,13 +363,36 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
       </div>
 
 
-      {/* Enhanced Keywords Analysis Table */}
+      {/* Keywords Analysis with Filters and Pagination */}
       <Card>
         <CardHeader>
-          <CardTitle>Análise Detalhada por Palavra-chave</CardTitle>
-          <CardDescription>
-            Comparação completa das {keywords.length} palavras-chave analisadas com insights acionáveis
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Análise Detalhada por Palavra-chave</CardTitle>
+              <CardDescription>
+                {(() => {
+                  const filteredKeywords = getFilteredKeywords();
+                  return `${filteredKeywords.length} palavra${filteredKeywords.length !== 1 ? 's' : ''}-chave encontrada${filteredKeywords.length !== 1 ? 's' : ''}`;
+                })()}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <select 
+                value={keywordFilter} 
+                onChange={(e) => {
+                  setKeywordFilter(e.target.value as any);
+                  setCurrentPage(1);
+                }}
+                className="text-sm border border-input bg-background px-3 py-1 rounded-md"
+              >
+                <option value="all">Todas ({keywords.length})</option>
+                <option value="winning">Vencendo ({keywordWins})</option>
+                <option value="losing">Perdendo ({competitorWins})</option>
+                <option value="opportunities">Oportunidades ({quickOpportunities})</option>
+              </select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -357,14 +401,14 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <TableRow>
                   <TableHead>Palavra-chave</TableHead>
                   <TableHead className="text-center">Minha Posição</TableHead>
-                  <TableHead className="text-center">Concorrentes (Posição)</TableHead>
-                  <TableHead className="text-center">Dificuldade de Superação</TableHead>
+                  <TableHead className="text-center">Concorrentes</TableHead>
+                  <TableHead className="text-center">Dificuldade</TableHead>
                   <TableHead className="text-center">Potencial</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {keywords.slice(0, 20).map((keyword) => {
+                {getPaginatedKeywords().map((keyword) => {
                   const competitorsAhead = getCompetitorsAhead(keyword);
                   const difficulty = getKeywordCompetitiveDifficulty(keyword);
                   const potential = getKeywordPotential(keyword);
@@ -483,79 +527,125 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
               </TableBody>
             </Table>
             
-            {keywords.length > 20 && (
-              <div className="text-center pt-4 text-sm text-muted-foreground">
-                Mostrando primeiras 20 de {keywords.length} palavras-chave analisadas
-              </div>
-            )}
+            {/* Pagination Controls */}
+            {(() => {
+              const filteredKeywords = getFilteredKeywords();
+              const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
+              
+              if (totalPages <= 1) return null;
+              
+              return (
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages} ({filteredKeywords.length} resultados)
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const pageNum = i + Math.max(1, currentPage - 2);
+                        if (pageNum > totalPages) return null;
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Próxima
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
 
-      {/* Principais Oportunidades */}
+      {/* Priority Opportunities - Enhanced */}
       {opportunities.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-4">Principais Oportunidades</h3>
-          <div className="grid gap-3">
-            {opportunities.slice(0, 5).map((opportunity, index) => (
-              <Card key={index} className="p-4 border-border bg-card">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="secondary" className="text-xs">
-                        {CompetitorAnalysisService.getOpportunityTypeText(opportunity.opportunity_type)}
-                      </Badge>
-                      <span className="text-sm font-medium text-foreground">
-                        {opportunity.keyword}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Posição atual: #{opportunity.target_position} → Potencial: #{opportunity.best_competitor_position}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {opportunity.recommended_action}
-                    </p>
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="text-lg font-bold text-primary">
-                      {opportunity.priority_score}
-                    </p>
-                    <p className="text-xs text-muted-foreground">score</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Opportunities Section - Old */}
-      {opportunities.length > 0 && (
-        <Card className="border-border bg-card">
+        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Principais Oportunidades de Melhoria
+            <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+              <Zap className="h-5 w-5" />
+              Ações Prioritárias - Resultados Rápidos
             </CardTitle>
             <CardDescription>
-              Palavras-chave onde você pode ganhar posições facilmente
+              {quickOpportunities} oportunidades de alta prioridade identificadas
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {opportunities.slice(0, 6).map((opportunity) => (
-                <div key={opportunity.id} className="p-4 border rounded-lg bg-muted/5">
-                  <h4 className="font-medium text-sm mb-2">{opportunity.keyword}</h4>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>Prioridade: {opportunity.priority_score}</p>
-                    <p>Gap: {opportunity.gap_size} posições</p>
-                    <Badge variant="outline" className="text-xs">
-                      {CompetitorAnalysisService.getOpportunityTypeText(opportunity.opportunity_type)}
-                    </Badge>
+            <div className="grid gap-3">
+              {opportunities
+                .filter(opp => opp.priority_score > 75)
+                .slice(0, 3)
+                .map((opportunity, index) => (
+                <Card key={index} className="p-4 bg-background border-l-4 border-l-blue-500">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="default" className="text-xs bg-blue-600">
+                          #{index + 1} PRIORIDADE
+                        </Badge>
+                        <span className="font-medium text-foreground">
+                          {opportunity.keyword}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        <strong>Atual:</strong> #{opportunity.target_position || 'Fora do top 100'} → 
+                        <strong className="text-green-600"> Meta:</strong> #{opportunity.best_competitor_position}
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                        📋 {opportunity.recommended_action}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {CompetitorAnalysisService.getOpportunityTypeText(opportunity.opportunity_type)}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Gap: {opportunity.gap_size} posições
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right ml-4">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {opportunity.priority_score}
+                      </div>
+                      <div className="text-xs text-muted-foreground">score</div>
+                    </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
+            
+            {opportunities.length > 3 && (
+              <div className="text-center mt-4">
+                <p className="text-sm text-muted-foreground">
+                  +{opportunities.length - 3} oportunidades adicionais na tabela completa acima
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
