@@ -248,10 +248,10 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
             {(() => {
               const gapAnalysis = getGapAnalysis(competitiveMetrics.averagePositionGap, keywords.length);
               return (
-                <div className="space-y-2">
-                  <p className="text-lg font-medium">
-                    Status Competitivo: <span className={`${gapAnalysis.color}`}>{gapAnalysis.description}</span>
-                  </p>
+          <div className="space-y-2">
+            <p className="text-lg font-medium">
+              Situação no Mercado: <span className={`${gapAnalysis.color}`}>{gapAnalysis.description}</span>
+            </p>
                   <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
                     {gapAnalysis.recommendation}
                   </p>
@@ -275,7 +275,19 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                     <p className={`text-3xl font-bold ${gapAnalysis.color}`}>
                       {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap}
                     </p>
-                    <p className="text-sm font-medium text-muted-foreground">Gap Médio dos Concorrentes</p>
+                    <div className="flex items-center gap-1 justify-center">
+                      <p className="text-sm font-medium text-muted-foreground">Distância da Concorrência</p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">Quantas posições, em média, você está atrás dos seus principais concorrentes nas palavras-chave analisadas</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-muted-foreground">
@@ -296,7 +308,19 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <p className="text-3xl font-bold text-green-600 dark:text-green-400">
                   {keywordWins}
                 </p>
-                <p className="text-sm font-medium text-muted-foreground">Palavras-chave Vencendo</p>
+                <div className="flex items-center gap-1 justify-center">
+                  <p className="text-sm font-medium text-muted-foreground">Palavras-chave Vencendo</p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">Palavras-chave onde você está melhor posicionado que todos os concorrentes analisados</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
                 {((keywordWins / keywords.length) * 100).toFixed(1)}% do total analisado
@@ -313,7 +337,19 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                   {quickOpportunities}
                 </p>
-                <p className="text-sm font-medium text-muted-foreground">Oportunidades Imediatas</p>
+                <div className="flex items-center gap-1 justify-center">
+                  <p className="text-sm font-medium text-muted-foreground">Melhorias Rápidas</p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">Palavras-chave com alto potencial de melhoria que podem ser otimizadas rapidamente</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
                 Potencial de {formatNumber(competitiveMetrics.lostTrafficPotential)} visitas
@@ -326,14 +362,14 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
       {/* Top Competitors - Enhanced */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          Top Concorrentes
+          Principais Concorrentes
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
                 <HelpCircle className="h-4 w-4 text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent>
-                <p>Share of Voice: porcentagem de visibilidade do concorrente nas palavras-chave analisadas</p>
+                <p className="max-w-xs">Concorrentes que mais aparecem à frente do seu site nas palavras-chave analisadas</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -345,15 +381,15 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <div>
                   <h4 className="font-medium text-foreground">{competitor.domain}</h4>
                   <p className="text-sm text-muted-foreground">
-                    {competitor.winsCount} palavras-chave vencidas
+                    {competitor.winsCount} palavras à frente
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium text-primary">
-                    {competitor.shareOfVoice.toFixed(1)}% share
+                    {competitor.shareOfVoice.toFixed(1)}% visibilidade
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Pos. média: {competitor.averagePosition.toFixed(1)}
+                    Posição média: {competitor.averagePosition.toFixed(1)}
                   </p>
                 </div>
               </div>
@@ -389,7 +425,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <option value="all">Todas ({keywords.length})</option>
                 <option value="winning">Vencendo ({keywordWins})</option>
                 <option value="losing">Perdendo ({competitorWins})</option>
-                <option value="opportunities">Oportunidades ({quickOpportunities})</option>
+                <option value="opportunities">Melhorias Rápidas ({quickOpportunities})</option>
               </select>
             </div>
           </div>
@@ -401,9 +437,9 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <TableRow>
                   <TableHead>Palavra-chave</TableHead>
                   <TableHead className="text-center">Minha Posição</TableHead>
-                  <TableHead className="text-center">Concorrentes</TableHead>
+                  <TableHead className="text-center">Melhor Concorrente</TableHead>
                   <TableHead className="text-center">Dificuldade</TableHead>
-                  <TableHead className="text-center">Potencial</TableHead>
+                  <TableHead className="text-center">Potencial de Melhoria</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -422,7 +458,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                           <p className="truncate">{keyword.keyword}</p>
                           {keyword.search_volume && (
                             <p className="text-xs text-muted-foreground">
-                              Vol: {keyword.search_volume}
+                              Volume: {keyword.search_volume}/mês
                             </p>
                           )}
                         </div>
@@ -463,64 +499,78 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                           </Tooltip>
                         </TooltipProvider>
                       </TableCell>
-                      <TableCell className="text-center">
+                       <TableCell className="text-center">
                         <div className="space-y-1">
-                          {competitorsAhead.slice(0, 3).map((comp, index) => (
-                            <div key={index} className="flex items-center justify-center gap-1">
-                              <span className="text-xs truncate max-w-20">{comp.domain}</span>
+                          {competitorsAhead.length > 0 ? (
+                            <div>
                               <Badge variant="outline" className="text-xs">
-                                {comp.position}ª
+                                {competitorsAhead[0].domain}
                               </Badge>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Posição {competitorsAhead[0].position}
+                              </p>
                             </div>
-                          ))}
-                          {competitorsAhead.length > 3 && (
-                            <p className="text-xs text-muted-foreground">
-                              +{competitorsAhead.length - 3} mais
-                            </p>
-                          )}
-                          {competitorsAhead.length === 0 && (
+                          ) : (
                             <Badge variant="default" className="text-xs">
                               <Trophy className="h-3 w-3 mr-1" />
-                              Liderando
+                              Você está na frente!
                             </Badge>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${getDifficultyColor(difficulty.level)}`}
-                        >
-                          {difficulty.level.toUpperCase()}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Score: {difficulty.score}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="space-y-1">
-                          <Badge 
-                            variant="secondary" 
-                            className={`text-xs ${getPotentialColor(potential.improvementPotential)}`}
-                          >
-                            {potential.improvementPotential.toUpperCase()}
-                          </Badge>
-                          <p className="text-xs text-muted-foreground">
-                            Projeção: {potential.projectedPosition}ª
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewDetails(keyword)}
-                          className="text-xs"
-                        >
-                          <Eye className="h-3 w-3 mr-1" />
-                          Ver Detalhes
-                        </Button>
-                      </TableCell>
+                       </TableCell>
+                       <TableCell className="text-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${getDifficultyColor(difficulty.level)} cursor-help`}
+                              >
+                                {difficulty.level === 'low' ? 'Fácil' : 
+                                 difficulty.level === 'medium' ? 'Médio' : 
+                                 difficulty.level === 'high' ? 'Difícil' : 'Muito Difícil'}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs">{difficulty.description}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                       </TableCell>
+                       <TableCell className="text-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="space-y-1 cursor-help">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${getPotentialColor(potential.improvementPotential)}`}
+                                >
+                                  {potential.improvementPotential === 'high' ? 'Alto' : 
+                                   potential.improvementPotential === 'medium' ? 'Médio' : 'Baixo'}
+                                </Badge>
+                                <p className="text-xs text-muted-foreground">
+                                  {potential.currentPosition ? `${potential.currentPosition} → ${potential.projectedPosition}` : `→ ${potential.projectedPosition}`}
+                                </p>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs">{potential.description}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                       </TableCell>
+                       <TableCell className="text-center">
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handleViewDetails(keyword)}
+                           className="text-xs"
+                         >
+                           <Eye className="h-3 w-3 mr-1" />
+                           Ver Análise
+                         </Button>
+                       </TableCell>
                     </TableRow>
                   );
                 })}

@@ -36,7 +36,7 @@ export const getGapAnalysis = (gap: number, totalKeywords: number) => {
   if (gap === 0) {
     return {
       level: 'excellent' as const,
-      description: 'Sem desvantagem competitiva',
+      description: 'Posição competitiva excelente',
       color: 'text-green-600',
       bgColor: 'bg-green-50 dark:bg-green-900/20',
       borderColor: 'border-green-200 dark:border-green-800',
@@ -47,7 +47,7 @@ export const getGapAnalysis = (gap: number, totalKeywords: number) => {
   if (gap <= 3) {
     return {
       level: 'good' as const,
-      description: 'Gap competitivo baixo',
+      description: 'Posição competitiva boa',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50 dark:bg-blue-900/20',
       borderColor: 'border-blue-200 dark:border-blue-800',
@@ -58,7 +58,7 @@ export const getGapAnalysis = (gap: number, totalKeywords: number) => {
   if (gap <= 8) {
     return {
       level: 'moderate' as const,
-      description: 'Gap competitivo moderado',
+      description: 'Posição competitiva moderada',
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
       borderColor: 'border-yellow-200 dark:border-yellow-800',
@@ -69,7 +69,7 @@ export const getGapAnalysis = (gap: number, totalKeywords: number) => {
   if (gap <= 15) {
     return {
       level: 'high' as const,
-      description: 'Gap competitivo alto',
+      description: 'Posição competitiva fraca',
       color: 'text-orange-600',
       bgColor: 'bg-orange-50 dark:bg-orange-900/20',
       borderColor: 'border-orange-200 dark:border-orange-800',
@@ -79,7 +79,7 @@ export const getGapAnalysis = (gap: number, totalKeywords: number) => {
   
   return {
     level: 'critical' as const,
-    description: 'Gap competitivo crítico',
+    description: 'Posição competitiva crítica',
     color: 'text-red-600',
     bgColor: 'bg-red-50 dark:bg-red-900/20',
     borderColor: 'border-red-200 dark:border-red-800',
