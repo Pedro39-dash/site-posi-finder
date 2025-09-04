@@ -419,7 +419,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <TableRow>
                   <TableHead>Palavra-chave</TableHead>
                   <TableHead className="text-center">Posição</TableHead>
-                  <TableHead className="text-center">Concorrentes à Frente</TableHead>
+                  <TableHead className="text-center">1º Lugar</TableHead>
                   <TableHead className="text-center">Dificuldade de Ranqueamento</TableHead>
                   <TableHead className="text-center">Projeção de Melhora</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
@@ -471,29 +471,20 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                           </Tooltip>
                         </TooltipProvider>
                       </TableCell>
-                       <TableCell className="text-center">
-                         <div className="text-center">
-                           {competitorsAhead.length > 0 ? (
-                             <div className="max-w-xs">
-                               <div className="text-xs text-muted-foreground mb-1">
-                                 {competitorsAhead.length} {competitorsAhead.length === 1 ? 'concorrente' : 'concorrentes'}
-                               </div>
-                               <div className="text-xs space-y-1 max-h-20 overflow-y-auto">
-                                 {competitorsAhead.map((comp, idx) => (
-                                   <div key={idx} className="flex justify-between items-center">
-                                     <span className="truncate">{comp.domain}</span>
-                                     <span className="ml-1 text-muted-foreground">#{comp.position}</span>
-                                   </div>
-                                 ))}
-                               </div>
-                             </div>
-                           ) : (
-                             <div className="text-muted-foreground">
-                               Você está na frente!
-                             </div>
-                           )}
-                         </div>
-                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="text-center">
+                            {(() => {
+                              const firstPlace = competitorsAhead.find(comp => comp.position === 1);
+                              if (firstPlace) {
+                                return <span className="font-medium">{firstPlace.domain}</span>;
+                              } else if (myPosition === 1) {
+                                return <span className="text-muted-foreground">Você está em 1º</span>;
+                              } else {
+                                return <span className="text-muted-foreground">-</span>;
+                              }
+                            })()}
+                          </div>
+                         </TableCell>
                        <TableCell className="text-center">
                         <TooltipProvider>
                           <Tooltip>
