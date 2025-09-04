@@ -418,8 +418,8 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
               <TableHeader>
                 <TableRow>
                   <TableHead>Palavra-chave</TableHead>
-                  <TableHead className="text-center">Minha Posição</TableHead>
-                  <TableHead className="text-center">Primeiro Lugar</TableHead>
+                  <TableHead className="text-center">Posição</TableHead>
+                  <TableHead className="text-center">Concorrentes à Frente</TableHead>
                   <TableHead className="text-center">Dificuldade de Ranqueamento</TableHead>
                   <TableHead className="text-center">Projeção de Melhora</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
@@ -472,18 +472,28 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         </TooltipProvider>
                       </TableCell>
                        <TableCell className="text-center">
-                        <div className="text-center">
-                          {competitorsAhead.length > 0 ? (
-                            <div className="font-medium">
-                              {competitorsAhead[0].domain}
-                            </div>
-                          ) : (
-                            <div className="text-muted-foreground">
-                              Você está na frente!
-                            </div>
-                          )}
-                        </div>
-                       </TableCell>
+                         <div className="text-center">
+                           {competitorsAhead.length > 0 ? (
+                             <div className="max-w-xs">
+                               <div className="text-xs text-muted-foreground mb-1">
+                                 {competitorsAhead.length} {competitorsAhead.length === 1 ? 'concorrente' : 'concorrentes'}
+                               </div>
+                               <div className="text-xs space-y-1 max-h-20 overflow-y-auto">
+                                 {competitorsAhead.map((comp, idx) => (
+                                   <div key={idx} className="flex justify-between items-center">
+                                     <span className="truncate">{comp.domain}</span>
+                                     <span className="ml-1 text-muted-foreground">#{comp.position}</span>
+                                   </div>
+                                 ))}
+                               </div>
+                             </div>
+                           ) : (
+                             <div className="text-muted-foreground">
+                               Você está na frente!
+                             </div>
+                           )}
+                         </div>
+                        </TableCell>
                        <TableCell className="text-center">
                         <TooltipProvider>
                           <Tooltip>
@@ -504,23 +514,27 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         </TooltipProvider>
                        </TableCell>
                        <TableCell className="text-center">
-                         <TooltipProvider>
-                           <Tooltip>
-                             <TooltipTrigger asChild>
-                               <div className="text-center cursor-help">
-                                 <div className="font-medium">
-                                   {potential.currentPosition && potential.projectedPosition 
-                                     ? `${potential.currentPosition - potential.projectedPosition}` 
-                                     : potential.projectedPosition || '-'}
-                                 </div>
-                               </div>
-                             </TooltipTrigger>
-                             <TooltipContent>
-                               <p className="max-w-xs">{potential.description}</p>
-                             </TooltipContent>
-                           </Tooltip>
-                         </TooltipProvider>
-                       </TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center cursor-help">
+                                  <div className="font-medium">
+                                    {potential.currentPosition && potential.projectedPosition 
+                                      ? `${potential.currentPosition - potential.projectedPosition}` 
+                                      : potential.projectedPosition || '-'}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {potential.improvementPotential === 'high' ? 'Alto' :
+                                     potential.improvementPotential === 'medium' ? 'Médio' : 'Baixo'}
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-xs">{potential.description}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
                        <TableCell className="text-center">
                          <Button
                            variant="outline"
