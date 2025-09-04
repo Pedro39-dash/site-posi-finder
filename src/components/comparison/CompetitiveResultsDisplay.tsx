@@ -346,6 +346,56 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
+          <CardContent className="p-6">
+            <div className="text-center space-y-3">
+              <TrendingUp className="h-12 w-12 mx-auto text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  {(() => {
+                    const potentialGains = keywords.reduce((total, keyword) => {
+                      if (keyword.target_domain_position && keyword.target_domain_position > 0) {
+                        const bestCompetitorPos = Math.min(...keyword.competitor_positions
+                          .filter(c => c.position > 0)
+                          .map(c => c.position));
+                        if (bestCompetitorPos < keyword.target_domain_position) {
+                          return total + (keyword.target_domain_position - bestCompetitorPos);
+                        }
+                      }
+                      return total;
+                    }, 0);
+                    return potentialGains;
+                  })()}
+                </p>
+                <div className="flex items-center gap-1 justify-center">
+                  <p className="text-sm font-medium text-muted-foreground">Posições Potenciais a Ganhar</p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">Simulação baseada na diferença entre sua posição atual e a melhor posição dos concorrentes analisados</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Otimizando {keywords.filter(k => {
+                  if (k.target_domain_position && k.target_domain_position > 0) {
+                    const bestPos = Math.min(...k.competitor_positions
+                      .filter(c => c.position > 0)
+                      .map(c => c.position));
+                    return bestPos < k.target_domain_position;
+                  }
+                  return false;
+                }).length} palavras-chave
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Top Competitors - Simplified and Clearer */}
