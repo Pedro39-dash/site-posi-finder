@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from "@/services/competitorAnalysisService";
-import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis } from "@/utils/competitiveAnalysis";
+import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword, CompetitorDomain } from "@/services/competitorAnalysisService";
+import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis, getCTRByPosition } from "@/utils/competitiveAnalysis";
 import KeywordDetailModal from "./KeywordDetailModal";
 
 interface CompetitiveResultsDisplayProps {
@@ -160,9 +160,27 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     )
   ).length;
 
-  const quickOpportunities = opportunities.filter(opp => 
-    opp.priority_score > 75
-  ).length;
+  // Calculate quick opportunities based on high potential keywords
+  const quickOpportunities = keywords.filter(k => {
+    const potential = getKeywordPotential(k);
+    return potential.improvementPotential === 'high' && k.target_domain_position && k.target_domain_position > 10;
+  }).length;
+  
+  // Calculate traffic potential for quick opportunities only
+  const quickOpportunityTraffic = keywords.filter(k => {
+    const potential = getKeywordPotential(k);
+    return potential.improvementPotential === 'high' && k.target_domain_position && k.target_domain_position > 10;
+  }).reduce((acc, k) => {
+    const myPosition = k.target_domain_position;
+    const bestCompetitorPos = Math.min(...k.competitor_positions.map(cp => cp.position));
+    if (myPosition && bestCompetitorPos < myPosition) {
+      const volume = k.search_volume || 100;
+      const currentCTR = getCTRByPosition(myPosition);
+      const potentialCTR = getCTRByPosition(bestCompetitorPos);
+      return acc + ((potentialCTR - currentCTR) * volume / 100);
+    }
+    return acc;
+  }, 0);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -352,14 +370,17 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Potencial de {formatNumber(competitiveMetrics.lostTrafficPotential)} visitas
+                {quickOpportunities > 0 
+                  ? `Potencial de ${formatNumber(Math.round(quickOpportunityTraffic))} visitas extras`
+                  : 'Nenhuma oportunidade rápida identificada'
+                }
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Top Competitors - Enhanced */}
+      {/* Top Competitors - Simplified and Clearer */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           Principais Concorrentes
@@ -369,33 +390,63 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 <HelpCircle className="h-4 w-4 text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent>
-                <p className="max-w-xs">Concorrentes que mais aparecem à frente do seu site nas palavras-chave analisadas</p>
+                <p className="max-w-xs">Sites que aparecem com mais frequência nas primeiras posições para as palavras-chave analisadas</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          {competitiveMetrics.topCompetitors.map((competitor, index) => (
-            <Card key={competitor.domain} className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium text-foreground">{competitor.domain}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {competitor.winsCount} palavras à frente
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-primary">
-                    {competitor.shareOfVoice.toFixed(1)}% visibilidade
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Posição média: {competitor.averagePosition.toFixed(1)}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        
+        {competitiveMetrics.topCompetitors.length === 0 ? (
+          <Card className="p-6 text-center">
+            <p className="text-muted-foreground">Você está na liderança em todas as palavras-chave analisadas! 🎉</p>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {competitiveMetrics.topCompetitors.slice(0, 3).map((competitor, index) => {
+              const competitorKeywords = keywords.filter(k => 
+                k.competitor_positions.some(cp => 
+                  cp.domain === competitor.domain && 
+                  k.target_domain_position && 
+                  cp.position < k.target_domain_position
+                )
+              );
+              
+              return (
+                <Card key={competitor.domain} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-foreground">{competitor.domain}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          À frente em {competitor.winsCount} de {keywords.length} palavras-chave
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-primary">
+                        {Math.round((competitor.winsCount / keywords.length) * 100)}% das palavras
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {competitorKeywords.length > 0 && (
+                          `Exemplos: ${competitorKeywords.slice(0, 2).map(k => k.keyword).join(', ')}`
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+            
+            {competitiveMetrics.topCompetitors.length > 3 && (
+              <p className="text-sm text-muted-foreground text-center">
+                E mais {competitiveMetrics.topCompetitors.length - 3} concorrentes...
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
 

@@ -5,6 +5,9 @@
 import { CompetitorKeyword, CompetitorDomain } from "@/services/competitorAnalysisService";
 import { getCTRByPosition, calculateKeywordDifficulty, getPositionCategory } from "./seoScoring";
 
+// Export getCTRByPosition for components
+export { getCTRByPosition };
+
 export interface CompetitiveMetrics {
   averagePositionGap: number;
   lostTrafficPotential: number;
