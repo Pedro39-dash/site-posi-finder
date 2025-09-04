@@ -327,7 +327,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                   {keywordWins}
                 </p>
                 <div className="flex items-center gap-1 justify-center">
-                  <p className="text-sm font-medium text-muted-foreground">Palavras-chave Vencendo</p>
+                  <p className="text-sm font-medium text-muted-foreground">Você está melhor em {keywordWins} palavras</p>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
@@ -342,38 +342,6 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
               </div>
               <p className="text-xs text-muted-foreground">
                 {((keywordWins / keywords.length) * 100).toFixed(1)}% do total analisado
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
-          <CardContent className="p-6">
-            <div className="text-center space-y-3">
-              <Target className="h-12 w-12 mx-auto text-blue-600 dark:text-blue-400" />
-              <div>
-                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                  {quickOpportunities}
-                </p>
-                <div className="flex items-center gap-1 justify-center">
-                  <p className="text-sm font-medium text-muted-foreground">Melhorias Rápidas</p>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">Palavras-chave com alto potencial de melhoria que podem ser otimizadas rapidamente</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {quickOpportunities > 0 
-                  ? `Potencial de ${formatNumber(Math.round(quickOpportunityTraffic))} visitas extras`
-                  : 'Nenhuma oportunidade rápida identificada'
-                }
               </p>
             </div>
           </CardContent>
