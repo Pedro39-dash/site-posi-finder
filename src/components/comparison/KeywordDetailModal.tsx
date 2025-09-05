@@ -626,7 +626,12 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Volume de busca:</span>
-                        <span className="font-medium">{keyword.search_volume && keyword.search_volume > 0 ? keyword.search_volume.toLocaleString() : 'Não disponível'} buscas/mês</span>
+                        <span className="font-medium">
+                          {keyword.search_volume && keyword.search_volume > 0 
+                            ? `${keyword.search_volume.toLocaleString()} (estimado)`
+                            : 'Não disponível'
+                          } buscas/mês
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tráfego perdido estimado:</span>

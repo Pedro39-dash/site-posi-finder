@@ -471,6 +471,48 @@ async function extractKeywordsFromAudit(supabase: any, auditReportId: string | n
   }
 }
 
+// Function to estimate search volume based on competition level and keyword characteristics
+function estimateSearchVolume(keyword: string, competitionLevel: 'low' | 'medium' | 'high', competitorCount: number, targetPosition: number | null): number {
+  // Base estimates by competition level
+  const competitionBaseVolumes = {
+    'low': 150,      // Low competition = niche keywords, lower volume
+    'medium': 800,   // Medium competition = balanced volume/competition
+    'high': 2500     // High competition = high volume keywords
+  };
+
+  let baseVolume = competitionBaseVolumes[competitionLevel];
+
+  // Keyword length factor - longer keywords tend to have lower volume
+  const wordCount = keyword.split(' ').length;
+  if (wordCount >= 4) {
+    baseVolume *= 0.4; // Long-tail keywords
+  } else if (wordCount === 3) {
+    baseVolume *= 0.7; // Medium-tail
+  }
+  // Short keywords (1-2 words) keep base volume
+
+  // Competition density factor
+  if (competitorCount <= 2) {
+    baseVolume *= 0.5; // Very low competition might mean very niche
+  } else if (competitorCount >= 8) {
+    baseVolume *= 1.3; // High competition suggests good volume
+  }
+
+  // Position factor - if target is ranking, use position to infer volume
+  if (targetPosition !== null && targetPosition <= 20) {
+    if (targetPosition <= 3) {
+      baseVolume *= 1.2; // High positions suggest good volume
+    } else if (targetPosition <= 10) {
+      baseVolume *= 1.0; // First page is normal
+    } else {
+      baseVolume *= 0.8; // Second page might be lower volume
+    }
+  }
+
+  // Round to reasonable numbers
+  return Math.round(baseVolume / 50) * 50; // Round to nearest 50
+}
+
 // Função para identificar domínios não comerciais que devem ser filtrados
 function shouldExcludeDomain(domain: string): boolean {
   const nonCommercialDomains = [
@@ -586,12 +628,8 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     const organicResults = data.organic_results || [];
     console.log(`✅ SERPAPI: Retrieved ${organicResults.length} organic search results for "${keyword}"`);
 
-    // Extract search volume from SerpApi response
-    const searchVolume = data.search_metadata?.total_results || 
-                        data.search_information?.total_results ||
-                        data.related_searches?.length > 0 ? 1000 : null; // Fallback estimate
-    
-    console.log(`📊 SERPAPI: Search volume detected: ${searchVolume} for "${keyword}"`);
+    // Note: SerpApi organic results don't provide monthly search volume
+    // We'll implement competitive-based estimation after competition analysis
 
     // Enhanced domain tracking with detailed logging and position validation
     const allPositions: CompetitorPosition[] = [];
@@ -707,9 +745,13 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       uniqueCommercialDomains.size <= 3 ? 'high' : 
       uniqueCommercialDomains.size <= 8 ? 'medium' : 'low'; // Adjusted thresholds
 
+    // Estimate search volume based on competition level and keyword characteristics
+    const searchVolumeEstimate = estimateSearchVolume(keyword, competitionLevel, uniqueCommercialDomains.size, targetDomainPosition);
+
     console.log(`📊 SERPAPI: Competition analysis for "${keyword}":`);
     console.log(`   - Competition level: ${competitionLevel}`);
     console.log(`   - Unique commercial domains: ${uniqueCommercialDomains.size}`);
+    console.log(`   - Estimated search volume: ${searchVolumeEstimate}`);
     console.log(`   - Total results analyzed: ${organicResults.length}`);
     console.log(`   - Commercial results: ${filteredPositions.length}`);
 
@@ -738,7 +780,7 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       keyword,
       target_domain_position: targetDomainPosition,
       competitor_positions: filteredPositions,
-      search_volume: searchVolume,
+      search_volume: searchVolumeEstimate,
       competition_level: competitionLevel,
       // Add debug metadata for troubleshooting
       debug_info: {
