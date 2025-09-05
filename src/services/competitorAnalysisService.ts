@@ -247,20 +247,34 @@ export class CompetitorAnalysisService {
     }
   }
 
-  // NEW: Re-verify specific keyword functionality
+  // ENHANCED: Re-verify specific keyword functionality with position validation
   static async reverifyKeyword(
     analysisId: string, 
     keyword: string, 
     targetDomain: string
   ): Promise<{ success: boolean; error?: string; newPosition?: number | null }> {
     try {
-      console.log(`🔄 Re-verifying keyword "${keyword}" for ${targetDomain}`);
+      console.log(`🔄 REVERIFY: Starting enhanced reverification for keyword "${keyword}" on domain "${targetDomain}"`);
       
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
+        console.error('❌ REVERIFY: User not authenticated');
         return { success: false, error: 'User not authenticated' };
       }
+
+      console.log(`👤 REVERIFY: User authenticated: ${user.id}`);
+
+      // Get current position before reverification for comparison
+      const { data: currentKeyword, error: getCurrentError } = await supabase
+        .from('competitor_keywords')
+        .select('target_domain_position, metadata')
+        .eq('analysis_id', analysisId)
+        .eq('keyword', keyword)
+        .single();
+
+      const currentPosition = currentKeyword?.target_domain_position;
+      console.log(`📊 REVERIFY: Current position in database: ${currentPosition}`);
 
       // Call edge function with single keyword for re-verification
       const { data, error } = await supabase.functions.invoke('competitor-analysis', {
@@ -275,24 +289,86 @@ export class CompetitorAnalysisService {
       });
 
       if (error) {
-        console.error('❌ Error in reverification:', error);
+        console.error('❌ REVERIFY: Error in edge function call:', error);
         return { success: false, error: error.message };
       }
 
-      // Fetch updated data
-      const result = await this.getAnalysisData(data.analysisId);
-      if (result.success && result.data && result.data.keywords.length > 0) {
-        const updatedKeyword = result.data.keywords[0];
-        return { 
-          success: true, 
-          newPosition: updatedKeyword.target_domain_position 
-        };
+      if (!data.success) {
+        console.error('❌ REVERIFY: Edge function returned failure:', data.error);
+        return { success: false, error: data.error };
       }
 
-      return { success: true, newPosition: null };
-    } catch (error) {
-      console.error('Error in reverifyKeyword:', error);
-      return { success: false, error: 'Failed to re-verify keyword' };
+      console.log(`✅ REVERIFY: Edge function completed with analysis ID: ${data.analysisId}`);
+
+      // Fetch updated data from the new analysis
+      const result = await this.getAnalysisData(data.analysisId);
+      
+      if (!result.success || !result.data) {
+        console.error('❌ REVERIFY: Failed to get updated analysis data');
+        return { success: false, error: 'Failed to get updated analysis data' };
+      }
+
+      const updatedKeyword = result.data.keywords.find(k => k.keyword === keyword);
+      const newPosition = updatedKeyword?.target_domain_position || null;
+      
+      console.log(`🎯 REVERIFY: New position detected: ${newPosition} (was: ${currentPosition})`);
+      
+      // Enhanced logging of debug information
+      if (updatedKeyword?.metadata?.detection_debug) {
+        const debugInfo = updatedKeyword.metadata.detection_debug;
+        console.log(`🔍 REVERIFY DEBUG INFO:`, {
+          total_matches: debugInfo.total_matches_found,
+          all_positions: debugInfo.all_positions,
+          best_position: debugInfo.best_position,
+          saved_position: debugInfo.saved_position
+        });
+
+        // Validate position consistency
+        if (debugInfo.best_position !== null && newPosition !== debugInfo.best_position) {
+          console.warn(`⚠️ REVERIFY WARNING: Position inconsistency detected!`);
+          console.warn(`   - Saved position: ${newPosition}`);
+          console.warn(`   - Best detected: ${debugInfo.best_position}`);
+        }
+      }
+
+      // Update the original analysis with the new position and enhanced metadata
+      const updateMetadata = {
+        reverified_at: new Date().toISOString(),
+        previous_position: currentPosition,
+        reverification_debug: updatedKeyword?.metadata?.detection_debug || null,
+        position_change: currentPosition !== null && newPosition !== null ? newPosition - currentPosition : null
+      };
+
+      const { error: updateError } = await supabase
+        .from('competitor_keywords')
+        .update({ 
+          target_domain_position: newPosition,
+          metadata: updateMetadata
+        })
+        .eq('analysis_id', analysisId)
+        .eq('keyword', keyword);
+
+      if (updateError) {
+        console.error('❌ REVERIFY: Failed to update keyword position:', updateError);
+        return { success: false, error: 'Failed to update keyword position' };
+      }
+
+      // Log position change summary
+      if (currentPosition !== newPosition) {
+        const change = currentPosition !== null && newPosition !== null ? newPosition - currentPosition : null;
+        const changeText = change === null ? 'N/A' : change > 0 ? `+${change}` : `${change}`;
+        console.log(`📈 REVERIFY: Position change for "${keyword}": ${currentPosition} → ${newPosition} (${changeText})`);
+      } else {
+        console.log(`✅ REVERIFY: Position confirmed unchanged for "${keyword}": ${newPosition}`);
+      }
+
+      return { 
+        success: true, 
+        newPosition,
+      };
+    } catch (error: any) {
+      console.error('❌ REVERIFY EXCEPTION:', error);
+      return { success: false, error: error.message };
     }
   }
 

@@ -31,6 +31,12 @@ interface KeywordAnalysis {
   competitor_positions: CompetitorPosition[];
   search_volume?: number;
   competition_level: 'low' | 'medium' | 'high';
+  debug_info?: {
+    total_matches_found: number;
+    all_positions: number[];
+    best_position: number | null;
+    saved_position: number | null;
+  };
 }
 
 serve(async (req) => {
@@ -311,18 +317,42 @@ async function performCompetitiveAnalysis(
         });
     }
 
-    // Save keyword analyses
+    // Save keyword analyses with enhanced validation logging
     for (const keywordAnalysis of keywordAnalyses) {
+      const positionToSave = keywordAnalysis.target_domain_position;
+      
+      // CRITICAL VALIDATION: Log every position being saved
+      console.log(`💾 SAVING_POSITION: Keyword "${keywordAnalysis.keyword}"`);
+      console.log(`   - Position being saved: ${positionToSave}`);
+      console.log(`   - Debug info:`, keywordAnalysis.debug_info || 'No debug info available');
+      
+      // Validate against debug info if available
+      if (keywordAnalysis.debug_info && keywordAnalysis.debug_info.best_position !== null) {
+        if (positionToSave !== keywordAnalysis.debug_info.best_position) {
+          console.error(`❌ SAVE_ERROR: Position mismatch detected!`);
+          console.error(`   - Saving: ${positionToSave}`);
+          console.error(`   - Best detected: ${keywordAnalysis.debug_info.best_position}`);
+          console.error(`   - All positions found: ${keywordAnalysis.debug_info.all_positions}`);
+        }
+      }
+      
       await supabase
         .from('competitor_keywords')
         .insert({
           analysis_id: analysisId,
           keyword: keywordAnalysis.keyword,
-          target_domain_position: keywordAnalysis.target_domain_position,
+          target_domain_position: positionToSave,
           competitor_positions: keywordAnalysis.competitor_positions,
           search_volume: keywordAnalysis.search_volume,
-          competition_level: keywordAnalysis.competition_level
+          competition_level: keywordAnalysis.competition_level,
+          metadata: {
+            // Add debug info to metadata for troubleshooting
+            detection_debug: keywordAnalysis.debug_info || {},
+            saved_at: new Date().toISOString()
+          }
         });
+        
+      console.log(`✅ SAVED: Position ${positionToSave} for keyword "${keywordAnalysis.keyword}"`);
     }
 
     // Identify opportunities
@@ -536,7 +566,12 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     console.log(`🌐 SERPAPI: Fetching 50 results for "${keyword}" (increased from 20)`);
     console.log(`🎯 SERPAPI: Target domain (normalized): "${normalizeDomain(targetDomain)}"`);
     
-    const response = await fetch(serpApiUrl);
+    const response = await fetch(serpApiUrl, {
+      headers: {
+        'User-Agent': 'Copex-SEO-Analysis/2.0',
+        'Accept': 'application/json'
+      }
+    });
     
     if (!response.ok) {
       throw new Error(`SerpApi request failed: ${response.status} ${response.statusText}`);
@@ -551,12 +586,15 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     const organicResults = data.organic_results || [];
     console.log(`✅ SERPAPI: Retrieved ${organicResults.length} organic search results for "${keyword}"`);
 
-    // Enhanced domain tracking with detailed logging
+    // Enhanced domain tracking with detailed logging and position validation
     const allPositions: CompetitorPosition[] = [];
     const filteredPositions: CompetitorPosition[] = [];
     let targetDomainPosition: number | null = null;
     let filteredCount = 0;
     let targetDomainCandidates: { domain: string; position: number; url: string }[] = [];
+    let allTargetDomainMatches: { position: number; url: string; normalized_domain: string }[] = [];
+
+    console.log(`🔍 POSITION_DEBUG: Starting position detection for target domain "${normalizeDomain(targetDomain)}"`);
 
     organicResults.forEach((result: any, index: number) => {
       const rawDomain = extractDomain(result.link);
@@ -572,9 +610,23 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
 
       allPositions.push(competitorPosition);
       
-      // Enhanced target domain detection with detailed logging
+      // Enhanced target domain detection with BEST POSITION LOGIC
       if (doesDomainMatch(targetDomain, normalizedDomain)) {
-        targetDomainPosition = position;
+        // Track ALL matches for debugging
+        allTargetDomainMatches.push({ 
+          position, 
+          url: result.link, 
+          normalized_domain: normalizedDomain 
+        });
+        
+        // CRITICAL FIX: Always keep the BEST (lowest) position
+        if (targetDomainPosition === null || position < targetDomainPosition) {
+          console.log(`🎯 POSITION_UPDATE: Target domain position updated from ${targetDomainPosition} to ${position} (BETTER)`);
+          targetDomainPosition = position;
+        } else {
+          console.log(`🎯 POSITION_SKIP: Found target domain at position ${position} but keeping better position ${targetDomainPosition}`);
+        }
+        
         targetDomainCandidates.push({ domain: normalizedDomain, position, url: result.link });
         console.log(`🎯 SERPAPI: FOUND TARGET DOMAIN! "${normalizedDomain}" at position ${position} (URL: ${result.link})`);
         filteredPositions.push(competitorPosition);
@@ -590,17 +642,42 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       }
     });
 
-    // Enhanced logging for target domain detection
+    // POSITION VALIDATION LOGGING
+    console.log(`🔍 POSITION_VALIDATION: Analysis complete for "${keyword}"`);
+    console.log(`   - All target domain matches found: ${allTargetDomainMatches.length}`);
+    console.log(`   - Final position selected: ${targetDomainPosition}`);
+    console.log(`   - Match details:`, allTargetDomainMatches);
+    
+    if (allTargetDomainMatches.length > 1) {
+      console.log(`⚠️ POSITION_WARNING: Multiple matches found! Using best position ${targetDomainPosition}`);
+      const positions = allTargetDomainMatches.map(m => m.position).sort((a, b) => a - b);
+      console.log(`   - All positions found: [${positions.join(', ')}]`);
+    }
+
+    // Enhanced logging for target domain detection with validation
     console.log(`🔍 SERPAPI: Target domain search summary:`);
     console.log(`   - Target: "${normalizeDomain(targetDomain)}"`);
     console.log(`   - Position found: ${targetDomainPosition || 'NOT FOUND'}`);
     console.log(`   - Candidates found: ${targetDomainCandidates.length}`);
+    console.log(`   - Total matches detected: ${allTargetDomainMatches.length}`);
     
     if (targetDomainCandidates.length > 0) {
       console.log(`   - All matches:`, targetDomainCandidates);
+      console.log(`   - Position verification: BEST=${targetDomainPosition}, ALL=[${allTargetDomainMatches.map(m => m.position).join(', ')}]`);
     } else {
       console.log(`   - No matches found in top ${organicResults.length} results`);
       console.log(`   - Sample domains found:`, organicResults.slice(0, 10).map((r: any) => normalizeDomain(extractDomain(r.link))));
+    }
+
+    // CRITICAL POSITION SAVE VALIDATION
+    console.log(`🔍 FINAL_POSITION_CHECK: About to save position ${targetDomainPosition} for keyword "${keyword}"`);
+    if (targetDomainPosition !== null && allTargetDomainMatches.length > 0) {
+      const bestDetected = Math.min(...allTargetDomainMatches.map(m => m.position));
+      if (targetDomainPosition !== bestDetected) {
+        console.error(`❌ POSITION_ERROR: Logic error detected! Best position is ${bestDetected} but saving ${targetDomainPosition}`);
+        targetDomainPosition = bestDetected; // Force correction
+        console.log(`✅ POSITION_CORRECTION: Corrected to save best position: ${targetDomainPosition}`);
+      }
     }
 
     console.log(`🔄 SERPAPI: Filtered ${filteredCount} non-commercial domains (YouTube, social media, etc.)`);
@@ -629,11 +706,39 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     console.log(`   - Total results analyzed: ${organicResults.length}`);
     console.log(`   - Commercial results: ${filteredPositions.length}`);
 
+    // FINAL VALIDATION BEFORE RETURN
+    console.log(`🎯 FINAL_RESULT: Keyword "${keyword}" analysis complete`);
+    console.log(`   - Target domain position: ${targetDomainPosition}`);
+    console.log(`   - Competition level: ${competitionLevel}`);
+    console.log(`   - Commercial competitors found: ${filteredPositions.filter(p => !doesDomainMatch(targetDomain, p.domain)).length}`);
+    
+    // Double-check position consistency
+    if (targetDomainPosition !== null && allTargetDomainMatches.length > 0) {
+      const savedPosition = targetDomainPosition;
+      const bestAvailable = Math.min(...allTargetDomainMatches.map(m => m.position));
+      
+      console.log(`🔍 CONSISTENCY_CHECK: Saving position ${savedPosition}, best available was ${bestAvailable}`);
+      
+      if (savedPosition !== bestAvailable) {
+        console.error(`❌ CRITICAL_ERROR: Position consistency check failed!`);
+        console.error(`   - About to save: ${savedPosition}`);
+        console.error(`   - Best available: ${bestAvailable}`);
+        console.error(`   - All matches:`, allTargetDomainMatches);
+      }
+    }
+
     return {
       keyword,
       target_domain_position: targetDomainPosition,
       competitor_positions: filteredPositions,
-      competition_level: competitionLevel
+      competition_level: competitionLevel,
+      // Add debug metadata for troubleshooting
+      debug_info: {
+        total_matches_found: allTargetDomainMatches.length,
+        all_positions: allTargetDomainMatches.map(m => m.position),
+        best_position: allTargetDomainMatches.length > 0 ? Math.min(...allTargetDomainMatches.map(m => m.position)) : null,
+        saved_position: targetDomainPosition
+      }
     };
 
   } catch (error) {
