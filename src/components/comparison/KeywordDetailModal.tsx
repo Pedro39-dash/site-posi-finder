@@ -99,7 +99,7 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
       case 'high': 
         return `${baseText}Mercado competitivo. Invista em conteúdo aprofundado e autoridade técnica.`;
       case 'very-high': 
-        return `${baseText}Nicho estabelecido. Foque em nichos específicos e construa autoridade gradualmente.`;
+        return `${baseText}Nicho estabelecido. Invista em estratégias a longo prazo e construa autoridade com conteúdo excepcional.`;
       default: 
         return `${baseText}Nível de dificuldade baseado na análise dos concorrentes.`;
     }
