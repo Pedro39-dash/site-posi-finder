@@ -203,22 +203,22 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     return "outline";
   };
 
-  const getDifficultyColor = (level: string) => {
+  const getDifficultyVariant = (level: string) => {
     switch (level) {
-      case 'low': return 'text-green-600';
-      case 'medium': return 'text-yellow-600';
-      case 'high': return 'text-orange-600';
-      case 'very-high': return 'text-red-600';
-      default: return 'text-muted-foreground';
+      case 'low': return 'default';
+      case 'medium': return 'secondary';
+      case 'high': return 'destructive';
+      case 'very-high': return 'destructive';
+      default: return 'outline';
     }
   };
 
-  const getPotentialColor = (level: string) => {
+  const getPotentialVariant = (level: string) => {
     switch (level) {
-      case 'high': return 'text-green-600';
-      case 'medium': return 'text-yellow-600';
-      case 'low': return 'text-red-600';
-      default: return 'text-muted-foreground';
+      case 'high': return 'default';
+      case 'medium': return 'secondary';
+      case 'low': return 'outline';
+      default: return 'outline';
     }
   };
 
@@ -367,12 +367,12 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           );
         })()}
 
-        <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+        <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-6">
             <div className="text-center space-y-3">
-              <Trophy className="h-12 w-12 mx-auto text-green-600 dark:text-green-400" />
+              <Trophy className="h-12 w-12 mx-auto text-primary" />
               <div>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                <p className="text-3xl font-bold text-primary">
                   {keywordWins}
                 </p>
                 <div className="flex items-center gap-1 justify-center">
@@ -403,12 +403,12 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           </CardContent>
         </Card>
 
-        <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+        <Card className="border-secondary/20 bg-secondary/5">
           <CardContent className="p-6">
             <div className="text-center space-y-3">
-              <BarChart3 className="h-12 w-12 mx-auto text-green-600 dark:text-green-400" />
+              <TrendingUp className="h-12 w-12 mx-auto text-secondary-foreground" />
               <div>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                <p className="text-3xl font-bold text-secondary-foreground">
                   0
                 </p>
                 <div className="flex items-center gap-1 justify-center">
@@ -469,14 +469,17 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Badge variant="outline" className="gap-1">
+                <Filter className="h-3 w-3" />
+                Filtrar
+              </Badge>
               <select 
                 value={keywordFilter} 
                 onChange={(e) => {
                   setKeywordFilter(e.target.value as any);
                   setCurrentPage(1);
                 }}
-                className="text-sm border border-input bg-background px-3 py-1 rounded-md"
+                className="text-sm border border-input bg-background px-3 py-2 rounded-md focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 <option value="all">Todas ({keywords.length})</option>
                 <option value="winning">Vencendo ({keywordWins})</option>
@@ -491,12 +494,12 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Palavra-chave</TableHead>
-                  <TableHead className="text-center">Posição</TableHead>
-                  <TableHead className="text-center">1º Lugar</TableHead>
-                  <TableHead className="text-center">Dificuldade de Ranqueamento</TableHead>
-                  <TableHead className="text-center">Projeção de Melhora</TableHead>
-                  <TableHead className="text-center">Ações</TableHead>
+                  <TableHead className="w-1/3">Palavra-chave</TableHead>
+                  <TableHead className="text-center w-20">Posição</TableHead>
+                  <TableHead className="text-center w-32">1º Lugar</TableHead>
+                  <TableHead className="text-center w-28">Dificuldade</TableHead>
+                  <TableHead className="text-center w-28">Potencial</TableHead>
+                  <TableHead className="text-center w-24">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -508,14 +511,14 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                   const isWinning = competitorsAhead.length === 0 && myPosition;
                   
                   return (
-                    <TableRow key={keyword.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium max-w-xs">
-                        <div>
-                          <p className="truncate">{keyword.keyword}</p>
+                    <TableRow key={keyword.id} className="hover:bg-muted/30">
+                      <TableCell className="font-medium">
+                        <div className="space-y-1">
+                          <p className="font-medium">{keyword.keyword}</p>
                           {keyword.search_volume && (
-                            <p className="text-xs text-muted-foreground">
-                              Volume: {keyword.search_volume}/mês
-                            </p>
+                            <Badge variant="outline" className="text-xs">
+                              {formatNumber(keyword.search_volume)}/mês
+                            </Badge>
                           )}
                         </div>
                       </TableCell>
@@ -564,8 +567,8 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Badge 
-                                variant="outline" 
-                                className={`text-xs ${getDifficultyColor(difficulty.level)} cursor-help`}
+                                variant={getDifficultyVariant(difficulty.level)}
+                                className="text-xs cursor-help"
                               >
                                 {difficulty.level === 'low' ? 'Fácil' : 
                                  difficulty.level === 'medium' ? 'Médio' : 
@@ -582,17 +585,13 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="text-center cursor-help">
-                                  <div className="font-medium">
-                                    {potential.currentPosition && potential.projectedPosition 
-                                      ? `${potential.currentPosition - potential.projectedPosition}` 
-                                      : potential.projectedPosition || '-'}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {potential.improvementPotential === 'high' ? 'Alto' :
-                                     potential.improvementPotential === 'medium' ? 'Médio' : 'Baixo'}
-                                  </div>
-                                </div>
+                                <Badge 
+                                  variant={getPotentialVariant(potential.improvementPotential)}
+                                  className="text-xs cursor-help"
+                                >
+                                  {potential.improvementPotential === 'high' ? 'Alto' :
+                                   potential.improvementPotential === 'medium' ? 'Médio' : 'Baixo'}
+                                </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p className="max-w-xs">{potential.description}</p>
@@ -699,9 +698,9 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
 
       {/* Priority Opportunities - Enhanced */}
       {opportunities.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
+        <Card className="border-accent/20 bg-accent/5">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+            <CardTitle className="flex items-center gap-2 text-accent-foreground">
               <Zap className="h-5 w-5" />
               Ações Prioritárias - Resultados Rápidos
             </CardTitle>
@@ -715,11 +714,11 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                 .filter(opp => opp.priority_score > 75)
                 .slice(0, 3)
                 .map((opportunity, index) => (
-                <Card key={index} className="p-4 bg-background border-l-4 border-l-blue-500">
+                <Card key={index} className="p-4 bg-background border-l-4 border-l-accent">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="default" className="text-xs bg-blue-600">
+                        <Badge variant="default" className="text-xs">
                           #{index + 1} PRIORIDADE
                         </Badge>
                         <span className="font-medium text-foreground">
@@ -730,7 +729,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         <strong>Atual:</strong> #{opportunity.target_position || 'Fora do top 100'} → 
                         <strong className="text-green-600"> Meta:</strong> #{opportunity.best_competitor_position}
                       </p>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                      <p className="text-sm text-accent-foreground font-medium">
                         📋 {opportunity.recommended_action}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
@@ -743,7 +742,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                       </div>
                     </div>
                     <div className="text-right ml-4">
-                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      <div className="text-2xl font-bold text-accent-foreground">
                         {opportunity.priority_score}
                       </div>
                       <div className="text-xs text-muted-foreground">score</div>
