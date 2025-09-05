@@ -247,6 +247,78 @@ export class CompetitorAnalysisService {
     }
   }
 
+  // NEW: Re-verify specific keyword functionality
+  static async reverifyKeyword(
+    analysisId: string, 
+    keyword: string, 
+    targetDomain: string
+  ): Promise<{ success: boolean; error?: string; newPosition?: number | null }> {
+    try {
+      console.log(`🔄 Re-verifying keyword "${keyword}" for ${targetDomain}`);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Call edge function with single keyword for re-verification
+      const { data, error } = await supabase.functions.invoke('competitor-analysis', {
+        body: {
+          auditReportId: null,
+          targetDomain,
+          userId: user.id,
+          additionalCompetitors: [],
+          keywords: [keyword], // Single keyword re-check
+          isReverification: true // Flag to indicate this is a re-verification
+        }
+      });
+
+      if (error) {
+        console.error('❌ Error in reverification:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Fetch updated data
+      const result = await this.getAnalysisData(data.analysisId);
+      if (result.success && result.data && result.data.keywords.length > 0) {
+        const updatedKeyword = result.data.keywords[0];
+        return { 
+          success: true, 
+          newPosition: updatedKeyword.target_domain_position 
+        };
+      }
+
+      return { success: true, newPosition: null };
+    } catch (error) {
+      console.error('Error in reverifyKeyword:', error);
+      return { success: false, error: 'Failed to re-verify keyword' };
+    }
+  }
+
+  // NEW: Get analysis logs for debugging
+  static async getAnalysisLogs(analysisId: string): Promise<{ success: boolean; logs?: any; error?: string }> {
+    try {
+      const { data: analysis, error } = await supabase
+        .from('competitor_analyses')
+        .select('metadata')
+        .eq('id', analysisId)
+        .single();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return {
+        success: true,
+        logs: analysis.metadata
+      };
+    } catch (error) {
+      console.error('Error in getAnalysisLogs:', error);
+      return { success: false, error: 'Failed to get analysis logs' };
+    }
+  }
+
   // Helper method to format domain name
   static formatDomainName(domain: string): string {
     return domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];

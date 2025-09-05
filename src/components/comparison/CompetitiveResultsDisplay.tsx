@@ -11,6 +11,7 @@ import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword, 
 import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis, getCTRByPosition } from "@/utils/competitiveAnalysis";
 import KeywordDetailModal from "./KeywordDetailModal";
 import PositionTrendChart from "./PositionTrendChart";
+import { DataAccuracyCard } from "./DataAccuracyCard";
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -25,6 +26,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [keywordFilter, setKeywordFilter] = useState<'all' | 'winning' | 'losing' | 'opportunities'>('all');
+  const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
   
   const itemsPerPage = 10;
 
@@ -224,6 +226,39 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     setIsDetailModalOpen(true);
   };
 
+  const handleReverifyKeyword = async (keyword: CompetitorKeyword) => {
+    if (!analysisData) return;
+    
+    setReverifyingKeywords(prev => [...prev, keyword.keyword]);
+    
+    try {
+      const result = await CompetitorAnalysisService.reverifyKeyword(
+        analysisId,
+        keyword.keyword,
+        analysisData.analysis.target_domain
+      );
+      
+      if (result.success) {
+        // Reload analysis data to get updated position
+        await loadAnalysisData();
+        
+        // Show toast notification with result
+        const message = result.newPosition 
+          ? `Posição atualizada: ${result.newPosition}ª para "${keyword.keyword}"`
+          : `"${keyword.keyword}" não encontrado nos primeiros 50 resultados`;
+        
+        // You can add toast notification here if you have a toast system
+        console.log(`✅ Re-verification completed: ${message}`);
+      } else {
+        console.error('❌ Re-verification failed:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error during re-verification:', error);
+    } finally {
+      setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
+    }
+  };
+
   const getFilteredKeywords = () => {
     switch (keywordFilter) {
       case 'winning':
@@ -378,6 +413,15 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
         </Card>
       </div>
 
+      {/* Data Accuracy Information */}
+      <DataAccuracyCard 
+        analysisData={analysisData} 
+        onRefreshAnalysis={() => {
+          // You can implement full analysis refresh here
+          console.log('Refreshing full analysis...');
+        }} 
+      />
+
       {/* Position Trend Chart */}
       <PositionTrendChart targetDomain={analysis.target_domain} />
 
@@ -527,16 +571,40 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                           </TooltipProvider>
                         </TableCell>
                        <TableCell className="text-center">
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => handleViewDetails(keyword)}
-                           className="text-xs"
-                         >
-                           <Eye className="h-3 w-3 mr-1" />
-                           Ver Análise
-                         </Button>
-                       </TableCell>
+                        <div className="flex gap-1 justify-center">
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => handleViewDetails(keyword)}
+                            className="text-xs"
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Detalhes
+                          </Button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => handleReverifyKeyword(keyword)}
+                                  className="text-xs"
+                                  disabled={reverifyingKeywords.includes(keyword.keyword)}
+                                >
+                                  {reverifyingKeywords.includes(keyword.keyword) ? (
+                                    <RefreshCw className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Re-verificar posição atual desta palavra-chave</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                 })}

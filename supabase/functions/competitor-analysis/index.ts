@@ -475,8 +475,54 @@ function shouldExcludeDomain(domain: string): boolean {
   );
 }
 
+// Improved domain normalization function
+function normalizeDomain(domain: string): string {
+  if (!domain) return '';
+  
+  return domain
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')  // Remove protocol
+    .replace(/^www\./, '')        // Remove www
+    .replace(/\/$/, '')           // Remove trailing slash
+    .split('/')[0]                // Get only domain part
+    .split('?')[0]                // Remove query parameters
+    .split('#')[0];               // Remove fragments
+}
+
+// Enhanced domain matching function
+function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
+  const normalizedTarget = normalizeDomain(targetDomain);
+  const normalizedResult = normalizeDomain(resultDomain);
+  
+  console.log(`🔍 DOMAIN_MATCH: Comparing "${normalizedTarget}" vs "${normalizedResult}"`);
+  
+  // Direct match
+  if (normalizedTarget === normalizedResult) {
+    console.log(`✅ DOMAIN_MATCH: Direct match found`);
+    return true;
+  }
+  
+  // Check if one contains the other (for subdomains)
+  if (normalizedTarget.includes(normalizedResult) || normalizedResult.includes(normalizedTarget)) {
+    console.log(`✅ DOMAIN_MATCH: Subdomain match found`);
+    return true;
+  }
+  
+  // Check without TLD for similar domains
+  const targetWithoutTLD = normalizedTarget.split('.')[0];
+  const resultWithoutTLD = normalizedResult.split('.')[0];
+  
+  if (targetWithoutTLD === resultWithoutTLD && targetWithoutTLD.length > 3) {
+    console.log(`✅ DOMAIN_MATCH: Base domain match found (${targetWithoutTLD})`);
+    return true;
+  }
+  
+  console.log(`❌ DOMAIN_MATCH: No match found`);
+  return false;
+}
+
 async function analyzeKeywordPositions(keyword: string, targetDomain: string): Promise<KeywordAnalysis> {
-  console.log(`🔍 SERPAPI: Starting analysis for "${keyword}" targeting ${targetDomain}`);
+  console.log(`🔍 SERPAPI: Starting enhanced analysis for "${keyword}" targeting ${targetDomain}`);
   
   try {
     const serpApiKey = Deno.env.get('SERPAPI_KEY');
@@ -484,10 +530,12 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       throw new Error('SERPAPI_KEY not configured');
     }
 
-    // Call SerpApi for organic search results
-    const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=20&api_key=${serpApiKey}`;
+    // IMPROVEMENT: Increased results from 20 to 50 for better coverage
+    const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=50&api_key=${serpApiKey}`;
     
-    console.log(`🌐 SERPAPI: Fetching results for "${keyword}"`);
+    console.log(`🌐 SERPAPI: Fetching 50 results for "${keyword}" (increased from 20)`);
+    console.log(`🎯 SERPAPI: Target domain (normalized): "${normalizeDomain(targetDomain)}"`);
+    
     const response = await fetch(serpApiUrl);
     
     if (!response.ok) {
@@ -503,65 +551,88 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     const organicResults = data.organic_results || [];
     console.log(`✅ SERPAPI: Retrieved ${organicResults.length} organic search results for "${keyword}"`);
 
-    // Convert SerpApi results to our analysis format
+    // Enhanced domain tracking with detailed logging
     const allPositions: CompetitorPosition[] = [];
     const filteredPositions: CompetitorPosition[] = [];
     let targetDomainPosition: number | null = null;
     let filteredCount = 0;
+    let targetDomainCandidates: { domain: string; position: number; url: string }[] = [];
 
     organicResults.forEach((result: any, index: number) => {
-      const domain = extractDomain(result.link);
+      const rawDomain = extractDomain(result.link);
+      const normalizedDomain = normalizeDomain(rawDomain);
       const position = result.position || (index + 1);
 
       const competitorPosition = {
-        domain,
+        domain: normalizedDomain,
         position,
         url: result.link,
         title: result.title
       };
 
       allPositions.push(competitorPosition);
-
-      // Check if this is our target domain
-      if (domain === targetDomain || domain === `www.${targetDomain}` || targetDomain.includes(domain)) {
+      
+      // Enhanced target domain detection with detailed logging
+      if (doesDomainMatch(targetDomain, normalizedDomain)) {
         targetDomainPosition = position;
-        console.log(`🎯 SERPAPI: Found target domain ${targetDomain} at position ${position}`);
+        targetDomainCandidates.push({ domain: normalizedDomain, position, url: result.link });
+        console.log(`🎯 SERPAPI: FOUND TARGET DOMAIN! "${normalizedDomain}" at position ${position} (URL: ${result.link})`);
         filteredPositions.push(competitorPosition);
       }
       // Filter out non-commercial domains
-      else if (shouldExcludeDomain(domain)) {
+      else if (shouldExcludeDomain(normalizedDomain)) {
         filteredCount++;
-        console.log(`🚫 SERPAPI: Filtered non-commercial domain ${domain} at position ${position}`);
+        console.log(`🚫 SERPAPI: Filtered non-commercial domain ${normalizedDomain} at position ${position}`);
       }
       else {
         filteredPositions.push(competitorPosition);
+        console.log(`🏢 SERPAPI: Added competitor ${normalizedDomain} at position ${position}`);
       }
     });
 
+    // Enhanced logging for target domain detection
+    console.log(`🔍 SERPAPI: Target domain search summary:`);
+    console.log(`   - Target: "${normalizeDomain(targetDomain)}"`);
+    console.log(`   - Position found: ${targetDomainPosition || 'NOT FOUND'}`);
+    console.log(`   - Candidates found: ${targetDomainCandidates.length}`);
+    
+    if (targetDomainCandidates.length > 0) {
+      console.log(`   - All matches:`, targetDomainCandidates);
+    } else {
+      console.log(`   - No matches found in top ${organicResults.length} results`);
+      console.log(`   - Sample domains found:`, organicResults.slice(0, 10).map((r: any) => normalizeDomain(extractDomain(r.link))));
+    }
+
     console.log(`🔄 SERPAPI: Filtered ${filteredCount} non-commercial domains (YouTube, social media, etc.)`);
 
-    // Log competitor analysis
+    // Log competitor analysis with enhanced details
     const competitors = filteredPositions
-      .filter(p => p.domain !== targetDomain && !p.domain.includes(targetDomain))
-      .slice(0, 10);
+      .filter(p => !doesDomainMatch(targetDomain, p.domain))
+      .slice(0, 15); // Increased from 10 to 15
     
-    console.log(`🏢 SERPAPI: Top commercial competitors found:`, competitors.slice(0, 5).map(c => ({
-      domain: c.domain,
-      position: c.position
-    })));
+    console.log(`🏢 SERPAPI: Top commercial competitors found (showing 5 of ${competitors.length}):`, 
+      competitors.slice(0, 5).map(c => ({
+        domain: c.domain,
+        position: c.position
+      }))
+    );
 
-    // Estimate competition level based on filtered results diversity
-    const uniqueCommercialDomains = new Set(filteredPositions.map(p => p.domain));
+    // Enhanced competition level calculation
+    const uniqueCommercialDomains = new Set(filteredPositions.filter(p => !doesDomainMatch(targetDomain, p.domain)).map(p => p.domain));
     const competitionLevel: 'low' | 'medium' | 'high' = 
       uniqueCommercialDomains.size <= 3 ? 'high' : 
-      uniqueCommercialDomains.size <= 6 ? 'medium' : 'low';
+      uniqueCommercialDomains.size <= 8 ? 'medium' : 'low'; // Adjusted thresholds
 
-    console.log(`📊 SERPAPI: Competition level for "${keyword}": ${competitionLevel} (${uniqueCommercialDomains.size} unique commercial domains)`);
+    console.log(`📊 SERPAPI: Competition analysis for "${keyword}":`);
+    console.log(`   - Competition level: ${competitionLevel}`);
+    console.log(`   - Unique commercial domains: ${uniqueCommercialDomains.size}`);
+    console.log(`   - Total results analyzed: ${organicResults.length}`);
+    console.log(`   - Commercial results: ${filteredPositions.length}`);
 
     return {
       keyword,
       target_domain_position: targetDomainPosition,
-      competitor_positions: filteredPositions, // Use filtered positions
+      competitor_positions: filteredPositions,
       competition_level: competitionLevel
     };
 
