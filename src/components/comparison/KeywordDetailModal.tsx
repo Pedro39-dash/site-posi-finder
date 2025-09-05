@@ -230,13 +230,26 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                   <CardTitle className="text-sm">Minha Posição</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={myPositionCategory.badgeVariant}>
-                      {keyword.target_domain_position ? `${keyword.target_domain_position}ª` : 'Não rankeando'}
-                    </Badge>
-                    <span className={`text-sm ${myPositionCategory.color}`}>
-                      {myPositionCategory.label}
-                    </span>
+                  <div className="flex flex-col items-center justify-center py-2">
+                    {keyword.target_domain_position ? (
+                      <>
+                        <div className="text-3xl font-bold text-primary">
+                          {keyword.target_domain_position}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          posição
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-muted-foreground">
+                          Não rankeando
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          no top 100
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
