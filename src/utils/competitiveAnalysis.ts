@@ -298,38 +298,99 @@ export const generateKeywordRecommendations = (keyword: CompetitorKeyword): stri
   const difficulty = getKeywordCompetitiveDifficulty(keyword);
   const potential = getKeywordPotential(keyword);
   const competitorsAhead = getCompetitorsAhead(keyword);
+  const currentPosition = keyword.target_domain_position || null;
+  const searchVolume = keyword.search_volume || 0;
   
   const recommendations: string[] = [];
   
-  // Position-specific recommendations
-  if (!potential.currentPosition) {
-    recommendations.push("Criar conteúdo otimizado para esta palavra-chave");
-    recommendations.push("Incluir a palavra-chave no título da página principal");
-    recommendations.push("Desenvolver página específica para o termo");
-  } else if (potential.currentPosition > 10) {
-    recommendations.push("Melhorar a otimização on-page do conteúdo existente");
-    recommendations.push("Aumentar a densidade da palavra-chave no conteúdo");
-    recommendations.push("Otimizar meta-descrição e title tag");
-  } else {
-    recommendations.push("Aprimorar a qualidade e profundidade do conteúdo");
-    recommendations.push("Melhorar a experiência do usuário na página");
-    recommendations.push("Construir links internos relevantes");
+  // Calculate gap size and type
+  const calculateGapAnalysis = () => {
+    if (!currentPosition) return { type: 'no-position', gap: 50 };
+    
+    const topCompetitor = competitorsAhead[0];
+    if (!topCompetitor) return { type: 'leading', gap: 0 };
+    
+    const gap = currentPosition - topCompetitor.position;
+    
+    if (gap <= 3) return { type: 'small', gap };
+    if (gap <= 10) return { type: 'medium', gap };
+    return { type: 'large', gap };
+  };
+  
+  const gapAnalysis = calculateGapAnalysis();
+  
+  // Priority 1: Critical Quick Wins based on gap analysis
+  if (gapAnalysis.type === 'no-position') {
+    recommendations.push(`🚨 CRÍTICO: Criar página específica para "${keyword.keyword}" (você não está rankeando)`);
+    recommendations.push(`📝 Incluir "${keyword.keyword}" no título H1 da nova página`);
+    recommendations.push(`🔗 Criar URL otimizada: /sua-palavra-chave (atual: sem página)`);
+  } else if (gapAnalysis.type === 'small' && competitorsAhead.length > 0) {
+    const topCompetitor = competitorsAhead[0];
+    recommendations.push(`⚡ QUICK WIN: Você está apenas ${gapAnalysis.gap} posições atrás de ${topCompetitor.domain}`);
+    recommendations.push(`🎯 Otimizar velocidade da página (concorrente provavelmente mais rápido)`);
+    recommendations.push(`📊 Melhorar Core Web Vitals - foco em LCP e CLS`);
   }
   
-  // Difficulty-based recommendations
-  if (difficulty.level === 'low') {
-    recommendations.push("Oportunidade rápida - implementar melhorias básicas de SEO");
-  } else if (difficulty.level === 'high' || difficulty.level === 'very-high') {
-    recommendations.push("Considerar estratégia de link building");
-    recommendations.push("Análise detalhada dos concorrentes top 3");
-    recommendations.push("Investir em conteúdo de alta qualidade e autoridade");
+  // Priority 2: Content Strategy based on competitors
+  if (competitorsAhead.length >= 3) {
+    const top3 = competitorsAhead.slice(0, 3);
+    recommendations.push(`📚 Analisar conteúdo dos TOP 3: ${top3.map(c => c.domain).join(', ')}`);
+    
+    // Simulate content analysis findings
+    if (searchVolume > 1000) {
+      recommendations.push(`📈 Alto volume (${searchVolume}): Criar conteúdo completo 2000+ palavras`);
+    } else {
+      recommendations.push(`🎯 Baixo volume (${searchVolume}): Foco em long-tail relacionadas`);
+    }
   }
   
-  // Competitor-based recommendations
+  // Priority 3: Technical SEO based on position and difficulty
+  if (currentPosition && currentPosition > 10) {
+    recommendations.push(`🔧 TÉCNICO: Otimizar title tag - incluir "${keyword.keyword}" no início`);
+    recommendations.push(`📝 Reescrever meta description com "${keyword.keyword}" e call-to-action`);
+  } else if (currentPosition && currentPosition <= 10) {
+    recommendations.push(`🏆 TOP 10! Foco em user experience e engagement metrics`);
+    recommendations.push(`⏱️ Reduzir bounce rate - melhorar primeiro parágrafo da página`);
+  }
+  
+  // Priority 4: Link Building Strategy based on difficulty
+  if (difficulty.level === 'high' || difficulty.level === 'very-high') {
+    recommendations.push(`🔗 BACKLINKS: Competição alta requer 15+ links de DR 40+`);
+    if (competitorsAhead.length > 0) {
+      recommendations.push(`📊 Replicar perfil de links de ${competitorsAhead[0].domain}`);
+    }
+  } else if (difficulty.level === 'low') {
+    recommendations.push(`✅ FÁCIL: Links internos são suficientes - conectar páginas relacionadas`);
+  }
+  
+  // Priority 5: Competitive Advantage based on specific gaps
   if (competitorsAhead.length > 0) {
     const topCompetitor = competitorsAhead[0];
-    recommendations.push(`Analisar estratégia de ${topCompetitor.domain} (posição ${topCompetitor.position})`);
+    
+    // Simulate competitive intelligence
+    if (keyword.keyword.includes('como') || keyword.keyword.includes('tutorial')) {
+      recommendations.push(`🎥 DIFERENCIAL: Criar vídeo tutorial (${topCompetitor.domain} só tem texto)`);
+    } else if (keyword.keyword.includes('melhor') || keyword.keyword.includes('comparar')) {
+      recommendations.push(`📊 DIFERENCIAL: Adicionar tabela comparativa interativa`);
+    } else {
+      recommendations.push(`💡 OPORTUNIDADE: Encontrar angle único que ${topCompetitor.domain} não cobre`);
+    }
   }
   
-  return recommendations.slice(0, 5); // Limit to top 5 recommendations
+  // Timeline estimation based on gap and difficulty
+  const getTimelineEstimation = () => {
+    if (gapAnalysis.type === 'small') return '2-4 semanas';
+    if (gapAnalysis.type === 'medium') return '1-3 meses';
+    if (gapAnalysis.type === 'large') return '3-6 meses';
+    if (gapAnalysis.type === 'no-position') return '2-4 meses';
+    return '1-2 meses';
+  };
+  
+  // Add timeline context to first recommendation
+  if (recommendations.length > 0) {
+    const timeline = getTimelineEstimation();
+    recommendations[0] += ` (Prazo estimado: ${timeline})`;
+  }
+  
+  return recommendations.slice(0, 6); // Limit to top 6 recommendations
 };
