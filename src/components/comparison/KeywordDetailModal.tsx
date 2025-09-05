@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowUp, ArrowDown, Target, Lightbulb, TrendingUp, BarChart3, Users, CheckCircle2 } from "lucide-react";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { ArrowUp, ArrowDown, Target, Lightbulb, TrendingUp, BarChart3, Users, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { CompetitorKeyword } from "@/services/competitorAnalysisService";
 import { 
   getKeywordCompetitiveDifficulty, 
@@ -26,6 +27,11 @@ interface KeywordDetailModalProps {
 
 const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordDetailModalProps) => {
   const [implementedActions, setImplementedActions] = useState<Set<number>>(new Set());
+  const [overviewPage, setOverviewPage] = useState(1);
+  const [analysisPage, setAnalysisPage] = useState(1);
+  
+  const COMPETITORS_PER_PAGE_OVERVIEW = 5;
+  const COMPETITORS_PER_PAGE_ANALYSIS = 3;
 
   if (!keyword) return null;
 
@@ -90,6 +96,60 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
       newImplemented.add(index);
     }
     setImplementedActions(newImplemented);
+  };
+
+  // Pagination helpers
+  const getPaginatedCompetitors = (page: number, itemsPerPage: number) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return competitorsAhead.slice(startIndex, endIndex);
+  };
+
+  const getTotalPages = (itemsPerPage: number) => {
+    return Math.ceil(competitorsAhead.length / itemsPerPage);
+  };
+
+  const renderPaginationControls = (currentPage: number, totalPages: number, onPageChange: (page: number) => void) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-between mt-4">
+        <p className="text-sm text-muted-foreground">
+          Mostrando {competitorsAhead.length} concorrentes
+        </p>
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+            </PaginationItem>
+            <PaginationItem>
+              <span className="px-4 py-2 text-sm">
+                Página {currentPage} de {totalPages}
+              </span>
+            </PaginationItem>
+            <PaginationItem>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
+    );
   };
 
   return (
@@ -181,20 +241,27 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
               </CardHeader>
               <CardContent>
                 {competitorsAhead.length > 0 ? (
-                  <div className="space-y-3">
-                    {competitorsAhead.slice(0, 5).map((competitor, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium text-sm">{competitor.domain}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {competitor.gap} posições à frente
-                          </p>
+                  <div>
+                    <div className="space-y-3">
+                      {getPaginatedCompetitors(overviewPage, COMPETITORS_PER_PAGE_OVERVIEW).map((competitor, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium text-sm">{competitor.domain}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {competitor.gap} posições à frente
+                            </p>
+                          </div>
+                          <Badge variant="outline">
+                            {competitor.position}ª posição
+                          </Badge>
                         </div>
-                        <Badge variant="outline">
-                          {competitor.position}ª posição
-                        </Badge>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    {renderPaginationControls(
+                      overviewPage, 
+                      getTotalPages(COMPETITORS_PER_PAGE_OVERVIEW), 
+                      setOverviewPage
+                    )}
                   </div>
                 ) : (
                   <Alert>
@@ -300,7 +367,7 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
           <TabsContent value="analysis" className="space-y-6">
             {/* Technical Analysis for each competitor */}
             <div className="space-y-4">
-              {competitorsAhead.slice(0, 3).map((competitor, index) => (
+              {getPaginatedCompetitors(analysisPage, COMPETITORS_PER_PAGE_ANALYSIS).map((competitor, index) => (
                 <Card key={index}>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center justify-between">
@@ -378,6 +445,11 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                   </CardContent>
                 </Card>
               ))}
+              {renderPaginationControls(
+                analysisPage, 
+                getTotalPages(COMPETITORS_PER_PAGE_ANALYSIS), 
+                setAnalysisPage
+              )}
             </div>
           </TabsContent>
 
