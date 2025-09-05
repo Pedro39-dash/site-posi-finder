@@ -17,6 +17,10 @@ export interface CompetitiveMetrics {
     averagePosition: number;
     shareOfVoice: number;
   }>;
+  // New metrics for reference vs all competitors
+  referenceCompetitorWins: number;
+  allCompetitorWins: number;
+  totalKeywords: number;
 }
 
 export interface KeywordDifficulty {
@@ -97,10 +101,18 @@ export const calculateCompetitiveMetrics = (
   keywords: CompetitorKeyword[],
   competitors: CompetitorDomain[]
 ): CompetitiveMetrics => {
+  // Separate reference competitors from auto-detected ones
+  const referenceCompetitors = competitors.filter(c => !c.detected_automatically);
+  const referenceCompetitorDomains = new Set(referenceCompetitors.map(c => c.domain));
+  
   // Calculate average position gap
   const positionGaps: number[] = [];
   let totalLostTraffic = 0;
   const competitorWins: { [domain: string]: number } = {};
+  
+  // New counters for wins against reference vs all competitors
+  let referenceCompetitorWins = 0;
+  let allCompetitorWins = 0;
 
   keywords.forEach(keyword => {
     const myPosition = keyword.target_domain_position;
@@ -122,6 +134,27 @@ export const calculateCompetitiveMetrics = (
           competitorWins[cp.domain] = (competitorWins[cp.domain] || 0) + 1;
         }
       });
+    }
+    
+    // Calculate wins against reference competitors only
+    if (myPosition) {
+      const referenceCompetitorPositions = keyword.competitor_positions.filter(cp => 
+        referenceCompetitorDomains.has(cp.domain)
+      );
+      
+      // Win against reference competitors: better than ALL reference competitors for this keyword
+      if (referenceCompetitorPositions.length > 0) {
+        const betterThanAllReference = referenceCompetitorPositions.every(cp => cp.position > myPosition);
+        if (betterThanAllReference) {
+          referenceCompetitorWins++;
+        }
+      }
+      
+      // Win against all competitors: better than ALL competitors for this keyword
+      const betterThanAllCompetitors = keyword.competitor_positions.every(cp => cp.position > myPosition);
+      if (betterThanAllCompetitors) {
+        allCompetitorWins++;
+      }
     }
   });
 
@@ -156,7 +189,10 @@ export const calculateCompetitiveMetrics = (
   return {
     averagePositionGap,
     lostTrafficPotential,
-    topCompetitors
+    topCompetitors,
+    referenceCompetitorWins,
+    allCompetitorWins,
+    totalKeywords: keywords.length
   };
 };
 

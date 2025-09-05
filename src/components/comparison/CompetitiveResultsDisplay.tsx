@@ -153,10 +153,10 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
 
   // Calculate key metrics
   const topCompetitor = competitors[0];
-  const keywordWins = keywords.filter(k => 
-    k.target_domain_position && 
-    k.competitor_positions.every(cp => !k.target_domain_position || cp.position > k.target_domain_position)
-  ).length;
+  const referenceCompetitors = competitors.filter(c => !c.detected_automatically);
+  
+  // Use the new reference competitor wins from metrics
+  const keywordWins = competitiveMetrics.referenceCompetitorWins;
   
   const competitorWins = keywords.filter(k => 
     k.competitor_positions.some(cp => 
@@ -263,10 +263,22 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const getFilteredKeywords = () => {
     switch (keywordFilter) {
       case 'winning':
-        return keywords.filter(k => 
-          k.target_domain_position && 
-          k.competitor_positions.every(cp => !k.target_domain_position || cp.position > k.target_domain_position)
-        );
+        return keywords.filter(k => {
+          if (!k.target_domain_position) return false;
+          
+          // If we have reference competitors, compare only against them
+          if (referenceCompetitors.length > 0) {
+            const referenceCompetitorDomains = new Set(referenceCompetitors.map(c => c.domain));
+            const referencePositions = k.competitor_positions.filter(cp => 
+              referenceCompetitorDomains.has(cp.domain)
+            );
+            return referencePositions.length > 0 && 
+                   referencePositions.every(cp => cp.position > k.target_domain_position!);
+          }
+          
+          // Fallback to all competitors if no reference competitors
+          return k.competitor_positions.every(cp => cp.position > k.target_domain_position!);
+        });
       case 'losing':
         return keywords.filter(k => 
           k.competitor_positions.some(cp => 
@@ -371,7 +383,14 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
                         <HelpCircle className="h-3 w-3 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="max-w-xs">Palavras-chave onde você está melhor posicionado que todos os concorrentes analisados</p>
+                        <p className="max-w-xs">
+                          Palavras-chave onde você está melhor posicionado que todos os {referenceCompetitors.length > 0 ? 'concorrentes de referência especificados' : 'concorrentes encontrados na análise'}
+                          {referenceCompetitors.length > 0 && (
+                            <span className="block mt-1 text-xs text-muted-foreground">
+                              Comparando apenas com: {referenceCompetitors.map(c => c.domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]).join(', ')}
+                            </span>
+                          )}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
