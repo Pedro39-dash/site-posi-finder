@@ -44,7 +44,7 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
 
   // Initialize visible competitors on first load
   if (visibleCompetitors.size === 0 && competitorsAhead.length > 0) {
-    const initialVisible = new Set(competitorsAhead.slice(0, 6).map((_, i) => `competitor_${i}`));
+    const initialVisible = new Set(competitorsAhead.slice(0, 10).map((_, i) => `competitor_${i}`));
     setVisibleCompetitors(initialVisible);
   }
 
@@ -52,12 +52,12 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
   const generateHistoricalData = () => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
     const currentPos = keyword.target_domain_position || 50;
-    const maxCompetitors = Math.min(6, competitorsAhead.length); // Limit to 6 for readability
+    const maxCompetitors = Math.min(10, competitorsAhead.length); // Limit to 10 for readability
     
     return months.map((month, index) => {
       const dataPoint: any = {
         month,
-        myPosition: Math.max(1, currentPos + (Math.random() * 8 - 4)), // Client position with variation
+        myPosition: Math.round(Math.max(1, currentPos + (Math.random() * 8 - 4))), // Client position with variation
         projected: index === months.length - 1 ? potential.projectedPosition : null
       };
       
@@ -66,7 +66,7 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
         const competitor = competitorsAhead[i];
         if (competitor) {
           const basePosition = competitor.position || 1;
-          dataPoint[`competitor_${i}`] = Math.max(1, Math.min(50, basePosition + (Math.random() * 4 - 2)));
+          dataPoint[`competitor_${i}`] = Math.round(Math.max(1, Math.min(50, basePosition + (Math.random() * 4 - 2))));
         }
       }
       
@@ -363,7 +363,7 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                         dot={{ r: 4 }}
                       />
                       {/* Dynamic competitor lines - only visible ones */}
-                      {competitorsAhead.slice(0, 6).map((competitor, index) => {
+                      {competitorsAhead.slice(0, 10).map((competitor, index) => {
                         const competitorKey = `competitor_${index}`;
                         if (!visibleCompetitors.has(competitorKey)) return null;
                         
@@ -373,10 +373,14 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                           "hsl(45 93% 58%)", // warning
                           "hsl(217 89% 61%)", // info
                           "hsl(270 95% 75%)", // purple
-                          "hsl(340 75% 55%)"  // pink
+                          "hsl(340 75% 55%)", // pink
+                          "hsl(120 60% 50%)", // green
+                          "hsl(30 90% 55%)", // orange
+                          "hsl(280 70% 60%)", // violet
+                          "hsl(180 70% 50%)"  // cyan
                         ];
                         
-                        const dashArrays = ["5 5", "3 3", "8 2", "4 4", "6 3", "2 2"];
+                        const dashArrays = ["5 5", "3 3", "8 2", "4 4", "6 3", "2 2", "7 3", "5 2", "4 6", "3 5"];
                         
                         return (
                           <Line
