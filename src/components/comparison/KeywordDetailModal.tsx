@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { ArrowUp, ArrowDown, Target, Lightbulb, TrendingUp, BarChart3, Users, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUp, ArrowDown, Target, Lightbulb, TrendingUp, BarChart3, Users, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { CompetitorKeyword } from "@/services/competitorAnalysisService";
 import { 
   getKeywordCompetitiveDifficulty, 
@@ -29,6 +29,7 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
   const [implementedActions, setImplementedActions] = useState<Set<number>>(new Set());
   const [overviewPage, setOverviewPage] = useState(1);
   const [analysisPage, setAnalysisPage] = useState(1);
+  const [visibleCompetitors, setVisibleCompetitors] = useState<Set<string>>(new Set());
   
   const COMPETITORS_PER_PAGE_OVERVIEW = 5;
   const COMPETITORS_PER_PAGE_ANALYSIS = 3;
@@ -40,6 +41,12 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
   const competitorsAhead = getCompetitorsAhead(keyword);
   const recommendations = generateKeywordRecommendations(keyword);
   const myPositionCategory = getPositionCategory(keyword.target_domain_position);
+
+  // Initialize visible competitors on first load
+  if (visibleCompetitors.size === 0 && competitorsAhead.length > 0) {
+    const initialVisible = new Set(competitorsAhead.slice(0, 6).map((_, i) => `competitor_${i}`));
+    setVisibleCompetitors(initialVisible);
+  }
 
   // Generate historical data simulation with all competitors
   const generateHistoricalData = () => {
@@ -159,6 +166,16 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
     setImplementedActions(newImplemented);
   };
 
+  const toggleCompetitorVisibility = (competitorKey: string) => {
+    const newVisible = new Set(visibleCompetitors);
+    if (newVisible.has(competitorKey)) {
+      newVisible.delete(competitorKey);
+    } else {
+      newVisible.add(competitorKey);
+    }
+    setVisibleCompetitors(newVisible);
+  };
+
   // Pagination helpers
   const getPaginatedCompetitors = (page: number, itemsPerPage: number) => {
     const startIndex = (page - 1) * itemsPerPage;
@@ -227,9 +244,8 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="positioning">Posicionamento</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Análise Competitiva</TabsTrigger>
             <TabsTrigger value="analysis">Análise Técnica</TabsTrigger>
             <TabsTrigger value="actions">Recomendações</TabsTrigger>
           </TabsList>
@@ -302,51 +318,6 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
               </Card>
             </div>
 
-            {/* Competitors Ahead */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Concorrentes à Frente ({competitorsAhead.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {competitorsAhead.length > 0 ? (
-                  <div>
-                    <div className="space-y-3">
-                      {getPaginatedCompetitors(overviewPage, COMPETITORS_PER_PAGE_OVERVIEW).map((competitor, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium text-sm">{competitor.domain}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {competitor.gap} posições à frente
-                            </p>
-                          </div>
-                          <Badge variant="outline">
-                            {competitor.position}ª posição
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                    {renderPaginationControls(
-                      overviewPage, 
-                      getTotalPages(COMPETITORS_PER_PAGE_OVERVIEW), 
-                      setOverviewPage
-                    )}
-                  </div>
-                ) : (
-                  <Alert>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <AlertDescription>
-                      Parabéns! Você está liderando para esta palavra-chave.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="positioning" className="space-y-6">
             {/* Historical Evolution Chart */}
             <Card>
               <CardHeader>
@@ -391,8 +362,11 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                         name="myPosition"
                         dot={{ r: 4 }}
                       />
-                      {/* Dynamic competitor lines */}
+                      {/* Dynamic competitor lines - only visible ones */}
                       {competitorsAhead.slice(0, 6).map((competitor, index) => {
+                        const competitorKey = `competitor_${index}`;
+                        if (!visibleCompetitors.has(competitorKey)) return null;
+                        
                         const colors = [
                           "hsl(var(--destructive))",
                           "hsl(var(--accent))", 
@@ -408,11 +382,11 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                           <Line
                             key={index}
                             type="monotone"
-                            dataKey={`competitor_${index}`}
+                            dataKey={competitorKey}
                             stroke={colors[index % colors.length]}
                             strokeWidth={2}
                             strokeDasharray={dashArrays[index % dashArrays.length]}
-                            name={`competitor_${index}`}
+                            name={competitorKey}
                             dot={{ r: 3 }}
                           />
                         );
@@ -423,30 +397,85 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
               </CardContent>
             </Card>
 
-            {/* Optimization Progress */}
+            {/* Interactive Competitors Ahead */}
             <Card>
               <CardHeader>
-                <CardTitle>Score de Otimização</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Concorrentes à Frente ({competitorsAhead.length})
+                </CardTitle>
                 <CardDescription>
-                  Análise da otimização atual para esta palavra-chave
+                  Clique nos nomes para mostrar/ocultar no gráfico
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {[
-                  { label: 'Título da Página', score: 75 },
-                  { label: 'Meta Descrição', score: 60 },
-                  { label: 'Conteúdo da Página', score: 80 },
-                  { label: 'URLs Amigáveis', score: 90 },
-                  { label: 'Imagens Otimizadas', score: 45 }
-                ].map((item, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{item.label}</span>
-                      <span className="font-medium">{item.score}%</span>
+              <CardContent>
+                {competitorsAhead.length > 0 ? (
+                  <div>
+                    <div className="space-y-3">
+                      {getPaginatedCompetitors(overviewPage, COMPETITORS_PER_PAGE_OVERVIEW).map((competitor, index) => {
+                        const globalIndex = (overviewPage - 1) * COMPETITORS_PER_PAGE_OVERVIEW + index;
+                        const competitorKey = `competitor_${globalIndex}`;
+                        const isVisible = visibleCompetitors.has(competitorKey);
+                        const colors = [
+                          "hsl(var(--destructive))",
+                          "hsl(var(--accent))", 
+                          "hsl(45 93% 58%)",
+                          "hsl(217 89% 61%)",
+                          "hsl(270 95% 75%)",
+                          "hsl(340 75% 55%)"
+                        ];
+                        const competitorColor = colors[globalIndex % colors.length];
+                        
+                        return (
+                          <div 
+                            key={index} 
+                            className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all hover:bg-muted/50 ${
+                              isVisible ? 'border-primary/50' : 'border-muted'
+                            }`}
+                            onClick={() => toggleCompetitorVisibility(competitorKey)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                {isVisible ? (
+                                  <Eye className="h-4 w-4 text-primary" />
+                                ) : (
+                                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <div 
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: isVisible ? competitorColor : 'hsl(var(--muted-foreground))' }}
+                                />
+                              </div>
+                              <div>
+                                <p className={`font-medium text-sm ${isVisible ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  {competitor.domain}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {competitor.gap} posições à frente
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className={isVisible ? '' : 'text-muted-foreground'}>
+                              {competitor.position}ª posição
+                            </Badge>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <Progress value={item.score} className="h-2" />
+                    {renderPaginationControls(
+                      overviewPage, 
+                      getTotalPages(COMPETITORS_PER_PAGE_OVERVIEW), 
+                      setOverviewPage
+                    )}
                   </div>
-                ))}
+                ) : (
+                  <Alert>
+                    <CheckCircle2 className="h-4 w-4" />
+                    <AlertDescription>
+                      Parabéns! Você está liderando para esta palavra-chave.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
