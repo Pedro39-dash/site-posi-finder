@@ -74,6 +74,15 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
 
   const historicalData = generateHistoricalData();
 
+  // Get real competitor data from keyword.competitor_positions
+  const realCompetitorData = keyword.competitor_positions?.slice(0, 3) || [];
+  
+  // Detect if target domain is single page
+  const isSinglePageSite = (domain: string) => {
+    const normalizedDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return !normalizedDomain.includes('/') || domain === targetDomain;
+  };
+
   // Generate projection data
   const projectionData = [
     { phase: 'Atual', position: keyword.target_domain_position || 50 },
@@ -485,48 +494,71 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* On-Page Analysis */}
+                      {/* On-Page Analysis - Using real data */}
                       <div>
                         <h4 className="font-medium mb-3">Análise On-Page</h4>
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
                             <span>Título otimizado:</span>
-                            <Badge variant="default" className="text-xs">Sim</Badge>
+                            <Badge variant={realCompetitorData[index]?.title?.toLowerCase().includes(keyword.keyword.toLowerCase()) ? "default" : "outline"} className="text-xs">
+                              {realCompetitorData[index]?.title?.toLowerCase().includes(keyword.keyword.toLowerCase()) ? "Sim" : "Parcial"}
+                            </Badge>
                           </div>
                           <div className="flex justify-between">
                             <span>URL amigável:</span>
-                            <Badge variant="secondary" className="text-xs">Parcial</Badge>
+                            <Badge variant={realCompetitorData[index]?.url?.includes(keyword.keyword.replace(/\s+/g, '-')) ? "default" : "secondary"} className="text-xs">
+                              {realCompetitorData[index]?.url?.includes(keyword.keyword.replace(/\s+/g, '-')) ? "Sim" : "Parcial"}
+                            </Badge>
                           </div>
                           <div className="flex justify-between">
-                            <span>H1 otimizado:</span>
-                            <Badge variant="default" className="text-xs">Sim</Badge>
+                            <span>Palavra-chave no título:</span>
+                            <Badge variant={realCompetitorData[index]?.title?.toLowerCase().includes(keyword.keyword.toLowerCase()) ? "default" : "outline"} className="text-xs">
+                              {realCompetitorData[index]?.title?.toLowerCase().includes(keyword.keyword.toLowerCase()) ? "Sim" : "Não"}
+                            </Badge>
                           </div>
                           <div className="flex justify-between">
-                            <span>Meta descrição:</span>
-                            <Badge variant="outline" className="text-xs">Não</Badge>
+                            <span>Domínio:</span>
+                            <span className="font-medium text-xs">{getDomainName(competitor.domain)}</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Content Quality */}
+                      {/* Content Quality - Based on real position data */}
                       <div>
-                        <h4 className="font-medium mb-3">Qualidade do Conteúdo</h4>
+                        <h4 className="font-medium mb-3">Qualidade Estimada</h4>
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
-                            <span>Palavras:</span>
-                            <span className="font-medium">{1200 + index * 300}</span>
+                            <span>Posição SERP:</span>
+                            <Badge variant={competitor.position <= 3 ? "default" : competitor.position <= 10 ? "secondary" : "outline"} className="text-xs">
+                              {competitor.position}ª posição
+                            </Badge>
                           </div>
                           <div className="flex justify-between">
-                            <span>Imagens:</span>
-                            <span className="font-medium">{5 + index * 2}</span>
+                            <span>Qualidade estimada:</span>
+                            <span className="font-medium">
+                              {competitor.position <= 3 ? "Excelente" : competitor.position <= 10 ? "Boa" : "Média"}
+                            </span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Vídeos:</span>
-                            <span className="font-medium">{index > 0 ? 1 : 0}</span>
+                            <span>Autoridade:</span>
+                            <span className="font-medium">
+                              {competitor.position <= 3 ? "Alta" : competitor.position <= 10 ? "Média" : "Baixa"}
+                            </span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Links internos:</span>
-                            <span className="font-medium">{8 + index * 3}</span>
+                            <span>URL real:</span>
+                            <code className="text-xs bg-muted p-1 rounded break-all">
+                              {realCompetitorData[index]?.url ? new URL(realCompetitorData[index].url).pathname : '/categoria'}
+                            </code>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Título real:</span>
+                            <span className="font-medium text-xs break-words">
+                              {realCompetitorData[index]?.title ? 
+                                realCompetitorData[index].title.substring(0, 40) + '...' : 
+                                'Não disponível'
+                              }
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -693,14 +725,25 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                       <div className="space-y-2 text-sm">
                         <div>
                           <span className="text-muted-foreground">Sua URL:</span>
-                          <code className="ml-2 text-xs bg-muted p-1 rounded">/produtos/item-123</code>
+                          <code className="ml-2 text-xs bg-muted p-1 rounded">
+                            {isSinglePageSite(targetDomain) ? "/" : `/categoria/${keyword.keyword.replace(/\s+/g, '-')}`}
+                          </code>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">TOP 3 usam:</span>
-                          <code className="ml-2 text-xs bg-green-50 text-green-700 p-1 rounded">/{keyword.keyword.replace(/\s+/g, '-')}</code>
+                          <span className="text-muted-foreground">Concorrentes TOP 3:</span>
+                          <div className="mt-2 space-y-1">
+                            {realCompetitorData.slice(0, 3).map((comp, idx) => (
+                              <code key={idx} className="block text-xs bg-green-50 text-green-700 p-1 rounded break-all">
+                                {comp.url ? new URL(comp.url).pathname : '/categoria'}
+                              </code>
+                            ))}
+                          </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                          5 de 7 concorrentes TOP usam a palavra-chave diretamente na URL.
+                          {isSinglePageSite(targetDomain) 
+                            ? `Site single-page vs ${realCompetitorData.filter(c => c.url?.includes('/')).length} concorrentes com estrutura multi-página`
+                            : `${realCompetitorData.filter(c => c.url?.toLowerCase().includes(keyword.keyword.replace(/\s+/g, '-').toLowerCase())).length} de ${realCompetitorData.length} concorrentes usam a palavra-chave na URL`
+                          }
                         </p>
                       </div>
                     </div>
@@ -711,19 +754,34 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                       </h4>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Suas palavras:</span>
-                          <span className="font-medium">850 palavras</span>
+                          <span className="text-muted-foreground">Seu conteúdo:</span>
+                          <span className="font-medium">
+                            {isSinglePageSite(targetDomain) ? "Página única" : "Estimado: baixo"}
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Média TOP 3:</span>
-                          <span className="font-medium text-green-600">2.100 palavras</span>
+                          <span className="text-muted-foreground">TOP 3 títulos:</span>
+                          <div className="text-right">
+                            {realCompetitorData.slice(0, 3).map((comp, idx) => (
+                              <div key={idx} className="text-xs text-green-600 font-medium">
+                                {comp.title?.length || 0} chars
+                              </div>
+                            ))}
+                          </div>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Diferença:</span>
-                          <span className="font-medium text-red-600">-1.250 palavras</span>
+                          <span className="text-muted-foreground">Padrão concorrentes:</span>
+                          <span className="font-medium text-blue-600">
+                            {realCompetitorData.some(c => c.url?.includes('/categoria/') || c.url?.includes('/produto/')) 
+                              ? "Páginas dedicadas" 
+                              : "Páginas mistas"}
+                          </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                          Concorrentes oferecem conteúdo 2.5x mais abrangente e detalhado.
+                          {isSinglePageSite(targetDomain) 
+                            ? "Site single-page compete contra páginas especializadas. Considere criar landing pages dedicadas."
+                            : "Concorrentes usam estrutura de conteúdo mais específica para esta palavra-chave."
+                          }
                         </p>
                       </div>
                     </div>
@@ -791,11 +849,21 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
               <CardContent>
                 <div className="space-y-4">
                   <div className="p-4 border rounded-lg">
-                    <h4 className="font-medium mb-3">🏆 Estratégia do Líder ({getDomainName(competitorsAhead[0]?.domain || '')})</h4>
+                    <h4 className="font-medium mb-3">🏆 Estratégia do Líder ({getDomainName(realCompetitorData[0]?.domain || competitorsAhead[0]?.domain || '')})</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Posição:</span>
-                        <span className="font-medium text-green-600">{competitorsAhead[0]?.position || 1}ª</span>
+                        <span className="font-medium text-green-600">{realCompetitorData[0]?.position || competitorsAhead[0]?.position || 1}ª</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">URL real:</span>
+                        <code className="text-xs bg-muted p-1 rounded">{realCompetitorData[0]?.url ? new URL(realCompetitorData[0].url).pathname : '/categoria'}</code>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Título otimizado:</span>
+                        <Badge variant={realCompetitorData[0]?.title?.toLowerCase().includes(keyword.keyword.toLowerCase()) ? "default" : "outline"} className="text-xs">
+                          {realCompetitorData[0]?.title?.toLowerCase().includes(keyword.keyword.toLowerCase()) ? "Sim" : "Parcial"}
+                        </Badge>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Estimativa de CTR:</span>
