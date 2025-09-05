@@ -619,14 +619,14 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                         <span className="font-medium">{competitorsAhead[0]?.position || 1}ª posição ({getDomainName(competitorsAhead[0]?.domain || '')})</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Gap de posições:</span>
+                        <span className="text-muted-foreground">Diferença de posições:</span>
                         <span className="font-medium text-orange-600">
                           {keyword.target_domain_position ? Math.abs(keyword.target_domain_position - (competitorsAhead[0]?.position || 1)) : '50+'} posições
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Volume de busca:</span>
-                        <span className="font-medium">{keyword.search_volume?.toLocaleString() || 'N/A'} buscas/mês</span>
+                        <span className="font-medium">{keyword.search_volume && keyword.search_volume > 0 ? keyword.search_volume.toLocaleString() : 'Não disponível'} buscas/mês</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tráfego perdido estimado:</span>

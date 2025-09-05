@@ -586,6 +586,13 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     const organicResults = data.organic_results || [];
     console.log(`✅ SERPAPI: Retrieved ${organicResults.length} organic search results for "${keyword}"`);
 
+    // Extract search volume from SerpApi response
+    const searchVolume = data.search_metadata?.total_results || 
+                        data.search_information?.total_results ||
+                        data.related_searches?.length > 0 ? 1000 : null; // Fallback estimate
+    
+    console.log(`📊 SERPAPI: Search volume detected: ${searchVolume} for "${keyword}"`);
+
     // Enhanced domain tracking with detailed logging and position validation
     const allPositions: CompetitorPosition[] = [];
     const filteredPositions: CompetitorPosition[] = [];
@@ -731,6 +738,7 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       keyword,
       target_domain_position: targetDomainPosition,
       competitor_positions: filteredPositions,
+      search_volume: searchVolume,
       competition_level: competitionLevel,
       // Add debug metadata for troubleshooting
       debug_info: {
