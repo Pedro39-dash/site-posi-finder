@@ -42,62 +42,62 @@ const Comparison = () => {
         <link rel="canonical" href="/comparison" />
       </Helmet>
 
-      <div className="min-h-screen bg-background lg:pl-80">
-        <div className="pt-16 lg:pt-0">
-          <main className="container mx-auto px-4 py-8">
-            
-            {/* Header with navigation */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                {state === 'results' && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleBackToForm}
-                    className="gap-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Voltar
-                  </Button>
-                )}
-                <div>
-                  <h1 className="text-4xl font-bold text-foreground">
-                    Análise Competitiva SEO
-                  </h1>
-                  <p className="text-muted-foreground mt-2">
-                    {state === 'form' && "Configure sua análise competitiva com dados reais do Google"}
-                    {state === 'results' && "Resultados da análise competitiva"}
-                  </p>
-                </div>
-              </div>
-              
-              {state === 'results' && (
-                <Button
-                  variant="outline"
-                  onClick={handleNewAnalysis}
-                  className="gap-2"
-                >
-                  <Target className="h-4 w-4" />
-                  Nova Análise
-                </Button>
-              )}
-            </div>
-
-            {/* Direct Analysis Form */}
-            {state === 'form' && (
-              <DirectCompetitiveForm onAnalysisStarted={handleAnalysisStarted} />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 py-8">
+      <div className="container mx-auto px-4 max-w-6xl">
+        
+        {/* Header with navigation */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-4 mb-4">
+            {state === 'results' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToForm}
+                className="gap-2 absolute left-4"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Voltar
+              </Button>
             )}
-
-            {/* Analysis Results */}
-            {state === 'results' && analysisId && (
-              <CompetitiveResultsDisplay 
-                analysisId={analysisId} 
-                onBackToForm={handleBackToForm}
-              />
-            )}
-          </main>
+            <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
+              Análise Competitiva SEO
+            </h1>
+          </div>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            {state === 'form' && "Configure sua análise competitiva com dados reais do Google"}
+            {state === 'results' && "Resultados da análise competitiva"}
+          </p>
         </div>
+        
+        <div className="flex items-center justify-between mb-8">
+          <div></div>
+          
+          {state === 'results' && (
+            <Button
+              variant="outline"
+              onClick={handleNewAnalysis}
+              className="gap-2"
+            >
+              <Target className="h-4 w-4" />
+              Nova Análise
+            </Button>
+          )}
+        </div>
+
+        {/* Direct Analysis Form */}
+        {state === 'form' && (
+          <DirectCompetitiveForm onAnalysisStarted={handleAnalysisStarted} />
+        )}
+
+        {/* Analysis Results */}
+        {state === 'results' && analysisId && (
+          <CompetitiveResultsDisplay 
+            analysisId={analysisId} 
+            onBackToForm={handleBackToForm}
+          />
+        )}
       </div>
+    </div>
     </>
   );
 };
