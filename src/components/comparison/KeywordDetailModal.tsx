@@ -106,11 +106,34 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
   };
 
   const getPotentialColor = (level: string) => {
-    switch (level) {
-      case 'high': return 'text-green-600';
-      case 'medium': return 'text-yellow-600';
-      case 'low': return 'text-red-600';
-      default: return 'text-muted-foreground';
+    switch (level.toLowerCase()) {
+      case 'high': return 'text-green-600 border-green-200 bg-green-50';
+      case 'medium': return 'text-blue-600 border-blue-200 bg-blue-50';
+      case 'low': return 'text-orange-600 border-orange-200 bg-orange-50';
+      default: return 'text-muted-foreground border-gray-200 bg-gray-50';
+    }
+  };
+
+  const getPotentialText = (level: string) => {
+    switch (level.toLowerCase()) {
+      case 'high': return 'EXCELENTE';
+      case 'medium': return 'BOM';
+      case 'low': return 'INICIAL';
+      default: return level.toUpperCase();
+    }
+  };
+
+  const getPotentialExplanation = (level: string, projectedPosition: string | number) => {
+    const position = typeof projectedPosition === 'string' ? projectedPosition : projectedPosition.toString();
+    switch (level.toLowerCase()) {
+      case 'high': 
+        return `🚀 Ótima oportunidade de crescimento! Com as estratégias certas, você pode alcançar a ${position}ª posição rapidamente.`;
+      case 'medium': 
+        return `📈 Oportunidade sólida de melhoria! Focar nesta palavra-chave pode trazer bons resultados e chegar à ${position}ª posição.`;
+      case 'low': 
+        return `🎯 Ponto de partida perfeito! Mesmo pequenas melhorias podem gerar grande impacto a longo prazo, projetando ${position}ª posição.`;
+      default: 
+        return `Projeção: ${position}ª posição`;
     }
   };
 
@@ -240,15 +263,15 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className={getPotentialColor(potential.improvementPotential)}>
-                      {potential.improvementPotential.toUpperCase()}
+                    <Badge variant="outline" className={getPotentialColor(potential.improvementPotential)}>
+                      {getPotentialText(potential.improvementPotential)}
                     </Badge>
                     {potential.currentPosition && (
                       <ArrowUp className="h-3 w-3 text-green-600" />
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Projeção: {potential.projectedPosition}ª posição
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {getPotentialExplanation(potential.improvementPotential, potential.projectedPosition)}
                   </p>
                 </CardContent>
               </Card>
