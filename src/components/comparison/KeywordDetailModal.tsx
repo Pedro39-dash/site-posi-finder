@@ -93,13 +93,13 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
     const baseText = `Score ${score}/100 - `;
     switch (level.toLowerCase()) {
       case 'low': 
-        return `${baseText}Competição baixa. Mais fácil de ranquear para esta palavra-chave.`;
+        return `${baseText}Ótima oportunidade! Poucos concorrentes estabelecidos, foque em conteúdo relevante.`;
       case 'medium': 
-        return `${baseText}Competição moderada. Requer estratégia SEO consistente.`;
+        return `${baseText}Competição equilibrada. Analise os primeiros resultados e otimize seu conteúdo.`;
       case 'high': 
-        return `${baseText}Alta competição. Necessário esforço SEO intenso e conteúdo de alta qualidade.`;
+        return `${baseText}Mercado competitivo. Invista em conteúdo aprofundado e autoridade técnica.`;
       case 'very-high': 
-        return `${baseText}Competição muito alta. Extremamente difícil de ranquear, requer autoridade significativa.`;
+        return `${baseText}Nicho estabelecido. Foque em nichos específicos e construa autoridade gradualmente.`;
       default: 
         return `${baseText}Nível de dificuldade baseado na análise dos concorrentes.`;
     }
@@ -230,10 +230,10 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                   <CardTitle className="text-sm">Minha Posição</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-center justify-center py-2">
+                  <div className="flex flex-col items-start justify-start py-2">
                     {keyword.target_domain_position ? (
                       <>
-                        <div className="text-3xl font-bold text-primary">
+                        <div className="text-5xl font-bold text-primary">
                           {keyword.target_domain_position}
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -241,8 +241,8 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                         </div>
                       </>
                     ) : (
-                      <div className="text-center">
-                        <div className="text-sm font-medium text-muted-foreground">
+                      <div>
+                        <div className="text-lg font-medium text-muted-foreground">
                           Não rankeando
                         </div>
                         <div className="text-xs text-muted-foreground">
