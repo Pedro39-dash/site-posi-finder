@@ -70,12 +70,38 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
   };
 
   const getDifficultyColor = (level: string) => {
-    switch (level) {
-      case 'low': return 'text-green-600';
-      case 'medium': return 'text-yellow-600';
-      case 'high': return 'text-orange-600';
-      case 'very-high': return 'text-red-600';
-      default: return 'text-muted-foreground';
+    switch (level.toLowerCase()) {
+      case 'low': return 'text-green-600 border-green-200 bg-green-50';
+      case 'medium': return 'text-yellow-600 border-yellow-200 bg-yellow-50';
+      case 'high': return 'text-orange-600 border-orange-200 bg-orange-50';
+      case 'very-high': return 'text-red-600 border-red-200 bg-red-50';
+      default: return 'text-muted-foreground border-gray-200 bg-gray-50';
+    }
+  };
+
+  const getDifficultyLevelText = (level: string) => {
+    switch (level.toLowerCase()) {
+      case 'low': return 'BAIXA';
+      case 'medium': return 'MÉDIA';
+      case 'high': return 'ALTA';
+      case 'very-high': return 'MUITO ALTA';
+      default: return level.toUpperCase();
+    }
+  };
+
+  const getDifficultyExplanation = (score: number, level: string) => {
+    const baseText = `Score ${score}/100 - `;
+    switch (level.toLowerCase()) {
+      case 'low': 
+        return `${baseText}Competição baixa. Mais fácil de ranquear para esta palavra-chave.`;
+      case 'medium': 
+        return `${baseText}Competição moderada. Requer estratégia SEO consistente.`;
+      case 'high': 
+        return `${baseText}Alta competição. Necessário esforço SEO intenso e conteúdo de alta qualidade.`;
+      case 'very-high': 
+        return `${baseText}Competição muito alta. Extremamente difícil de ranquear, requer autoridade significativa.`;
+      default: 
+        return `${baseText}Nível de dificuldade baseado na análise dos concorrentes.`;
     }
   };
 
@@ -199,14 +225,11 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className={getDifficultyColor(difficulty.level)}>
-                      {difficulty.level.toUpperCase()}
+                      {getDifficultyLevelText(difficulty.level)}
                     </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      Score: {difficulty.score}
-                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {difficulty.description}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {getDifficultyExplanation(difficulty.score, difficulty.level)}
                   </p>
                 </CardContent>
               </Card>
