@@ -41,18 +41,30 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
   const recommendations = generateKeywordRecommendations(keyword);
   const myPositionCategory = getPositionCategory(keyword.target_domain_position);
 
-  // Generate historical data simulation
+  // Generate historical data simulation with all competitors
   const generateHistoricalData = () => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
     const currentPos = keyword.target_domain_position || 50;
+    const maxCompetitors = Math.min(6, competitorsAhead.length); // Limit to 6 for readability
     
-    return months.map((month, index) => ({
-      month,
-      myPosition: Math.max(1, currentPos + (Math.random() * 10 - 5)),
-      competitor1: Math.max(1, competitorsAhead[0]?.position + (Math.random() * 6 - 3)) || 0,
-      competitor2: Math.max(1, competitorsAhead[1]?.position + (Math.random() * 6 - 3)) || 0,
-      projected: index === months.length - 1 ? potential.projectedPosition : null
-    }));
+    return months.map((month, index) => {
+      const dataPoint: any = {
+        month,
+        myPosition: Math.max(1, currentPos + (Math.random() * 8 - 4)), // Client position with variation
+        projected: index === months.length - 1 ? potential.projectedPosition : null
+      };
+      
+      // Add dynamic competitor positions
+      for (let i = 0; i < maxCompetitors; i++) {
+        const competitor = competitorsAhead[i];
+        if (competitor) {
+          const basePosition = competitor.position || 1;
+          dataPoint[`competitor_${i}`] = Math.max(1, Math.min(50, basePosition + (Math.random() * 4 - 2)));
+        }
+      }
+      
+      return dataPoint;
+    });
   };
 
   const historicalData = generateHistoricalData();
@@ -354,41 +366,57 @@ const KeywordDetailModal = ({ keyword, isOpen, onClose, targetDomain }: KeywordD
                       <XAxis dataKey="month" />
                       <YAxis domain={[1, 50]} reversed />
                       <Tooltip 
-                        formatter={(value: number, name: string) => [
-                          `${value}ª posição`,
-                          name === 'myPosition' ? getDomainName(targetDomain) :
-                          name === 'competitor1' ? competitorsAhead[0]?.domain || 'Concorrente 1' :
-                          name === 'competitor2' ? competitorsAhead[1]?.domain || 'Concorrente 2' :
-                          name
-                        ]}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'myPosition') {
+                            return [`${value}ª posição`, getDomainName(targetDomain)];
+                          }
+                          
+                          // Handle dynamic competitor names
+                          const competitorMatch = name.match(/competitor_(\d+)/);
+                          if (competitorMatch) {
+                            const index = parseInt(competitorMatch[1]);
+                            const competitor = competitorsAhead[index];
+                            return [`${value}ª posição`, competitor?.domain || `Concorrente ${index + 1}`];
+                          }
+                          
+                          return [`${value}ª posição`, name];
+                        }}
                       />
+                      {/* Client domain line - always primary and prominent */}
                       <Line 
                         type="monotone" 
                         dataKey="myPosition" 
                         stroke="hsl(var(--primary))" 
                         strokeWidth={3}
                         name="myPosition"
+                        dot={{ r: 4 }}
                       />
-                      {competitorsAhead[0] && (
-                        <Line 
-                          type="monotone" 
-                          dataKey="competitor1" 
-                          stroke="hsl(var(--destructive))" 
-                          strokeWidth={2}
-                          strokeDasharray="5 5"
-                          name="competitor1"
-                        />
-                      )}
-                      {competitorsAhead[1] && (
-                        <Line 
-                          type="monotone" 
-                          dataKey="competitor2" 
-                          stroke="hsl(var(--muted-foreground))" 
-                          strokeWidth={2}
-                          strokeDasharray="3 3"
-                          name="competitor2"
-                        />
-                      )}
+                      {/* Dynamic competitor lines */}
+                      {competitorsAhead.slice(0, 6).map((competitor, index) => {
+                        const colors = [
+                          "hsl(var(--destructive))",
+                          "hsl(var(--accent))", 
+                          "hsl(45 93% 58%)", // warning
+                          "hsl(217 89% 61%)", // info
+                          "hsl(270 95% 75%)", // purple
+                          "hsl(340 75% 55%)"  // pink
+                        ];
+                        
+                        const dashArrays = ["5 5", "3 3", "8 2", "4 4", "6 3", "2 2"];
+                        
+                        return (
+                          <Line
+                            key={index}
+                            type="monotone"
+                            dataKey={`competitor_${index}`}
+                            stroke={colors[index % colors.length]}
+                            strokeWidth={2}
+                            strokeDasharray={dashArrays[index % dashArrays.length]}
+                            name={`competitor_${index}`}
+                            dot={{ r: 3 }}
+                          />
+                        );
+                      })}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
