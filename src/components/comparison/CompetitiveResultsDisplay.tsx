@@ -11,6 +11,7 @@ import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword, 
 import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis, getCTRByPosition } from "@/utils/competitiveAnalysis";
 import KeywordDetailModal from "./KeywordDetailModal";
 import PositionTrendChart from "./PositionTrendChart";
+import { useAnalysisCache } from "@/hooks/useAnalysisCache";
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -18,6 +19,7 @@ interface CompetitiveResultsDisplayProps {
 }
 
 const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResultsDisplayProps) => {
+  const { getCache, setCache } = useAnalysisCache();
   const [analysisData, setAnalysisData] = useState<CompetitiveAnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +28,8 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const [currentPage, setCurrentPage] = useState(1);
   const [keywordFilter, setKeywordFilter] = useState<'all' | 'winning' | 'losing' | 'opportunities'>('all');
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastLoadTime, setLastLoadTime] = useState<number>(0);
   
   const itemsPerPage = 10;
 
@@ -33,35 +37,73 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     loadAnalysisData();
     
     let pollCount = 0;
-    const maxPolls = 30;
+    const maxPolls = 60; // Increased from 30 to 60 (2 minutes)
+    let pollInterval: NodeJS.Timeout;
     
-    const pollInterval = setInterval(() => {
-      pollCount++;
-      
-      if (pollCount >= maxPolls) {
-        clearInterval(pollInterval);
-        setError('Análise demorou mais que o esperado. Tente novamente.');
-        return;
-      }
-      
-      if (analysisData?.analysis.status === 'analyzing' || 
-          analysisData?.analysis.status === 'pending') {
-        loadAnalysisData();
-      } else if (analysisData?.analysis.status === 'completed' || 
-                 analysisData?.analysis.status === 'failed') {
-        clearInterval(pollInterval);
-      }
-    }, 2000);
+    const startPolling = () => {
+      pollInterval = setInterval(async () => {
+        pollCount++;
+        
+        // Progressive polling - start fast, then slow down
+        const currentInterval = pollCount < 10 ? 1000 : pollCount < 20 ? 2000 : 3000;
+        
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          setError('Análise demorou mais que o esperado. Tente novamente.');
+          return;
+        }
+        
+        // Only poll if we haven't loaded recently (prevent excessive calls)
+        const now = Date.now();
+        if (now - lastLoadTime > 1500) { // At least 1.5s between loads
+          if (analysisData?.analysis.status === 'analyzing' || 
+              analysisData?.analysis.status === 'pending') {
+            await loadAnalysisData();
+          } else if (analysisData?.analysis.status === 'completed' || 
+                     analysisData?.analysis.status === 'failed') {
+            clearInterval(pollInterval);
+          }
+        }
+        
+        // Clear interval and adjust timing
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          setTimeout(startPolling, currentInterval);
+        }
+      }, 1000);
+    };
 
+    startPolling();
     return () => clearInterval(pollInterval);
-  }, [analysisId, analysisData?.analysis.status]);
+  }, [analysisId, analysisData?.analysis.status, lastLoadTime]);
 
   const loadAnalysisData = async () => {
+    const startTime = Date.now();
+    
+    // Try cache first
+    const cacheKey = `analysis_${analysisId}`;
+    const cachedData = getCache<CompetitiveAnalysisData>(cacheKey);
+    
+    if (cachedData && cachedData.analysis.status === 'completed') {
+      console.log('📋 Using cached analysis data');
+      setAnalysisData(cachedData);
+      setError(null);
+      setLoading(false);
+      setLastLoadTime(Date.now());
+      return;
+    }
+    
     try {
       const result = await CompetitorAnalysisService.getAnalysisData(analysisId);
       if (result.success && result.data) {
         setAnalysisData(result.data);
         setError(null);
+        setRetryCount(0); // Reset retry count on success
+        
+        // Cache completed analysis for 30 minutes
+        if (result.data.analysis.status === 'completed') {
+          setCache(cacheKey, result.data, 30 * 60 * 1000); // 30 minutes
+        }
       } else {
         setError(result.error || 'Failed to load analysis data');
       }
@@ -70,7 +112,15 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
       console.error('Error loading analysis:', err);
     } finally {
       setLoading(false);
+      setLastLoadTime(Date.now());
     }
+  };
+
+  const handleRetry = async () => {
+    setRetryCount(prev => prev + 1);
+    setLoading(true);
+    setError(null);
+    await loadAnalysisData();
   };
 
   if (loading) {
@@ -78,8 +128,26 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
       <div className="space-y-8">
         <div className="text-center space-y-4">
           <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <h2 className="text-2xl font-bold">Carregando Análise...</h2>
-          <p className="text-muted-foreground">Aguarde enquanto coletamos os dados</p>
+          <h2 className="text-2xl font-bold">
+            {analysisData?.analysis.status === 'analyzing' ? 'Análise em Progresso...' : 'Carregando Análise...'}
+          </h2>
+          <p className="text-muted-foreground">
+            {analysisData?.analysis.status === 'analyzing' 
+              ? 'Coletando dados do Google e analisando concorrentes...' 
+              : 'Aguarde enquanto coletamos os dados'
+            }
+          </p>
+          {analysisData?.analysis.metadata?.processed_keywords && (
+            <div className="space-y-2">
+              <Progress 
+                value={(analysisData.analysis.metadata.processed_keywords / analysisData.analysis.metadata.total_keywords) * 100} 
+                className="w-full max-w-md mx-auto"
+              />
+              <p className="text-sm text-muted-foreground">
+                {analysisData.analysis.metadata.processed_keywords} de {analysisData.analysis.metadata.total_keywords} palavras-chave analisadas
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -90,13 +158,24 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
       <div className="space-y-8">
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            {error || 'Não foi possível carregar os dados da análise'}
+          <AlertDescription className="space-y-2">
+            <p>{error || 'Não foi possível carregar os dados da análise'}</p>
+            {retryCount < 3 && (
+              <p className="text-sm">Tentativa {retryCount + 1} de 3</p>
+            )}
           </AlertDescription>
         </Alert>
-        <Button onClick={onBackToForm} variant="outline">
-          Voltar ao Formulário
-        </Button>
+        <div className="flex gap-2 justify-center">
+          {retryCount < 3 && (
+            <Button onClick={handleRetry} variant="outline" disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Tentar Novamente
+            </Button>
+          )}
+          <Button onClick={onBackToForm} variant="outline">
+            Voltar ao Formulário
+          </Button>
+        </div>
       </div>
     );
   }

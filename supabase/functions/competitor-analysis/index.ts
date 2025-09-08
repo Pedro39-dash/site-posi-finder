@@ -200,68 +200,109 @@ async function performCompetitiveAnalysis(
       api_source: 'serpapi'
     });
 
-    // Phase 3: Perform analysis with timeout control
+    // Phase 3: Perform PARALLEL analysis with timeout control  
     const keywordAnalyses: KeywordAnalysis[] = [];
     const competitorDomains = new Set<string>();
     let consecutiveFailures = 0;
     const MAX_CONSECUTIVE_FAILURES = 2;
     
-    for (let i = 0; i < finalKeywords.length; i++) {
+    console.log(`🚀 PARALLEL PROCESSING: Starting parallel analysis of ${finalKeywords.length} keywords`);
+    
+    // Process keywords in batches of 3 for optimal performance
+    const BATCH_SIZE = 3;
+    const batches = [];
+    
+    for (let i = 0; i < finalKeywords.length; i += BATCH_SIZE) {
+      batches.push(finalKeywords.slice(i, i + BATCH_SIZE));
+    }
+    
+    let totalProcessed = 0;
+    
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       // Check timeout
       if (Date.now() - analysisStartTime > ANALYSIS_TIMEOUT) {
         console.warn('⏰ Analysis timeout reached - stopping processing');
         break;
       }
 
-      const keyword = finalKeywords[i];
-      console.log(`🔍 [${i + 1}/${finalKeywords.length}] Analyzing: "${keyword}"`);
+      const batch = batches[batchIndex];
+      console.log(`🔍 [Batch ${batchIndex + 1}/${batches.length}] Processing: ${batch.join(', ')}`);
       
-      try {
-        const keywordStartTime = Date.now();
-        console.log(`⏱️ Starting analysis for keyword "${keyword}" at ${keywordStartTime}`);
-        
-        // Individual keyword timeout with retry
-        const keywordPromise = analyzeKeywordPositionsWithRetry(keyword, targetDomain, 2);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Keyword timeout')), KEYWORD_TIMEOUT)
-        );
-        
-        const analysis = await Promise.race([keywordPromise, timeoutPromise]) as KeywordAnalysis;
-        
-        const keywordEndTime = Date.now();
-        console.log(`✅ Keyword "${keyword}" completed in ${keywordEndTime - keywordStartTime}ms`);
-        
-        // Collect competitor domains
-        analysis.competitor_positions.forEach(pos => {
-          if (pos.domain !== targetDomain) {
-            competitorDomains.add(pos.domain);
-          }
-        });
-        
-        keywordAnalyses.push(analysis);
-        consecutiveFailures = 0;
-        
-      } catch (error) {
-        consecutiveFailures++;
-        console.warn(`⚠️ Failed to analyze keyword "${keyword}":`, error.message);
-        
-        // More intelligent fallback logic
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          console.error(`❌ Too many consecutive failures (${consecutiveFailures}) - switching to simulation mode`);
-          return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors, finalKeywords);
+      const batchStartTime = Date.now();
+      
+      // Process batch in parallel
+      const batchPromises = batch.map(async (keyword, keywordIndex) => {
+        try {
+          console.log(`⏱️ Starting parallel analysis for keyword "${keyword}"`);
+          
+          // Individual keyword timeout with retry
+          const keywordPromise = analyzeKeywordPositionsWithRetry(keyword, targetDomain, 2);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Keyword timeout')), KEYWORD_TIMEOUT)
+          );
+          
+          const analysis = await Promise.race([keywordPromise, timeoutPromise]) as KeywordAnalysis;
+          
+          console.log(`✅ Keyword "${keyword}" completed successfully`);
+          return { success: true, analysis, keyword };
+          
+        } catch (error) {
+          console.warn(`⚠️ Failed to analyze keyword "${keyword}":`, error.message);
+          return { success: false, error: error.message, keyword };
         }
+      });
+      
+      // Wait for batch to complete
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      // Process results
+      let batchSuccesses = 0;
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled' && result.value.success) {
+          const { analysis } = result.value;
+          
+          // Collect competitor domains
+          analysis.competitor_positions.forEach(pos => {
+            if (pos.domain !== targetDomain) {
+              competitorDomains.add(pos.domain);
+            }
+          });
+          
+          keywordAnalyses.push(analysis);
+          batchSuccesses++;
+        }
+        totalProcessed++;
       }
       
-      // Update progress
+      const batchEndTime = Date.now();
+      console.log(`⚡ Batch ${batchIndex + 1} completed in ${batchEndTime - batchStartTime}ms with ${batchSuccesses}/${batch.length} successes`);
+      
+      // Check failure rate
+      if (batchSuccesses === 0) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          console.error(`❌ Too many consecutive batch failures (${consecutiveFailures}) - switching to simulation mode`);
+          return await performSimulatedAnalysis(supabase, analysisId, targetDomain, additionalCompetitors, finalKeywords);
+        }
+      } else {
+        consecutiveFailures = 0;
+      }
+      
+      // Update progress after each batch
       await updateAnalysisProgress(supabase, analysisId, 'analyzing', {
         stage: 'keyword_analysis',
         total_keywords: finalKeywords.length,
-        processed_keywords: i + 1,
-        success_rate: keywordAnalyses.length / (i + 1)
+        processed_keywords: totalProcessed,
+        successful_keywords: keywordAnalyses.length,
+        success_rate: totalProcessed > 0 ? (keywordAnalyses.length / totalProcessed) : 0,
+        batch_processed: batchIndex + 1,
+        total_batches: batches.length
       });
       
-      // Brief delay between requests
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Brief delay between batches to avoid overwhelming APIs
+      if (batchIndex < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
     }
 
     // Check if we have enough successful analyses - proportional validation
