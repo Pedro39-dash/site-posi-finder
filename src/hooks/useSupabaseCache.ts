@@ -138,7 +138,7 @@ export const useAnalysisCache = <T>(
   return useSupabaseCache(key, fetcher, {
     ttl: CacheService.ANALYSIS_TTL,
     enableAutoRefresh: true,
-    refreshInterval: 30 * 1000 // 30 seconds for active analyses
+    refreshInterval: 3 * 60 * 1000 // 3 minutes for active analyses
   });
 };
 

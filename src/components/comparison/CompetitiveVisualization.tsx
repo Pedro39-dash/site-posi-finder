@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,20 +9,27 @@ interface CompetitiveVisualizationProps {
   analysisData: CompetitiveAnalysisData;
 }
 
-const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProps) => {
-  const { analysis, competitors, keywords } = analysisData;
+const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo(({ analysisData }) => {
+  // Stable reference for analysis data
+  const stableAnalysisData = useMemo(() => analysisData, [
+    analysisData?.analysis?.id,
+    analysisData?.keywords?.length,
+    analysisData?.competitors?.length
+  ]);
 
-  // Chart colors using design system
-  const chartColors = {
+  const { analysis, competitors, keywords } = stableAnalysisData;
+
+  // Chart colors using design system (stable reference)
+  const chartColors = useMemo(() => ({
     primary: 'hsl(217 89% 61%)',
     secondary: 'hsl(145 63% 49%)',
     accent: 'hsl(38 92% 50%)',
     muted: 'hsl(220 14% 96%)',
     destructive: 'hsl(0 84% 60%)'
-  };
+  }), []);
 
   // Prepare position distribution data
-  const positionDistribution = React.useMemo(() => {
+  const positionDistribution = useMemo(() => {
     const distribution = {
       '1-3': 0,
       '4-10': 0,
@@ -57,7 +64,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
   }, [keywords]);
 
   // Prepare competitor comparison data
-  const competitorComparison = React.useMemo(() => {
+  const competitorComparison = useMemo(() => {
     const targetDomain = analysis.target_domain;
     
     return competitors.map(competitor => {
@@ -82,7 +89,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
   }, [competitors, keywords, analysis.target_domain]);
 
   // Prepare opportunity trend data (simulated)
-  const opportunityTrend = React.useMemo(() => {
+  const opportunityTrend = useMemo(() => {
     const days = 30;
     const data = [];
     const baseOpportunities = keywords.filter(k => 
@@ -109,7 +116,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
   }, [keywords]);
 
   // Share of Voice data
-  const shareOfVoiceData = React.useMemo(() => {
+  const shareOfVoiceData = useMemo(() => {
     const targetDomain = analysis.target_domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
     const targetSOV = keywords.filter(k => k.target_domain_position && k.target_domain_position <= 10).length / keywords.length * 100;
     
@@ -134,9 +141,10 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
     });
 
     return data.sort((a, b) => b.value - a.value);
-  }, [analysis.target_domain, competitors, keywords]);
+  }, [analysis.target_domain, competitors, keywords, chartColors]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  // Custom tooltip component (memoized)
+  const CustomTooltip = useCallback(({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-elegant">
@@ -152,7 +160,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
       );
     }
     return null;
-  };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -170,7 +178,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={positionDistribution}>
+              <BarChart data={positionDistribution} key="position-dist">
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                 <XAxis 
                   dataKey="range" 
@@ -182,6 +190,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
                   dataKey="count" 
                   fill={chartColors.primary}
                   radius={[4, 4, 0, 0]}
+                  animationDuration={0}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -215,7 +224,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart key="share-voice">
                 <Pie
                   data={shareOfVoiceData}
                   cx="50%"
@@ -224,6 +233,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
                   dataKey="value"
                   label={({ name, value }) => `${name}: ${value}%`}
                   labelLine={false}
+                  animationDuration={0}
                 >
                   {shareOfVoiceData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -250,7 +260,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={competitorComparison} layout="horizontal">
+              <BarChart data={competitorComparison} layout="horizontal" key="competitor-comp">
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                 <XAxis 
                   type="number" 
@@ -269,6 +279,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
                   fill={chartColors.secondary}
                   radius={[0, 4, 4, 0]}
                   name="Posição Média"
+                  animationDuration={0}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -290,7 +301,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={opportunityTrend}>
+              <AreaChart data={opportunityTrend} key="opportunity-trend">
                 <defs>
                   <linearGradient id="opportunityGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={chartColors.primary} stopOpacity={0.3} />
@@ -311,6 +322,7 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
                   fillOpacity={1}
                   fill="url(#opportunityGradient)"
                   name="Oportunidades"
+                  animationDuration={0}
                 />
                 <Line
                   type="monotone"
@@ -326,6 +338,6 @@ const CompetitiveVisualization = ({ analysisData }: CompetitiveVisualizationProp
       </Card>
     </div>
   );
-};
+});
 
 export default CompetitiveVisualization;

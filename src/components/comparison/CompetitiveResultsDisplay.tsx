@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, memo } from "react";
 import { Trophy, RefreshCw, AlertTriangle, TrendingUp, Eye, BarChart3, HelpCircle, ChevronLeft, ChevronRight, Download, Filter, Play } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ interface CompetitiveResultsDisplayProps {
   onBackToForm: () => void;
 }
 
-const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResultsDisplayProps) => {
+const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo(({ analysisId, onBackToForm }) => {
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,7 +53,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     showOnlyOpportunities: false
   });
 
-  // Use enhanced cache hook
+  // Use enhanced cache hook with controlled refresh
   const {
     data: analysisData,
     loading,
@@ -68,8 +68,8 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     }),
     {
       ttl: CacheService.ANALYSIS_TTL,
-      enableAutoRefresh: true,
-      refreshInterval: 30000
+      enableAutoRefresh: false, // Controlled manually
+      refreshInterval: 3 * 60 * 1000 // 3 minutes (reduced frequency)
     }
   );
 
@@ -120,11 +120,17 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     }
   };
 
+  // Stable reference for filtering dependencies
+  const stableKeywords = useMemo(() => analysisData?.keywords || [], [
+    analysisData?.keywords?.length,
+    analysisData?.keywords?.map(k => k.keyword).join(',')
+  ]);
+
   // Filtered keywords based on current filters
   const filteredKeywords = useMemo(() => {
-    if (!analysisData?.keywords) return [];
+    if (!stableKeywords.length) return [];
     
-    return analysisData.keywords.filter(keyword => {
+    return stableKeywords.filter(keyword => {
       // Search filter
       if (filters.search && !keyword.keyword.toLowerCase().includes(filters.search.toLowerCase())) {
         return false;
@@ -180,7 +186,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-  }, [analysisData?.keywords, filters]);
+  }, [stableKeywords, filters]);
 
   // Pagination
   const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
@@ -659,6 +665,6 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
       </div>
     </TooltipProvider>
   );
-};
+});
 
 export default CompetitiveResultsDisplay;
