@@ -11,8 +11,6 @@ import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword, 
 import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis, getCTRByPosition } from "@/utils/competitiveAnalysis";
 import KeywordDetailModal from "./KeywordDetailModal";
 import PositionTrendChart from "./PositionTrendChart";
-import { DataAccuracyCard } from "./DataAccuracyCard";
-import { PositionDebugPanel } from "./PositionDebugPanel";
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -432,25 +430,6 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           </CardContent>
         </Card>
       </div>
-
-      {/* Data Accuracy Information */}
-      <DataAccuracyCard 
-        analysisData={analysisData} 
-        onRefreshAnalysis={() => {
-          // You can implement full analysis refresh here
-          console.log('Refreshing full analysis...');
-        }} 
-      />
-
-      {/* Position Debug Panel - Shows detection issues */}
-      <PositionDebugPanel 
-        keywordData={keywords.map(k => ({
-          keyword: k.keyword,
-          saved_position: k.target_domain_position,
-          debug_info: k.metadata?.detection_debug,
-          metadata: k.metadata
-        }))}
-      />
 
       {/* Position Trend Chart */}
       <PositionTrendChart targetDomain={analysis.target_domain} />
