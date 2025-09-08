@@ -83,6 +83,24 @@ export const KeywordRow = memo(({
       )
       .join(', ');
   }, [keyword.competitor_positions]);
+
+  // Calculate difficulty based on search volume instead of competition_level
+  const difficulty = useMemo(() => {
+    return keyword.search_volume && keyword.search_volume > 1000 ? 'high' : 
+           keyword.search_volume && keyword.search_volume > 100 ? 'medium' : 'low';
+  }, [keyword.search_volume]);
+
+  // Calculate potential based on position and competitors
+  const potential = useMemo(() => {
+    const myPos = keyword.target_domain_position || 999;
+    const hasCompetitors = keyword.competitor_positions?.length > 0;
+    const bestCompetitorPos = hasCompetitors ? 
+      Math.min(...keyword.competitor_positions.map(c => c.position)) : 999;
+    
+    if (!hasCompetitors || myPos <= 3) return 'low';
+    if (myPos > bestCompetitorPos + 5) return 'high';
+    return 'medium';
+  }, [keyword.target_domain_position, keyword.competitor_positions]);
   
   return (
     <tr className="border-b transition-colors hover:bg-muted/50">
@@ -91,10 +109,10 @@ export const KeywordRow = memo(({
         <PositionBadge position={keyword.target_domain_position} />
       </td>
       <td className="p-4 align-middle">
-        <DifficultyBadge difficulty={keyword.competition_level} />
+        <DifficultyBadge difficulty={difficulty} />
       </td>
       <td className="p-4 align-middle">
-        <PotentialBadge potential={keyword.competition_level || 'low'} />
+        <PotentialBadge potential={potential} />
       </td>
       <td className="p-4 align-middle">
         <span className="text-sm text-muted-foreground">
@@ -121,5 +139,13 @@ export const KeywordRow = memo(({
         </div>
       </td>
     </tr>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison for better memoization
+  return (
+    prevProps.keyword.id === nextProps.keyword.id &&
+    prevProps.keyword.target_domain_position === nextProps.keyword.target_domain_position &&
+    prevProps.reverifyingKeywords.includes(prevProps.keyword.keyword) === 
+    nextProps.reverifyingKeywords.includes(nextProps.keyword.keyword)
   );
 });

@@ -97,11 +97,12 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     return analysisData?.keywords || [];
   }, [analysisData?.keywords]);
 
-  // Keywords filtradas e ordenadas
+  // Destructure filters for stable dependencies
+  const { search, competitionLevel, sortBy, sortOrder } = filters;
+  
+  // Keywords filtradas e ordenadas com dependências estáveis
   const filteredAndSortedKeywords = useMemo(() => {
     if (!stableKeywords.length) return [];
-    
-    const { search, competitionLevel, sortBy, sortOrder } = filters;
     
     let filtered = stableKeywords;
 
@@ -113,11 +114,14 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
       );
     }
 
-    // Aplicar filtro de nível de competição
+    // Aplicar filtro de nível de competição baseado na dificuldade
     if (competitionLevel.length > 0) {
-      filtered = filtered.filter(keyword => 
-        competitionLevel.includes(keyword.competition_level)
-      );
+      filtered = filtered.filter(keyword => {
+        // Use a standard difficulty mapping
+        const difficulty = keyword.search_volume && keyword.search_volume > 1000 ? 'high' : 
+                          keyword.search_volume && keyword.search_volume > 100 ? 'medium' : 'low';
+        return competitionLevel.includes(difficulty);
+      });
     }
 
     // Ordenação
@@ -134,7 +138,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
             : b.keyword.localeCompare(a.keyword);
       }
     });
-  }, [stableKeywords, filters]);
+  }, [stableKeywords, search, competitionLevel, sortBy, sortOrder]);
 
   const filteredKeywords = filteredAndSortedKeywords;
 
