@@ -18,9 +18,9 @@ export const useSupabaseCache = <T>(
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const {
-    ttl = CacheService.DEFAULT_TTL,
-    enableAutoRefresh = false,
-    refreshInterval = 5 * 60 * 1000 // 5 minutes
+    ttl = 15 * 60 * 1000, // 15 minutes - extended for maximum stability
+    enableAutoRefresh = false, // Permanently disabled to eliminate glitches
+    refreshInterval = 10 * 60 * 1000, // 10 minutes (not used when auto-refresh is disabled)
   } = options;
 
   const loadData = useCallback(async (forceRefresh = false) => {

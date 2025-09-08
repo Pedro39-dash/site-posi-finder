@@ -1,37 +1,35 @@
-import React, { useState, useMemo, useCallback, memo } from "react";
-import { Trophy, RefreshCw, AlertTriangle, TrendingUp, Eye, BarChart3, HelpCircle, ChevronLeft, ChevronRight, Download, Filter, Play } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from "@/services/competitorAnalysisService";
-import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis, getCTRByPosition } from "@/utils/competitiveAnalysis";
-import KeywordDetailModal from "./KeywordDetailModal";
-import PositionTrendChart from "./PositionTrendChart";
-import AdvancedFilters, { FilterState } from "./AdvancedFilters";
-import CompetitiveVisualization from "./CompetitiveVisualization";
-import ExportReports from "./ExportReports";
-import EnhancedProgressTracker from "./EnhancedProgressTracker";
-import IntelligentNotifications from "./IntelligentNotifications";
-import ProductivityFeatures from "./ProductivityFeatures";
-import GuidedTour from "./GuidedTour";
-import MobileOptimizations from "./MobileOptimizations";
-import { useSupabaseCache } from "@/hooks/useSupabaseCache";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { CacheService } from "@/services/cacheService";
-import { toast } from "sonner";
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
+} from '@/components/ui/select';
+import { Eye, RotateCcw, ArrowLeft, Filter, Download, Bell, Target, TrendingUp, Users, Trophy, Settings } from 'lucide-react';
+import { toast } from 'sonner';
+import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from '@/services/competitorAnalysisService';
+import { KeywordDetailModal } from './KeywordDetailModal';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { EnhancedProgressTracker } from './EnhancedProgressTracker';
+import { CompetitiveVisualization } from './CompetitiveVisualization';
+import { PositionTrendChart } from './PositionTrendChart';
+import { GuidedTour } from './GuidedTour';
+import { ProductivityFeatures } from './ProductivityFeatures';
+import { IntelligentNotifications } from './IntelligentNotifications';
+import { useSupabaseCache } from '@/hooks/useSupabaseCache';
+import { useOptimizedFilters } from './OptimizedFilterReducer';
+import { ErrorBoundary } from './ErrorBoundary';
+import { KeywordRow } from './OptimizedComponents';
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
   onBackToForm: () => void;
 }
 
-const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo(({ analysisId, onBackToForm }) => {
+const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = ({ analysisId, onBackToForm }) => {
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
   const [showTour, setShowTour] = useState(false);
@@ -39,169 +37,138 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   
   const isMobile = useIsMobile();
   const itemsPerPage = isMobile ? 5 : 10;
-  
-  // Advanced filters state
-  const [filters, setFilters] = useState<FilterState>({
-    search: '',
-    positionRange: [1, 100],
-    opportunityTypes: [],
-    competitionLevel: [],
-    sortBy: 'keyword',
-    sortOrder: 'asc',
-    showOnlyWinning: false,
-    showOnlyLosing: false,
-    showOnlyOpportunities: false
-  });
 
-  // Use enhanced cache hook with controlled refresh
+  // Use optimized filter reducer
+  const { filters, filterActions } = useOptimizedFilters();
+
+  // Data fetching with stable caching (no auto-refresh)
   const {
     data: analysisData,
     loading,
     error,
-    refresh: refreshAnalysis,
-    lastUpdated
-  } = useSupabaseCache(
-    `analysis_${analysisId}`,
-    () => CompetitorAnalysisService.getAnalysisData(analysisId).then(result => {
-      if (!result.success) throw new Error(result.error || 'Failed to load analysis');
-      return result.data!;
-    }),
+    lastUpdated,
+    refresh: refreshData,
+  } = useSupabaseCache<CompetitiveAnalysisData | null>(
+    `competitive-analysis-${analysisId}`,
+    () => CompetitorAnalysisService.getAnalysisById(analysisId),
     {
-      ttl: CacheService.ANALYSIS_TTL,
-      enableAutoRefresh: false, // Controlled manually
-      refreshInterval: 3 * 60 * 1000 // 3 minutes (reduced frequency)
+      ttl: 10 * 60 * 1000, // 10 minutes - longer TTL for stability
+      enableAutoRefresh: false, // Permanently disabled to prevent glitches
     }
   );
 
   // Check if user should see tour
-  React.useEffect(() => {
+  useEffect(() => {
     const tourCompleted = localStorage.getItem('comparison-tour-completed');
     const tourSkipped = localStorage.getItem('comparison-tour-skipped');
     
-    if (!tourCompleted && !tourSkipped && analysisData?.analysis?.status === 'completed') {
+    if (!tourCompleted && !tourSkipped && analysisData?.status === 'completed') {
       setShowTour(true);
     }
-  }, [analysisData?.analysis?.status]);
+  }, [analysisData?.status]);
 
   // Enhanced opportunity actions
-  const handleOpportunityAction = (action: string, data: any) => {
+  const handleOpportunityAction = useCallback((action: string, data: any) => {
     switch (action) {
       case 'focus-keywords':
-        setFilters(prev => ({
-          ...prev,
-          positionRange: [11, 20],
-          showOnlyOpportunities: true
-        }));
+        filterActions.setPositionRange(11, 20);
+        filterActions.toggleOpportunities();
         toast.success("Filtros aplicados para keywords próximas da primeira página");
         break;
       case 'target-weak-competitors':
-        // Focus on quick wins
-        setFilters(prev => ({
-          ...prev,
-          competitionLevel: ['low'],
-          sortBy: 'keyword',
-          sortOrder: 'asc'
-        }));
+        filterActions.setCompetitionLevel(['low']);
+        filterActions.setSort('keyword', 'asc');
         toast.success("Filtros aplicados para oportunidades de vitória rápida");
         break;
       case 'maintain-momentum':
-        // Show trending keywords
         toast.success("Foque nestas keywords que estão em ascensão");
         break;
       case 'competitive-analysis':
-        // Show critical keywords
-        setFilters(prev => ({
-          ...prev,
-          positionRange: [50, 100],
-          showOnlyLosing: true
-        }));
+        filterActions.setPositionRange(50, 100);
+        filterActions.toggleLosing();
         toast.success("Visualizando keywords que precisam de atenção urgente");
         break;
     }
-  };
+  }, [filterActions]);
 
-  // Stable reference for filtering dependencies
-  const stableKeywords = useMemo(() => analysisData?.keywords || [], [
-    analysisData?.keywords?.length,
-    analysisData?.keywords?.map(k => k.keyword).join(',')
-  ]);
+  // Memoize keywords with stable reference
+  const stableKeywords = useMemo(() => {
+    return analysisData?.keywords || [];
+  }, [JSON.stringify(analysisData?.keywords || [])]);
 
-  // Filtered keywords based on current filters
-  const filteredKeywords = useMemo(() => {
+  // Filter and sort keywords with optimized memoization
+  const filteredAndSortedKeywords = useMemo(() => {
     if (!stableKeywords.length) return [];
     
-    return stableKeywords.filter(keyword => {
+    let filtered = stableKeywords.filter(keyword => {
       // Search filter
       if (filters.search && !keyword.keyword.toLowerCase().includes(filters.search.toLowerCase())) {
         return false;
       }
       
       // Position range filter
-      const position = keyword.target_domain_position || 100;
-      if (position < filters.positionRange[0] || position > filters.positionRange[1]) {
+      const position = keyword.target_domain_position;
+      if (position && (position < filters.minPosition || position > filters.maxPosition)) {
         return false;
       }
       
       // Competition level filter
-      if (filters.competitionLevel.length > 0 && !filters.competitionLevel.includes(keyword.competition_level)) {
+      if (filters.competitionLevel.length > 0 && !filters.competitionLevel.includes(keyword.competition_level || '')) {
         return false;
       }
       
-      // Show only winning filter
-      if (filters.showOnlyWinning && position > 10) {
+      // Winning keywords (top 3 positions)
+      if (filters.showWinning && (!position || position > 3)) {
         return false;
       }
       
-      // Show only losing filter
-      if (filters.showOnlyLosing && position <= 20) {
+      // Losing keywords (beyond page 1)
+      if (filters.showLosing && (!position || position <= 10)) {
         return false;
       }
       
-      // Show only opportunities filter
-      if (filters.showOnlyOpportunities && (position <= 10 || position > 20)) {
-        return false;
+      // Opportunity keywords (positions 4-20 with low competition)
+      if (filters.showOpportunities) {
+        const hasOpportunity = position && position > 3 && position <= 20 && 
+          keyword.competition_level === 'low';
+        if (!hasOpportunity) return false;
       }
       
       return true;
-    }).sort((a, b) => {
-      let aValue: any, bValue: any;
-      
-      switch (filters.sortBy) {
-        case 'keyword':
-          aValue = a.keyword.toLowerCase();
-          bValue = b.keyword.toLowerCase();
-          break;
-        case 'position':
-          aValue = a.target_domain_position || 100;
-          bValue = b.target_domain_position || 100;
-          break;
-        default:
-          aValue = a.keyword.toLowerCase();
-          bValue = b.keyword.toLowerCase();
-      }
-      
-      if (filters.sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
     });
+
+    // Sort keywords
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      if (filters.sortBy === 'keyword') {
+        comparison = a.keyword.localeCompare(b.keyword);
+      } else if (filters.sortBy === 'position') {
+        const posA = a.target_domain_position || 999;
+        const posB = b.target_domain_position || 999;
+        comparison = posA - posB;
+      }
+      
+      return filters.sortOrder === 'desc' ? -comparison : comparison;
+    });
+
+    return filtered;
   }, [stableKeywords, filters]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
-  const currentPageKeywords = filteredKeywords.slice(
+  const totalPages = Math.ceil(filteredAndSortedKeywords.length / itemsPerPage);
+  const currentPageKeywords = filteredAndSortedKeywords.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
   // Reset page when filters change
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
 
   // Handle re-verification of keywords
-  const handleReverifyKeyword = async (keyword: CompetitorKeyword) => {
+  const handleReverifyKeyword = useCallback(async (keyword: CompetitorKeyword) => {
     if (!analysisData) return;
     
     setReverifyingKeywords(prev => [...prev, keyword.keyword]);
@@ -210,12 +177,12 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
       const result = await CompetitorAnalysisService.reverifyKeyword(
         analysisId,
         keyword.keyword,
-        analysisData.analysis.target_domain
+        analysisData.target_domain
       );
       
       if (result.success) {
         // Reload analysis data to get updated position
-        await refreshAnalysis();
+        await refreshData();
         
         // Show toast notification with result
         const message = result.newPosition 
@@ -234,7 +201,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     } finally {
       setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
     }
-  };
+  }, [analysisData, analysisId, refreshData]);
 
   // Loading state
   if (loading) {

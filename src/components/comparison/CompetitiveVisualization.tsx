@@ -1,341 +1,230 @@
-import React, { memo, useMemo, useCallback } from 'react';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Target, Crown, Eye } from "lucide-react";
-import { CompetitiveAnalysisData, CompetitorDomain, CompetitorKeyword } from "@/services/competitorAnalysisService";
+import React, { useMemo, useCallback, memo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CompetitiveAnalysisData } from '@/services/competitorAnalysisService';
+import { StableBarChart, StablePieChart, StableAreaChart } from './StableChart';
+import { ErrorBoundary } from './ErrorBoundary';
 
 interface CompetitiveVisualizationProps {
   analysisData: CompetitiveAnalysisData;
 }
 
 const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo(({ analysisData }) => {
-  // Stable reference for analysis data
-  const stableAnalysisData = useMemo(() => analysisData, [
-    analysisData?.analysis?.id,
-    analysisData?.keywords?.length,
-    analysisData?.competitors?.length
-  ]);
+  // Memoize the entire analysis data with a stable reference
+  const memoizedAnalysisData = useMemo(() => ({
+    ...analysisData,
+    // Create a stable hash to prevent unnecessary re-renders
+    _dataHash: JSON.stringify(analysisData)
+  }), [JSON.stringify(analysisData)]);
 
-  const { analysis, competitors, keywords } = stableAnalysisData;
+  // All data preparation in a single useMemo for maximum stability
+  const chartData = useMemo(() => {
+    if (!memoizedAnalysisData?.keywords?.length) {
+      return {
+        positionDistribution: [],
+        competitorComparison: [],
+        opportunityTrend: [],
+        shareOfVoiceData: []
+      };
+    }
 
-  // Chart colors using design system (stable reference)
-  const chartColors = useMemo(() => ({
-    primary: 'hsl(217 89% 61%)',
-    secondary: 'hsl(145 63% 49%)',
-    accent: 'hsl(38 92% 50%)',
-    muted: 'hsl(220 14% 96%)',
-    destructive: 'hsl(0 84% 60%)'
-  }), []);
+    // Position distribution
+    const ranges = [
+      { range: '1-3', min: 1, max: 3, count: 0 },
+      { range: '4-10', min: 4, max: 10, count: 0 },
+      { range: '11-20', min: 11, max: 20, count: 0 },
+      { range: '21-50', min: 21, max: 50, count: 0 },
+      { range: '51+', min: 51, max: 999, count: 0 },
+    ];
 
-  // Prepare position distribution data
-  const positionDistribution = useMemo(() => {
-    const distribution = {
-      '1-3': 0,
-      '4-10': 0,
-      '11-20': 0,
-      '21-50': 0,
-      '50+': 0,
-      'Not Found': 0
-    };
-
-    keywords.forEach(keyword => {
+    memoizedAnalysisData.keywords.forEach(keyword => {
       const position = keyword.target_domain_position;
-      if (!position) {
-        distribution['Not Found']++;
-      } else if (position <= 3) {
-        distribution['1-3']++;
-      } else if (position <= 10) {
-        distribution['4-10']++;
-      } else if (position <= 20) {
-        distribution['11-20']++;
-      } else if (position <= 50) {
-        distribution['21-50']++;
-      } else {
-        distribution['50+']++;
+      if (position) {
+        const range = ranges.find(r => position >= r.min && position <= r.max);
+        if (range) range.count++;
       }
     });
 
-    return Object.entries(distribution).map(([range, count]) => ({
-      range,
-      count,
-      percentage: Math.round((count / keywords.length) * 100)
+    const positionDistribution = ranges.map(r => ({
+      range: r.range,
+      count: r.count,
+      percentage: memoizedAnalysisData.keywords.length > 0 
+        ? Math.round((r.count / memoizedAnalysisData.keywords.length) * 100) 
+        : 0
     }));
-  }, [keywords]);
 
-  // Prepare competitor comparison data
-  const competitorComparison = useMemo(() => {
-    const targetDomain = analysis.target_domain;
+    // Competitor comparison
+    const competitorData = new Map();
     
-    return competitors.map(competitor => {
-      const competitorKeywords = keywords.filter(k => 
-        k.competitor_positions?.some((cp: any) => cp.domain === competitor.domain)
-      );
+    memoizedAnalysisData.keywords.forEach(keyword => {
+      keyword.competitor_positions?.forEach(comp => {
+        const domain = comp.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'Desconhecido';
+        if (!competitorData.has(domain)) {
+          competitorData.set(domain, { domain, positions: [], avgPosition: 0 });
+        }
+        competitorData.get(domain).positions.push(comp.position);
+      });
+    });
 
-      const avgPosition = competitorKeywords.length > 0 
-        ? competitorKeywords.reduce((sum, k) => {
-            const position = k.competitor_positions?.find((cp: any) => cp.domain === competitor.domain)?.position || 100;
-            return sum + position;
-          }, 0) / competitorKeywords.length
-        : 100;
+    const competitorComparison = Array.from(competitorData.values())
+      .map(comp => ({
+        ...comp,
+        avgPosition: comp.positions.length > 0 
+          ? Math.round(comp.positions.reduce((a: number, b: number) => a + b, 0) / comp.positions.length)
+          : 0
+      }))
+      .filter(comp => comp.avgPosition > 0)
+      .sort((a, b) => a.avgPosition - b.avgPosition)
+      .slice(0, 10);
 
-      return {
-        domain: competitor.domain.replace(/^https?:\/\//, '').replace(/^www\./, ''),
-        avgPosition: Math.round(avgPosition),
-        totalKeywords: competitor.total_keywords_found || 0,
-        shareOfVoice: competitor.share_of_voice || 0
-      };
-    }).slice(0, 5); // Top 5 competitors
-  }, [competitors, keywords, analysis.target_domain]);
-
-  // Prepare opportunity trend data (simulated)
-  const opportunityTrend = useMemo(() => {
+    // Opportunity trend (stable simulation)
     const days = 30;
-    const data = [];
-    const baseOpportunities = keywords.filter(k => 
+    const baseOpportunities = memoizedAnalysisData.keywords.filter(k => 
       k.target_domain_position && k.target_domain_position > 10
     ).length;
     
-    for (let i = days; i >= 0; i--) {
+    const opportunityTrend = Array.from({ length: days }, (_, i) => {
       const date = new Date();
-      date.setDate(date.getDate() - i);
+      date.setDate(date.getDate() - (days - 1 - i));
       
-      // Simulate trend with some randomness
-      const variation = Math.sin(i * 0.1) * 5 + Math.random() * 3;
-      const opportunities = Math.max(0, baseOpportunities + variation);
+      const variation = Math.sin((i / days) * Math.PI * 2) * 0.1;
+      const opportunities = Math.max(0, Math.round(baseOpportunities * (1 + variation)));
       
-      data.push({
+      return {
         date: date.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
-        opportunities: Math.round(opportunities),
-        improved: Math.round(opportunities * 0.15),
-        declined: Math.round(opportunities * 0.08)
-      });
-    }
-    
-    return data;
-  }, [keywords]);
+        opportunities,
+        potential: Math.round(opportunities * 1.2),
+      };
+    });
 
-  // Share of Voice data
-  const shareOfVoiceData = useMemo(() => {
-    const targetDomain = analysis.target_domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
-    const targetSOV = keywords.filter(k => k.target_domain_position && k.target_domain_position <= 10).length / keywords.length * 100;
+    // Share of voice
+    const voiceData = new Map();
+    const targetDomain = memoizedAnalysisData.target_domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'Seu Site';
     
-    const data = [
-      {
-        name: targetDomain,
-        value: Math.round(targetSOV),
-        color: chartColors.primary
+    voiceData.set(targetDomain, 0);
+    
+    memoizedAnalysisData.keywords.forEach(keyword => {
+      if (keyword.target_domain_position && keyword.target_domain_position <= 10) {
+        voiceData.set(targetDomain, (voiceData.get(targetDomain) || 0) + 1);
       }
-    ];
-
-    competitors.slice(0, 4).forEach((competitor, index) => {
-      const competitorSOV = keywords.filter(k => 
-        k.competitor_positions?.some((cp: any) => cp.domain === competitor.domain && cp.position <= 10)
-      ).length / keywords.length * 100;
-
-      data.push({
-        name: competitor.domain.replace(/^https?:\/\//, '').replace(/^www\./, ''),
-        value: Math.round(competitorSOV),
-        color: [chartColors.secondary, chartColors.accent, chartColors.muted, chartColors.destructive][index]
+      
+      keyword.competitor_positions?.forEach(comp => {
+        if (comp.position <= 10) {
+          const domain = comp.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'Desconhecido';
+          voiceData.set(domain, (voiceData.get(domain) || 0) + 1);
+        }
       });
     });
 
-    return data.sort((a, b) => b.value - a.value);
-  }, [analysis.target_domain, competitors, keywords, chartColors]);
+    const totalPositions = Array.from(voiceData.values()).reduce((a, b) => a + b, 0);
+    
+    const shareOfVoiceData = Array.from(voiceData.entries())
+      .map(([domain, count]) => ({
+        domain,
+        count,
+        percentage: totalPositions > 0 ? Math.round((count / totalPositions) * 100) : 0
+      }))
+      .filter(item => item.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
 
-  // Custom tooltip component (memoized)
-  const CustomTooltip = useCallback(({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-card border border-border rounded-lg p-3 shadow-elegant">
-          <p className="text-card-foreground font-medium">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {entry.value}
-              {entry.name.includes('Position') && 'ª posição'}
-              {entry.name.includes('Share') && '%'}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  }, []);
+    return {
+      positionDistribution,
+      competitorComparison,
+      opportunityTrend,
+      shareOfVoiceData
+    };
+  }, [memoizedAnalysisData._dataHash]);
+
+  if (!memoizedAnalysisData?.keywords?.length) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <p>Nenhum dado disponível para visualização</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6 md:grid-cols-2">
       {/* Position Distribution */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            Distribuição de Posições
-          </CardTitle>
-          <CardDescription>
-            Como suas keywords estão distribuídas nas SERPs
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={positionDistribution} key="position-dist">
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis 
-                  dataKey="range" 
-                  className="text-muted-foreground text-xs"
-                />
-                <YAxis className="text-muted-foreground text-xs" />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar 
-                  dataKey="count" 
-                  fill={chartColors.primary}
-                  radius={[4, 4, 0, 0]}
-                  animationDuration={0}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-4">
-            {positionDistribution.map((item) => (
-              <div key={item.range} className="text-center">
-                <Badge variant="outline" className="text-xs">
-                  {item.range}
-                </Badge>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {item.percentage}%
-                </p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <ErrorBoundary>
+        <Card>
+          <CardHeader>
+            <CardTitle>Distribuição de Posições</CardTitle>
+            <CardDescription>
+              Como suas palavras-chave estão distribuídas nos resultados de busca
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StableBarChart
+              data={chartData.positionDistribution}
+              dataKey="count"
+              xAxisKey="range"
+              height={300}
+            />
+          </CardContent>
+        </Card>
+      </ErrorBoundary>
 
       {/* Share of Voice */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5 text-primary" />
-            Share of Voice
-          </CardTitle>
-          <CardDescription>
-            Participação nas primeiras posições por domínio
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart key="share-voice">
-                <Pie
-                  data={shareOfVoiceData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  dataKey="value"
-                  label={({ name, value }) => `${name}: ${value}%`}
-                  labelLine={false}
-                  animationDuration={0}
-                >
-                  {shareOfVoiceData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <ErrorBoundary>
+        <Card>
+          <CardHeader>
+            <CardTitle>Share of Voice</CardTitle>
+            <CardDescription>
+              Participação nos primeiros 10 resultados por domínio
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StablePieChart
+              data={chartData.shareOfVoiceData}
+              dataKey="percentage"
+              nameKey="domain"
+              height={300}
+            />
+          </CardContent>
+        </Card>
+      </ErrorBoundary>
 
       {/* Competitor Comparison */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-primary" />
-            Comparação de Concorrentes
-          </CardTitle>
-          <CardDescription>
-            Performance média dos principais concorrentes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={competitorComparison} layout="horizontal" key="competitor-comp">
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis 
-                  type="number" 
-                  className="text-muted-foreground text-xs"
-                  domain={[0, 50]}
-                />
-                <YAxis 
-                  type="category" 
-                  dataKey="domain" 
-                  className="text-muted-foreground text-xs"
-                  width={100}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar 
-                  dataKey="avgPosition" 
-                  fill={chartColors.secondary}
-                  radius={[0, 4, 4, 0]}
-                  name="Posição Média"
-                  animationDuration={0}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <ErrorBoundary>
+        <Card>
+          <CardHeader>
+            <CardTitle>Comparação de Concorrentes</CardTitle>
+            <CardDescription>
+              Posição média dos principais concorrentes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StableBarChart
+              data={chartData.competitorComparison}
+              dataKey="avgPosition"
+              xAxisKey="domain"
+              height={300}
+              color="hsl(var(--secondary))"
+            />
+          </CardContent>
+        </Card>
+      </ErrorBoundary>
 
       {/* Opportunity Trend */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Tendência de Oportunidades
-          </CardTitle>
-          <CardDescription>
-            Evolução das oportunidades de ranking nos últimos 30 dias
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={opportunityTrend} key="opportunity-trend">
-                <defs>
-                  <linearGradient id="opportunityGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartColors.primary} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={chartColors.primary} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis 
-                  dataKey="date" 
-                  className="text-muted-foreground text-xs"
-                />
-                <YAxis className="text-muted-foreground text-xs" />
-                <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="opportunities"
-                  stroke={chartColors.primary}
-                  fillOpacity={1}
-                  fill="url(#opportunityGradient)"
-                  name="Oportunidades"
-                  animationDuration={0}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="improved"
-                  stroke={chartColors.secondary}
-                  strokeWidth={2}
-                  name="Melhoradas"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <ErrorBoundary>
+        <Card>
+          <CardHeader>
+            <CardTitle>Tendência de Oportunidades</CardTitle>
+            <CardDescription>
+              Evolução das oportunidades de ranking nos últimos 30 dias
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StableAreaChart
+              data={chartData.opportunityTrend}
+              dataKey="opportunities"
+              xAxisKey="date"
+              height={300}
+            />
+          </CardContent>
+        </Card>
+      </ErrorBoundary>
     </div>
   );
 });
