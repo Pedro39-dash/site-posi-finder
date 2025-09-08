@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Trophy, RefreshCw, AlertTriangle, TrendingUp, Eye, BarChart3, HelpCircle, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Trophy, RefreshCw, AlertTriangle, TrendingUp, Eye, BarChart3, HelpCircle, ChevronLeft, ChevronRight, Download, Filter, Play } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +15,14 @@ import AdvancedFilters, { FilterState } from "./AdvancedFilters";
 import CompetitiveVisualization from "./CompetitiveVisualization";
 import ExportReports from "./ExportReports";
 import EnhancedProgressTracker from "./EnhancedProgressTracker";
+import IntelligentNotifications from "./IntelligentNotifications";
+import ProductivityFeatures from "./ProductivityFeatures";
+import GuidedTour from "./GuidedTour";
+import MobileOptimizations from "./MobileOptimizations";
 import { useSupabaseCache } from "@/hooks/useSupabaseCache";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { CacheService } from "@/services/cacheService";
+import { toast } from "sonner";
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -28,6 +34,10 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
+  const [showTour, setShowTour] = useState(false);
+  const [showProductivityPanel, setShowProductivityPanel] = useState(false);
+  
+  const isMobile = useIsMobile();
   
   // Advanced filters state
   const [filters, setFilters] = useState<FilterState>({
@@ -42,7 +52,52 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     showOnlyOpportunities: false
   });
   
-  const itemsPerPage = 10;
+  // Check if user should see tour
+  React.useEffect(() => {
+    const tourCompleted = localStorage.getItem('comparison-tour-completed');
+    const tourSkipped = localStorage.getItem('comparison-tour-skipped');
+    
+    if (!tourCompleted && !tourSkipped && analysisData?.status === 'completed') {
+      setShowTour(true);
+    }
+  }, [analysisData?.status]);
+
+  // Enhanced opportunity actions
+  const handleOpportunityAction = (action: string, data: any) => {
+    switch (action) {
+      case 'focus-keywords':
+        setFilters(prev => ({
+          ...prev,
+          positionRange: [11, 20],
+          showOnlyOpportunities: true
+        }));
+        toast.success("Filtros aplicados para keywords próximas da primeira página");
+        break;
+      case 'target-weak-competitors':
+        // Focus on quick wins
+        setFilters(prev => ({
+          ...prev,
+          competitionLevel: ['low'],
+          sortBy: 'targetPosition',
+          sortOrder: 'asc'
+        }));
+        toast.success("Filtros aplicados para oportunidades de vitória rápida");
+        break;
+      case 'maintain-momentum':
+        // Show trending keywords
+        toast.success("Foque nestas keywords que estão em ascensão");
+        break;
+      case 'competitive-analysis':
+        // Show critical keywords
+        setFilters(prev => ({
+          ...prev,
+          positionRange: [50, 100],
+          showOnlyLosing: true
+        }));
+        toast.success("Visualizando keywords que precisam de atenção urgente");
+        break;
+    }
+  };
 
   // Use enhanced cache hook
   const {
