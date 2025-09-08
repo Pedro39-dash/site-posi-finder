@@ -38,6 +38,7 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const [showProductivityPanel, setShowProductivityPanel] = useState(false);
   
   const isMobile = useIsMobile();
+  const itemsPerPage = isMobile ? 5 : 10;
   
   // Advanced filters state
   const [filters, setFilters] = useState<FilterState>({
@@ -51,53 +52,6 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     showOnlyLosing: false,
     showOnlyOpportunities: false
   });
-  
-  // Check if user should see tour
-  React.useEffect(() => {
-    const tourCompleted = localStorage.getItem('comparison-tour-completed');
-    const tourSkipped = localStorage.getItem('comparison-tour-skipped');
-    
-    if (!tourCompleted && !tourSkipped && analysisData?.status === 'completed') {
-      setShowTour(true);
-    }
-  }, [analysisData?.status]);
-
-  // Enhanced opportunity actions
-  const handleOpportunityAction = (action: string, data: any) => {
-    switch (action) {
-      case 'focus-keywords':
-        setFilters(prev => ({
-          ...prev,
-          positionRange: [11, 20],
-          showOnlyOpportunities: true
-        }));
-        toast.success("Filtros aplicados para keywords próximas da primeira página");
-        break;
-      case 'target-weak-competitors':
-        // Focus on quick wins
-        setFilters(prev => ({
-          ...prev,
-          competitionLevel: ['low'],
-          sortBy: 'targetPosition',
-          sortOrder: 'asc'
-        }));
-        toast.success("Filtros aplicados para oportunidades de vitória rápida");
-        break;
-      case 'maintain-momentum':
-        // Show trending keywords
-        toast.success("Foque nestas keywords que estão em ascensão");
-        break;
-      case 'competitive-analysis':
-        // Show critical keywords
-        setFilters(prev => ({
-          ...prev,
-          positionRange: [50, 100],
-          showOnlyLosing: true
-        }));
-        toast.success("Visualizando keywords que precisam de atenção urgente");
-        break;
-    }
-  };
 
   // Use enhanced cache hook
   const {
@@ -119,72 +73,101 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     }
   );
 
-  // Filter and sort keywords
+  // Check if user should see tour
+  React.useEffect(() => {
+    const tourCompleted = localStorage.getItem('comparison-tour-completed');
+    const tourSkipped = localStorage.getItem('comparison-tour-skipped');
+    
+    if (!tourCompleted && !tourSkipped && analysisData?.analysis?.status === 'completed') {
+      setShowTour(true);
+    }
+  }, [analysisData?.analysis?.status]);
+
+  // Enhanced opportunity actions
+  const handleOpportunityAction = (action: string, data: any) => {
+    switch (action) {
+      case 'focus-keywords':
+        setFilters(prev => ({
+          ...prev,
+          positionRange: [11, 20],
+          showOnlyOpportunities: true
+        }));
+        toast.success("Filtros aplicados para keywords próximas da primeira página");
+        break;
+      case 'target-weak-competitors':
+        // Focus on quick wins
+        setFilters(prev => ({
+          ...prev,
+          competitionLevel: ['low'],
+          sortBy: 'keyword',
+          sortOrder: 'asc'
+        }));
+        toast.success("Filtros aplicados para oportunidades de vitória rápida");
+        break;
+      case 'maintain-momentum':
+        // Show trending keywords
+        toast.success("Foque nestas keywords que estão em ascensão");
+        break;
+      case 'competitive-analysis':
+        // Show critical keywords
+        setFilters(prev => ({
+          ...prev,
+          positionRange: [50, 100],
+          showOnlyLosing: true
+        }));
+        toast.success("Visualizando keywords que precisam de atenção urgente");
+        break;
+    }
+  };
+
+  // Filtered keywords based on current filters
   const filteredKeywords = useMemo(() => {
     if (!analysisData?.keywords) return [];
     
-    let filtered = [...analysisData.keywords];
-    
-    // Apply search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(k => 
-        k.keyword.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    // Apply position range filter
-    filtered = filtered.filter(k => {
-      const position = k.target_domain_position;
-      if (!position) return filters.positionRange[0] === 1; // Include "not found" if range starts from 1
-      return position >= filters.positionRange[0] && position <= filters.positionRange[1];
-    });
-    
-    // Apply status filters
-    if (filters.showOnlyWinning) {
-      filtered = filtered.filter(k => k.target_domain_position && k.target_domain_position <= 3);
-    }
-    
-    if (filters.showOnlyLosing) {
-      filtered = filtered.filter(k => !k.target_domain_position || k.target_domain_position > 20);
-    }
-    
-    if (filters.showOnlyOpportunities) {
-      filtered = filtered.filter(k => {
-        const hasOpportunity = analysisData.opportunities?.some(o => o.keyword === k.keyword);
-        return hasOpportunity;
-      });
-    }
-    
-    // Apply competition level filter
-    if (filters.competitionLevel.length > 0) {
-      filtered = filtered.filter(k => 
-        k.competition_level && filters.competitionLevel.includes(k.competition_level)
-      );
-    }
-    
-    // Apply sorting
-    filtered.sort((a, b) => {
+    return analysisData.keywords.filter(keyword => {
+      // Search filter
+      if (filters.search && !keyword.keyword.toLowerCase().includes(filters.search.toLowerCase())) {
+        return false;
+      }
+      
+      // Position range filter
+      const position = keyword.target_domain_position || 100;
+      if (position < filters.positionRange[0] || position > filters.positionRange[1]) {
+        return false;
+      }
+      
+      // Competition level filter
+      if (filters.competitionLevel.length > 0 && !filters.competitionLevel.includes(keyword.competition_level)) {
+        return false;
+      }
+      
+      // Show only winning filter
+      if (filters.showOnlyWinning && position > 10) {
+        return false;
+      }
+      
+      // Show only losing filter
+      if (filters.showOnlyLosing && position <= 20) {
+        return false;
+      }
+      
+      // Show only opportunities filter
+      if (filters.showOnlyOpportunities && (position <= 10 || position > 20)) {
+        return false;
+      }
+      
+      return true;
+    }).sort((a, b) => {
       let aValue: any, bValue: any;
       
       switch (filters.sortBy) {
+        case 'keyword':
+          aValue = a.keyword.toLowerCase();
+          bValue = b.keyword.toLowerCase();
+          break;
         case 'position':
-          aValue = a.target_domain_position || 999;
-          bValue = b.target_domain_position || 999;
-          break;
-        case 'difficulty':
-          aValue = getKeywordCompetitiveDifficulty(a).score;
-          bValue = getKeywordCompetitiveDifficulty(b).score;
-          break;
-        case 'opportunity':
-          const aOpp = analysisData.opportunities?.find(o => o.keyword === a.keyword);
-          const bOpp = analysisData.opportunities?.find(o => o.keyword === b.keyword);
-          aValue = aOpp?.priority_score || 0;
-          bValue = bOpp?.priority_score || 0;
-          break;
-        case 'competition':
-          aValue = a.competition_level || 'unknown';
-          bValue = b.competition_level || 'unknown';
+          aValue = a.target_domain_position || 100;
+          bValue = b.target_domain_position || 100;
           break;
         default:
           aValue = a.keyword.toLowerCase();
@@ -197,10 +180,21 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-    
-    return filtered;
-  }, [analysisData, filters]);
+  }, [analysisData?.keywords, filters]);
 
+  // Pagination
+  const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
+  const currentPageKeywords = filteredKeywords.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Handle re-verification of keywords
   const handleReverifyKeyword = async (keyword: CompetitorKeyword) => {
     if (!analysisData) return;
     
@@ -222,167 +216,149 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           ? `Posição atualizada: ${result.newPosition}ª para "${keyword.keyword}"`
           : `"${keyword.keyword}" não encontrado nos primeiros 50 resultados`;
         
+        toast.success(message);
         console.log(`✅ Re-verification completed: ${message}`);
       } else {
+        toast.error(`Erro ao verificar "${keyword.keyword}": ${result.error}`);
         console.error('❌ Re-verification failed:', result.error);
       }
     } catch (error) {
-      console.error('❌ Error during re-verification:', error);
+      toast.error(`Erro inesperado ao verificar "${keyword.keyword}"`);
+      console.error('❌ Unexpected error during re-verification:', error);
     } finally {
       setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
     }
   };
 
-  // Pagination helpers for new filtered keywords
-  const getPaginatedKeywords = () => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return filteredKeywords.slice(startIndex, endIndex);
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 p-4">
+        <div className="container max-w-7xl mx-auto">
+          <EnhancedProgressTracker
+            status="analyzing"
+            processedKeywords={0}
+            totalKeywords={0}
+            currentStage="setup"
+            estimatedTimeRemaining={0}
+            startTime={new Date().toISOString()}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 p-4">
+        <div className="container max-w-7xl mx-auto">
+          <Alert className="max-w-2xl mx-auto">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>Erro ao carregar dados da análise</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={refreshAnalysis}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Tentar Novamente
+                </Button>
+                <Button variant="outline" size="sm" onClick={onBackToForm}>
+                  Voltar
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!analysisData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 p-4">
+        <div className="container max-w-7xl mx-auto">
+          <Alert className="max-w-2xl mx-auto">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Nenhum dado encontrado para esta análise
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
+
+  // Analysis still processing
+  if (analysisData.analysis.status !== 'completed') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 p-4">
+        <div className="container max-w-7xl mx-auto">
+          <EnhancedProgressTracker
+            status={analysisData.analysis.status}
+            processedKeywords={analysisData.keywords?.length || 0}
+            totalKeywords={analysisData.analysis.total_keywords}
+            currentStage={analysisData.analysis.status === 'analyzing' ? 'processing' : 'setup'}
+            estimatedTimeRemaining={Math.max(0, (analysisData.analysis.total_keywords - (analysisData.keywords?.length || 0)) * 2)}
+            startTime={analysisData.analysis.created_at}
+            errorMessage={analysisData.analysis.status === 'failed' ? 'Análise falhou' : undefined}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate metrics
+  const getMetrics = () => {
+    const keywords = analysisData.keywords;
+    const firstPageCount = keywords.filter(k => (k.target_domain_position || 100) <= 10).length;
+    const opportunityCount = keywords.filter(k => {
+      const pos = k.target_domain_position || 100;
+      return pos > 10 && pos <= 20;
+    }).length;
+    const totalPositions = keywords.reduce((sum, k) => sum + (k.target_domain_position || 100), 0);
+    const avgPosition = Math.round(totalPositions / keywords.length);
+    const gapCount = keywords.filter(k => {
+      const bestCompetitor = Math.min(...k.competitor_positions.map(c => c.position || 100));
+      return (k.target_domain_position || 100) > bestCompetitor;
+    }).length;
+
+    return {
+      firstPageKeywords: firstPageCount,
+      opportunityKeywords: opportunityCount,
+      averagePosition: avgPosition,
+      competitorGaps: gapCount
+    };
   };
 
-  if (loading && !analysisData) {
-    return (
-      <div className="space-y-8">
-        <div className="text-center space-y-4">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <h2 className="text-2xl font-bold">Carregando Análise...</h2>
-          <p className="text-muted-foreground">
-            Aguarde enquanto coletamos os dados
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const keywordMetrics = getMetrics();
 
-  if (error || !analysisData) {
-    return (
-      <div className="space-y-8">
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="space-y-2">
-            <p>{error || 'Não foi possível carregar os dados da análise'}</p>
-          </AlertDescription>
-        </Alert>
-        <div className="flex gap-2 justify-center">
-          <Button onClick={refreshAnalysis} variant="outline" disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Tentar Novamente
-          </Button>
-          <Button onClick={onBackToForm} variant="outline">
-            Voltar ao Formulário
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const { analysis, competitors, keywords, opportunities } = analysisData;
-
-  // Calculate enhanced competitive metrics
-  const competitiveMetrics = calculateCompetitiveMetrics(keywords, competitors);
-
-  // Show enhanced progress tracker if analysis is still running
-  if (analysis.status === 'analyzing' || analysis.status === 'pending') {
-    const metadata = analysis.metadata || {};
-    const totalKeywords = metadata.total_keywords || 0;
-    const processedKeywords = metadata.processed_keywords || 0;
-    
-    return (
-      <div className="space-y-8">
-        <EnhancedProgressTracker
-          status={analysis.status}
-          processedKeywords={processedKeywords}
-          totalKeywords={totalKeywords}
-          currentStage="keyword_analysis"
-          estimatedTimeRemaining={Math.max(0, (totalKeywords - processedKeywords) * 2)} // 2 seconds per keyword estimate
-          startTime={analysis.created_at}
-          metadata={metadata}
-        />
-      </div>
-    );
-  }
-
-  // Show error state if analysis failed
-  if (analysis.status === 'failed') {
-    return (
-      <div className="space-y-8">
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            A análise falhou: {analysis.metadata?.error || 'Erro desconhecido'}
-          </AlertDescription>
-        </Alert>
-        <Button onClick={onBackToForm} variant="outline">
-          Tentar Novamente
-        </Button>
-      </div>
-    );
-  }
-
-  // Calculate key metrics
-  const topCompetitor = competitors[0];
-  const referenceCompetitors = competitors.filter(c => !c.detected_automatically);
-  
-  // Use the new reference competitor wins from metrics
-  const keywordWins = competitiveMetrics.referenceCompetitorWins;
-  
-  const competitorWins = keywords.filter(k => 
-    k.competitor_positions.some(cp => 
-      !k.target_domain_position || (k.target_domain_position && cp.position < k.target_domain_position)
-    )
-  ).length;
-
-  // Calculate quick opportunities based on high potential keywords
-  const quickOpportunities = keywords.filter(k => {
-    const potential = getKeywordPotential(k);
-    return potential.improvementPotential === 'high' && k.target_domain_position && k.target_domain_position > 10;
-  }).length;
-  
-  // Calculate traffic potential for quick opportunities only
-  const quickOpportunityTraffic = keywords.filter(k => {
-    const potential = getKeywordPotential(k);
-    return potential.improvementPotential === 'high' && k.target_domain_position && k.target_domain_position > 10;
-  }).reduce((acc, k) => {
-    const myPosition = k.target_domain_position;
-    const bestCompetitorPos = Math.min(...k.competitor_positions.map(cp => cp.position));
-    if (myPosition && bestCompetitorPos < myPosition) {
-      const volume = k.search_volume || 100;
-      const currentCTR = getCTRByPosition(myPosition);
-      const potentialCTR = getCTRByPosition(bestCompetitorPos);
-      return acc + ((potentialCTR - currentCTR) * volume / 100);
+  // Helper functions
+  const extractDomain = (url: string) => {
+    try {
+      return new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace('www.', '');
+    } catch {
+      return url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
     }
-    return acc;
-  }, 0);
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
   };
 
-  const getDomainName = (url: string) => {
-    return url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  const getBadgeVariant = (position: number) => {
+    if (position <= 10) return 'default';
+    if (position <= 20) return 'secondary';
+    return 'destructive';
   };
 
-  const getPositionBadgeVariant = (position: number | null) => {
-    if (!position) return "outline";
-    if (position <= 3) return "default";
-    if (position <= 10) return "secondary";
-    return "outline";
-  };
-
-  const getDifficultyVariant = (level: string) => {
-    switch (level) {
-      case 'low': return 'default';
-      case 'medium': return 'secondary';
+  const getDifficultyVariant = (difficulty: string) => {
+    switch (difficulty) {
       case 'high': return 'destructive';
-      case 'very-high': return 'destructive';
+      case 'medium': return 'secondary';
+      case 'low': return 'default';
       default: return 'outline';
     }
   };
 
-  const getPotentialVariant = (level: string) => {
-    switch (level) {
+  const getPotentialVariant = (potential: string) => {
+    switch (potential) {
       case 'high': return 'default';
       case 'medium': return 'secondary';
       case 'low': return 'outline';
@@ -390,387 +366,298 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     }
   };
 
-  const handleViewDetails = (keyword: CompetitorKeyword) => {
-    setSelectedKeyword(keyword);
-    setIsDetailModalOpen(true);
-  };
-
   return (
-    <div className="space-y-8">
-      {/* Header with Export Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Trophy className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Análise Competitiva - {analysis.target_domain}</h1>
-        </div>
-        <ExportReports analysisData={analysisData} />
-      </div>
-
-      {/* Executive Summary */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader className="text-center">
-          <CardDescription className="text-base">
-            {(() => {
-              const gapAnalysis = getGapAnalysis(competitiveMetrics.averagePositionGap, keywords.length);
-              return (
-          <div className="space-y-2">
-            <p className="text-lg font-medium">
-              Situação no Mercado: <span className={`${gapAnalysis.color}`}>{gapAnalysis.description}</span>
-            </p>
-                  <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-                    {gapAnalysis.recommendation}
-                  </p>
-                </div>
-              );
-            })()}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-
-      {/* Simplified Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {(() => {
-          const gapAnalysis = getGapAnalysis(competitiveMetrics.averagePositionGap, keywords.length);
-          return (
-            <Card className={`${gapAnalysis.borderColor} ${gapAnalysis.bgColor}`}>
-              <CardContent className="p-6">
-                <div className="text-center space-y-3">
-                  <BarChart3 className={`h-12 w-12 mx-auto ${gapAnalysis.color}`} />
-                  <div>
-                    <p className={`text-3xl font-bold ${gapAnalysis.color}`}>
-                      {competitiveMetrics.averagePositionGap > 0 ? '+' : ''}{competitiveMetrics.averagePositionGap}
-                    </p>
-                    <div className="flex items-center gap-1 justify-center">
-                      <p className="text-sm font-medium text-muted-foreground">Distância da Concorrência</p>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="max-w-xs">Quantas posições, em média, você está atrás dos seus principais concorrentes nas palavras-chave analisadas</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {gapAnalysis.description}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })()}
-
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-6">
-            <div className="text-center space-y-3">
-              <Trophy className="h-12 w-12 mx-auto text-primary" />
-              <div>
-                <p className="text-3xl font-bold text-primary">
-                  {keywordWins}
-                </p>
-                <div className="flex items-center gap-1 justify-center">
-                  <p className="text-sm font-medium text-muted-foreground">Você está melhor em {keywordWins} palavras</p>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          Palavras-chave onde você está melhor posicionado que todos os {referenceCompetitors.length > 0 ? 'concorrentes de referência especificados' : 'concorrentes encontrados na análise'}
-                          {referenceCompetitors.length > 0 && (
-                            <span className="block mt-1 text-xs text-muted-foreground">
-                              Comparando apenas com: {referenceCompetitors.map(c => c.domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]).join(', ')}
-                            </span>
-                          )}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {((keywordWins / keywords.length) * 100).toFixed(1)}% do total analisado
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-secondary/20 bg-secondary/5">
-          <CardContent className="p-6">
-            <div className="text-center space-y-3">
-              <TrendingUp className="h-12 w-12 mx-auto text-secondary-foreground" />
-              <div>
-                <p className="text-3xl font-bold text-secondary-foreground">
-                  0
-                </p>
-                <div className="flex items-center gap-1 justify-center">
-                  <p className="text-sm font-medium text-muted-foreground">Posições Ganhas (30 dias)</p>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">Tracking histórico será implementado em breve. Este valor mostrará quantas posições você ganhou nos últimos 30 dias</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Funcionalidade em desenvolvimento
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Competitive Visualization */}
-      <CompetitiveVisualization analysisData={analysisData} />
-
-      {/* Position Trend Chart */}
-      <PositionTrendChart targetDomain={analysis.target_domain} />
-
-      {/* Keywords Analysis with Advanced Filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+    <TooltipProvider>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 p-4 animate-fade-in">
+        <div className="container max-w-7xl mx-auto space-y-6">
+          
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <CardTitle>Análise Detalhada por Palavra-chave</CardTitle>
-              <CardDescription>
-                {filteredKeywords.length} palavra{filteredKeywords.length !== 1 ? 's' : ''}-chave encontrada{filteredKeywords.length !== 1 ? 's' : ''}
-              </CardDescription>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+                Análise Competitiva - {analysisData.analysis.target_domain}
+              </h1>
+              <p className="text-muted-foreground">
+                Comparação com {analysisData.competitors.length} concorrentes em {analysisData.keywords.length} palavras-chave
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowProductivityPanel(!showProductivityPanel)}
+                className={showProductivityPanel ? 'bg-primary/10' : ''}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Produtividade
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowTour(true)}
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Tour
+              </Button>
+              
+              <ExportReports analysisData={analysisData} />
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          {/* Advanced Filters Component */}
-          <AdvancedFilters
-            filters={filters}
-            onFiltersChange={setFilters}
-            keywordCount={keywords.length}
-            filteredCount={filteredKeywords.length}
+
+          {/* Productivity Panel */}
+          {showProductivityPanel && (
+            <div className="animate-slide-in-right">
+              <ProductivityFeatures
+                currentFilters={filters}
+                onFiltersChange={setFilters}
+                onLoadAnalysis={(id) => {
+                  // Handle loading previous analysis
+                  toast.success("Recurso em desenvolvimento");
+                }}
+              />
+            </div>
+          )}
+
+          {/* Intelligent Notifications */}
+          <IntelligentNotifications
+            analysisData={analysisData}
+            onActionClick={handleOpportunityAction}
           />
 
-          <div className="overflow-x-auto mt-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-1/3">Palavra-chave</TableHead>
-                  <TableHead className="text-center w-20">Posição</TableHead>
-                  <TableHead className="text-center w-32">1º Lugar</TableHead>
-                  <TableHead className="text-center w-28">Dificuldade</TableHead>
-                  <TableHead className="text-center w-28">Potencial</TableHead>
-                  <TableHead className="text-center w-24">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {getPaginatedKeywords().map((keyword) => {
-                  const competitorsAhead = getCompetitorsAhead(keyword);
-                  const difficulty = getKeywordCompetitiveDifficulty(keyword);
-                  const potential = getKeywordPotential(keyword);
-                  const myPosition = keyword.target_domain_position;
-                  const isWinning = competitorsAhead.length === 0 && myPosition;
-                  
-                  return (
-                    <TableRow key={keyword.id} className="hover:bg-muted/30">
-                      <TableCell className="font-medium">
-                        <div className="space-y-1">
-                          <p className="font-medium">{keyword.keyword}</p>
-                          {keyword.search_volume && (
-                            <Badge variant="outline" className="text-xs">
-                              {formatNumber(keyword.search_volume)}/mês
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="text-center font-medium">
-                                {myPosition ? myPosition : '-'}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-sm">
-                              {myPosition ? (
-                                <p>Você está na posição {myPosition} para "{keyword.keyword}"</p>
-                              ) : (
-                                <div className="space-y-2">
-                                  <p className="font-medium">Não rankeando no top 100</p>
-                                  <p className="text-sm">
-                                    "{keyword.keyword}" representa uma oportunidade de crescimento com {keyword.search_volume ? `${keyword.search_volume.toLocaleString()} buscas mensais` : 'potencial de tráfego inexplorado'}.
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    💡 Seus concorrentes já estão rankeando - analise suas estratégias!
-                                  </p>
-                                </div>
-                              )}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </TableCell>
-                        <TableCell className="text-center">
-                          <div className="text-center">
-                            {(() => {
-                              const firstPlace = competitorsAhead.find(comp => comp.position === 1);
-                              if (firstPlace) {
-                                return <span className="font-medium">{firstPlace.domain}</span>;
-                              } else if (myPosition === 1) {
-                                return <span className="text-muted-foreground">Você está em 1º</span>;
-                              } else {
-                                return <span className="text-muted-foreground">-</span>;
-                              }
-                            })()}
-                          </div>
-                         </TableCell>
-                       <TableCell className="text-center">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge 
-                                variant={getDifficultyVariant(difficulty.level)}
-                                className="text-xs cursor-help"
-                              >
-                                {difficulty.level === 'low' ? 'Fácil' : 
-                                 difficulty.level === 'medium' ? 'Médio' : 
-                                 difficulty.level === 'high' ? 'Difícil' : 'Muito Difícil'}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="max-w-xs">{difficulty.description}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                       </TableCell>
-                       <TableCell className="text-center">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge 
-                                  variant={getPotentialVariant(potential.improvementPotential)}
-                                  className="text-xs cursor-help"
-                                >
-                                  {potential.improvementPotential === 'high' ? 'Alto' :
-                                   potential.improvementPotential === 'medium' ? 'Médio' : 'Baixo'}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="max-w-xs">{potential.description}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
-                       <TableCell className="text-center">
-                        <div className="flex gap-1 justify-center">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={() => handleViewDetails(keyword)}
-                            className="text-xs"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            Detalhes
-                          </Button>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => handleReverifyKeyword(keyword)}
-                                  className="text-xs"
-                                  disabled={reverifyingKeywords.includes(keyword.keyword)}
-                                >
-                                  {reverifyingKeywords.includes(keyword.keyword) ? (
-                                    <RefreshCw className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <RefreshCw className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Re-verificar posição atual desta palavra-chave</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            
-            {/* Pagination Controls */}
-            {(() => {
-              const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
-              
-              if (totalPages <= 1) return null;
-              
-              return (
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Página {currentPage} de {totalPages} ({filteredKeywords.length} resultados)
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Anterior
-                    </Button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const pageNum = i + Math.max(1, currentPage - 2);
-                        if (pageNum > totalPages) return null;
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      })}
+          {/* Executive Summary */}
+          <Card className="animate-fade-in">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                Resumo Executivo
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-sm max-w-none">
+                <p>
+                  <strong>Situação do Mercado:</strong> Análise de {analysisData.keywords.length} palavras-chave 
+                  contra {analysisData.competitors.length} concorrentes principais.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                  <div className="text-center p-3 border rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">
+                      {keywordMetrics.firstPageKeywords}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Próxima
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className="text-sm text-muted-foreground">Primeira Página</div>
+                  </div>
+                  <div className="text-center p-3 border rounded-lg">
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {keywordMetrics.opportunityKeywords}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Oportunidades</div>
+                  </div>
+                  <div className="text-center p-3 border rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {keywordMetrics.averagePosition}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Posição Média</div>
+                  </div>
+                  <div className="text-center p-3 border rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {keywordMetrics.competitorGaps}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Gaps Competitivos</div>
                   </div>
                 </div>
-              );
-            })()}
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Keyword Detail Modal */}
-      <KeywordDetailModal
-        keyword={selectedKeyword}
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        targetDomain={analysis.target_domain}
-      />
-    </div>
+          {/* Visualizations */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <CompetitiveVisualization analysisData={analysisData} />
+            <div className="space-y-6">
+              <PositionTrendChart targetDomain={analysisData.analysis.target_domain} />
+            </div>
+          </div>
+
+          {/* Keywords Analysis */}
+          <Card className="animate-fade-in">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Análise Detalhada de Keywords
+                </span>
+                <Badge variant="secondary">
+                  {filteredKeywords.length} de {analysisData.keywords.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isMobile ? (
+                <MobileOptimizations
+                  keywords={filteredKeywords}
+                  onKeywordSelect={(keyword) => {
+                    setSelectedKeyword(keyword);
+                    setIsDetailModalOpen(true);
+                  }}
+                  onExport={() => {
+                    // Trigger export functionality
+                    toast.success("Export iniciado");
+                  }}
+                />
+              ) : (
+                <div className="space-y-6">
+                  <AdvancedFilters
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    keywordCount={analysisData.keywords.length}
+                    filteredCount={filteredKeywords.length}
+                  />
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Palavra-chave</TableHead>
+                        <TableHead className="text-center">Sua Posição</TableHead>
+                        <TableHead className="text-center">Melhor Concorrente</TableHead>
+                        <TableHead className="text-center">Dificuldade</TableHead>
+                        <TableHead className="text-center">Potencial</TableHead>
+                        <TableHead className="text-center">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {currentPageKeywords.map((keyword) => (
+                        <TableRow key={keyword.id} className="hover:bg-muted/50 transition-colors">
+                          <TableCell className="font-medium">{keyword.keyword}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={getBadgeVariant(keyword.target_domain_position || 100)}>
+                              {keyword.target_domain_position || '100+'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {(() => {
+                              const bestCompetitor = keyword.competitor_positions
+                                .sort((a, b) => (a.position || 100) - (b.position || 100))[0];
+                              return bestCompetitor ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <Badge variant="outline" className="text-xs">
+                                    #{bestCompetitor.position || '100+'}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                                    {extractDomain(bestCompetitor.domain)}
+                                  </span>
+                                </div>
+                              ) : '-';
+                            })()}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={getDifficultyVariant(keyword.competition_level)}>
+                              {keyword.competition_level === 'high' ? 'Alta' : keyword.competition_level === 'medium' ? 'Média' : 'Baixa'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={getPotentialVariant(getKeywordPotential(keyword).improvementPotential)}>
+                              {getKeywordPotential(keyword).improvementPotential === 'high' ? 'Alto' : 
+                               getKeywordPotential(keyword).improvementPotential === 'medium' ? 'Médio' : 'Baixo'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedKeyword(keyword);
+                                      setIsDetailModalOpen(true);
+                                    }}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Ver detalhes</TooltipContent>
+                              </Tooltip>
+                              
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleReverifyKeyword(keyword)}
+                                    disabled={reverifyingKeywords.includes(keyword.keyword)}
+                                  >
+                                    <RefreshCw className={`h-4 w-4 ${reverifyingKeywords.includes(keyword.keyword) ? 'animate-spin' : ''}`} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Verificar novamente</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        Mostrando {((currentPage - 1) * itemsPerPage) + 1} a{' '}
+                        {Math.min(currentPage * itemsPerPage, filteredKeywords.length)} de{' '}
+                        {filteredKeywords.length} resultados
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm">
+                          Página {currentPage} de {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Keyword Detail Modal */}
+          <KeywordDetailModal
+            keyword={selectedKeyword}
+            isOpen={isDetailModalOpen}
+            onClose={() => {
+              setIsDetailModalOpen(false);
+              setSelectedKeyword(null);
+            }}
+            targetDomain={analysisData.analysis.target_domain}
+          />
+
+          {/* Guided Tour */}
+          <GuidedTour
+            isOpen={showTour}
+            onClose={() => setShowTour(false)}
+            onComplete={() => {
+              setShowTour(false);
+              toast.success("Tour concluído! Explore todas as funcionalidades.");
+            }}
+          />
+        </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
