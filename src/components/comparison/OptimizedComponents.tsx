@@ -68,28 +68,40 @@ export const KeywordRow = memo(({
   onViewDetails: (keyword: CompetitorKeyword) => void;
   onReverify: (keyword: CompetitorKeyword) => void;
 }) => {
-  const isReverifying = reverifyingKeywords.includes(keyword.keyword);
+  const isReverifying = useMemo(
+    () => reverifyingKeywords.includes(keyword.keyword), 
+    [reverifyingKeywords, keyword.keyword]
+  );
+  
+  const competitorDisplay = useMemo(() => {
+    if (!keyword.competitor_positions?.length) return 'Nenhum concorrente';
+    
+    return keyword.competitor_positions
+      .slice(0, 3)
+      .map(c => 
+        `${c.domain.replace(/^https?:\/\//, '').replace(/^www\./, '')} (${c.position}º)`
+      )
+      .join(', ');
+  }, [keyword.competitor_positions]);
   
   return (
-    <>
-      <td className="font-medium">{keyword.keyword}</td>
-      <td>
+    <tr className="border-b transition-colors hover:bg-muted/50">
+      <td className="p-4 align-middle font-medium">{keyword.keyword}</td>
+      <td className="p-4 align-middle">
         <PositionBadge position={keyword.target_domain_position} />
       </td>
-      <td>
+      <td className="p-4 align-middle">
         <DifficultyBadge difficulty={keyword.competition_level} />
       </td>
-      <td>
+      <td className="p-4 align-middle">
         <PotentialBadge potential={keyword.competition_level || 'low'} />
       </td>
-      <td>
+      <td className="p-4 align-middle">
         <span className="text-sm text-muted-foreground">
-          {keyword.competitor_positions?.slice(0, 3).map(c => 
-            `${c.domain.replace(/^https?:\/\//, '').replace(/^www\./, '')} (${c.position}º)`
-          ).join(', ')}
+          {competitorDisplay}
         </span>
       </td>
-      <td>
+      <td className="p-4 align-middle">
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -108,6 +120,6 @@ export const KeywordRow = memo(({
           </Button>
         </div>
       </td>
-    </>
+    </tr>
   );
 });

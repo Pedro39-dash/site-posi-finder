@@ -251,11 +251,19 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     };
   }, [analysisData.keywords]);
 
-  // Paginação
-  const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentPageKeywords = filteredKeywords.slice(startIndex, endIndex);
+  // Paginação memoizada
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    return { totalPages, startIndex, endIndex };
+  }, [filteredKeywords.length, itemsPerPage, currentPage]);
+
+  // Keywords da página atual - memoizado para estabilidade
+  const currentPageKeywords = useMemo(() => {
+    return filteredKeywords.slice(paginationData.startIndex, paginationData.endIndex);
+  }, [filteredKeywords, paginationData.startIndex, paginationData.endIndex]);
 
   return (
     <TooltipProvider>
@@ -380,27 +388,26 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 </TableHeader>
                 <TableBody>
                   {currentPageKeywords.map((keyword) => (
-                    <TableRow key={keyword.id}>
-                      <KeywordRow
-                        keyword={keyword}
-                        reverifyingKeywords={reverifyingKeywords}
-                        onViewDetails={(k) => {
-                          setSelectedKeyword(k);
-                          setIsDetailModalOpen(true);
-                        }}
-                        onReverify={handleReverifyKeyword}
-                      />
-                    </TableRow>
+                    <KeywordRow
+                      key={keyword.id}
+                      keyword={keyword}
+                      reverifyingKeywords={reverifyingKeywords}
+                      onViewDetails={(k) => {
+                        setSelectedKeyword(k);
+                        setIsDetailModalOpen(true);
+                      }}
+                      onReverify={handleReverifyKeyword}
+                    />
                   ))}
                 </TableBody>
               </Table>
             </div>
 
             {/* Paginação */}
-            {totalPages > 1 && (
+            {paginationData.totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
-                  Mostrando {startIndex + 1} a {Math.min(endIndex, filteredKeywords.length)} de {filteredKeywords.length} keywords
+                  Mostrando {paginationData.startIndex + 1} a {Math.min(paginationData.endIndex, filteredKeywords.length)} de {filteredKeywords.length} keywords
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -412,13 +419,13 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <span className="text-sm">
-                    Página {currentPage} de {totalPages}
+                    Página {currentPage} de {paginationData.totalPages}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(paginationData.totalPages, prev + 1))}
+                    disabled={currentPage === paginationData.totalPages}
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
