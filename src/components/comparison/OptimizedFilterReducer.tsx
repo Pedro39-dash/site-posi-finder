@@ -57,16 +57,11 @@ function filterReducer(state: FilterState, action: FilterAction): FilterState {
   }
 }
 
-let debounceTimer: NodeJS.Timeout;
-
 export function useOptimizedFilters() {
   const [filters, dispatch] = useReducer(filterReducer, initialState);
 
-  const debouncedSetSearch = useCallback((search: string) => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      dispatch({ type: 'SET_SEARCH', payload: search });
-    }, 300);
+  const setSearch = useCallback((search: string) => {
+    dispatch({ type: 'SET_SEARCH', payload: search });
   }, []);
 
   const setPositionRange = useCallback((min: number, max: number) => {
@@ -87,7 +82,7 @@ export function useOptimizedFilters() {
   const resetFilters = useCallback(() => dispatch({ type: 'RESET_FILTERS' }), []);
 
   const filterActions = useMemo(() => ({
-    setSearch: debouncedSetSearch,
+    setSearch,
     setPositionRange,
     setCompetitionLevel,
     setSort,
@@ -95,7 +90,7 @@ export function useOptimizedFilters() {
     toggleLosing,
     toggleOpportunities,
     resetFilters,
-  }), [debouncedSetSearch, setPositionRange, setCompetitionLevel, setSort, toggleWinning, toggleLosing, toggleOpportunities, resetFilters]);
+  }), [setSearch, setPositionRange, setCompetitionLevel, setSort, toggleWinning, toggleLosing, toggleOpportunities, resetFilters]);
 
   return { filters, filterActions };
 }

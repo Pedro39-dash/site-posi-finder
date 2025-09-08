@@ -101,33 +101,35 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   const filteredAndSortedKeywords = useMemo(() => {
     if (!stableKeywords.length) return [];
     
+    const { search, competitionLevel, sortBy, sortOrder } = filters;
+    
     let filtered = stableKeywords;
 
     // Aplicar filtro de busca
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
+    if (search) {
+      const searchLower = search.toLowerCase();
       filtered = filtered.filter(keyword => 
         keyword.keyword.toLowerCase().includes(searchLower)
       );
     }
 
     // Aplicar filtro de nível de competição
-    if (filters.competitionLevel.length > 0) {
+    if (competitionLevel.length > 0) {
       filtered = filtered.filter(keyword => 
-        filters.competitionLevel.includes(keyword.competition_level)
+        competitionLevel.includes(keyword.competition_level)
       );
     }
 
     // Ordenação
     return filtered.sort((a, b) => {
-      switch (filters.sortBy) {
+      switch (sortBy) {
         case 'position':
           const aPos = a.target_domain_position || 999;
           const bPos = b.target_domain_position || 999;
-          return filters.sortOrder === 'asc' ? aPos - bPos : bPos - aPos;
+          return sortOrder === 'asc' ? aPos - bPos : bPos - aPos;
         case 'keyword':
         default:
-          return filters.sortOrder === 'asc' 
+          return sortOrder === 'asc' 
             ? a.keyword.localeCompare(b.keyword)
             : b.keyword.localeCompare(a.keyword);
       }
