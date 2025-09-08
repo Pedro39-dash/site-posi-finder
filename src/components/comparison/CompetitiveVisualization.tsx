@@ -98,7 +98,7 @@ const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo((
 
     // Share of voice
     const voiceData = new Map();
-    const targetDomain = memoizedAnalysisData.target_domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'Seu Site';
+    const targetDomain = memoizedAnalysisData.analysis.target_domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'Seu Site';
     
     voiceData.set(targetDomain, 0);
     
