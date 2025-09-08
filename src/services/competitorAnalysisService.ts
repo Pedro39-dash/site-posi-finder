@@ -40,10 +40,29 @@ export interface CompetitorKeyword {
     title: string;
   }[];
   search_volume?: number;
-  competition_level: 'low' | 'medium' | 'high';
+  competition_level?: 'low' | 'medium' | 'high' | null;
   created_at: string;
   metadata?: { [key: string]: any };
 }
+
+// Helper function to calculate difficulty based on actual data
+export const calculateKeywordDifficulty = (keyword: CompetitorKeyword): 'low' | 'medium' | 'high' => {
+  if (keyword.search_volume && keyword.search_volume > 1000) return 'high';
+  if (keyword.search_volume && keyword.search_volume > 100) return 'medium';
+  return 'low';
+};
+
+// Helper function to calculate opportunity potential
+export const calculateKeywordPotential = (keyword: CompetitorKeyword): 'low' | 'medium' | 'high' => {
+  const myPos = keyword.target_domain_position || 999;
+  const hasCompetitors = keyword.competitor_positions?.length > 0;
+  const bestCompetitorPos = hasCompetitors ? 
+    Math.min(...keyword.competitor_positions.map(c => c.position)) : 999;
+  
+  if (!hasCompetitors || myPos <= 3) return 'low';
+  if (myPos > bestCompetitorPos + 5) return 'high';
+  return 'medium';
+};
 
 export interface KeywordOpportunity {
   id: string;

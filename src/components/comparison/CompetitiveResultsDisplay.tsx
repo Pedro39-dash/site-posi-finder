@@ -97,79 +97,72 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     return analysisData?.keywords || [];
   }, [analysisData?.keywords]);
 
-  // Destructure filters for stable dependencies
-  const { search, competitionLevel, sortBy, sortOrder } = filters;
+  // Destructure filters for stable dependencies - use primitives only
+  const searchTerm = filters.search;
+  const competitionLevels = filters.competitionLevel;
+  const sortByField = filters.sortBy;
+  const sortDirection = filters.sortOrder;
   
-  // Keywords filtradas e ordenadas com dependências estáveis
+  // Keywords filtradas e ordenadas com dependências completamente estáveis
   const filteredAndSortedKeywords = useMemo(() => {
     if (!stableKeywords.length) return [];
     
     let filtered = stableKeywords;
 
     // Aplicar filtro de busca
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(keyword => 
-        keyword.keyword.toLowerCase().includes(searchLower)
+    if (searchTerm) {
+      filtered = filtered.filter(keyword =>
+        keyword.keyword.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Aplicar filtro de nível de competição baseado na dificuldade
-    if (competitionLevel.length > 0) {
+    // Aplicar filtro de nível de competição baseado na dificuldade calculada
+    if (competitionLevels.length > 0) {
       filtered = filtered.filter(keyword => {
-        // Use a standard difficulty mapping
+        // Use standard difficulty calculation
         const difficulty = keyword.search_volume && keyword.search_volume > 1000 ? 'high' : 
                           keyword.search_volume && keyword.search_volume > 100 ? 'medium' : 'low';
-        return competitionLevel.includes(difficulty);
+        return competitionLevels.includes(difficulty);
       });
     }
 
     // Ordenação
-    return filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'position':
-          const aPos = a.target_domain_position || 999;
-          const bPos = b.target_domain_position || 999;
-          return sortOrder === 'asc' ? aPos - bPos : bPos - aPos;
-        case 'keyword':
-        default:
-          return sortOrder === 'asc' 
+    return [...filtered].sort((a, b) => {
+      if (sortByField === 'position') {
+        const posA = a.target_domain_position || 999;
+        const posB = b.target_domain_position || 999;
+        return sortDirection === 'asc' ? posA - posB : posB - posA;
+      } else {
+        return sortDirection === 'asc' 
             ? a.keyword.localeCompare(b.keyword)
             : b.keyword.localeCompare(a.keyword);
       }
     });
-  }, [stableKeywords, search, competitionLevel, sortBy, sortOrder]);
+  }, [stableKeywords, searchTerm, competitionLevels, sortByField, sortDirection]);
 
   const filteredKeywords = filteredAndSortedKeywords;
 
-  // Função para reverificar keyword
+  // Handler para reverificar palavra-chave - memoized with stable dependencies
+  const targetDomain = useMemo(() => analysisData?.analysis.target_domain || '', [analysisData?.analysis.target_domain]);
+  
   const handleReverifyKeyword = useCallback(async (keyword: CompetitorKeyword) => {
-    const keywordText = keyword.keyword;
-    const domain = analysisData?.analysis.target_domain;
+    setReverifyingKeywords(prev => [...prev, keyword.keyword]);
     
-    if (!domain) return;
+    const result = await CompetitorAnalysisService.reverifyKeyword(
+      analysisId, 
+      keyword.keyword, 
+      targetDomain
+    );
     
-    setReverifyingKeywords(prev => [...prev, keywordText]);
-    
-    try {
-      const result = await CompetitorAnalysisService.reverifyKeyword(
-        analysisId,
-        keywordText,
-        domain
-      );
-      
-      if (result.success) {
-        toast.success(`Posição atualizada: ${keywordText} - ${result.newPosition ? `${result.newPosition}º` : 'Não encontrada'}`);
-        refresh(); // Atualizar os dados da análise
-      } else {
-        toast.error(`Erro ao reverificar ${keywordText}: ${result.error}`);
-      }
-    } catch (error) {
-      toast.error(`Erro ao reverificar ${keywordText}`);
-    } finally {
-      setReverifyingKeywords(prev => prev.filter(k => k !== keywordText));
+    if (result.success) {
+      toast.success(`Posição atualizada: ${keyword.keyword} - ${result.newPosition ? `${result.newPosition}º` : 'Não encontrada'}`);
+      refresh(); // Atualizar os dados da análise
+    } else {
+      toast.error(`Erro ao reverificar ${keyword.keyword}: ${result.error}`);
     }
-  }, [analysisId, analysisData?.analysis.target_domain, refresh]);
+    
+    setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
+  }, [analysisId, targetDomain, refresh]);
 
   // Estados de loading, erro e dados vazios
   if (loading) {

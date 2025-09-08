@@ -84,23 +84,29 @@ export const KeywordRow = memo(({
       .join(', ');
   }, [keyword.competitor_positions]);
 
-  // Calculate difficulty based on search volume instead of competition_level
-  const difficulty = useMemo(() => {
-    return keyword.search_volume && keyword.search_volume > 1000 ? 'high' : 
-           keyword.search_volume && keyword.search_volume > 100 ? 'medium' : 'low';
-  }, [keyword.search_volume]);
+  // Stable primitive values for calculations
+  const searchVolume = keyword.search_volume;
+  const targetPosition = keyword.target_domain_position;
+  const competitorPositionsLength = keyword.competitor_positions?.length || 0;
+  const competitorPositions = keyword.competitor_positions || [];
 
-  // Calculate potential based on position and competitors
+  // Calculate difficulty based on search volume - fully stable
+  const difficulty = useMemo(() => {
+    return searchVolume && searchVolume > 1000 ? 'high' : 
+           searchVolume && searchVolume > 100 ? 'medium' : 'low';
+  }, [searchVolume]);
+
+  // Calculate potential based on position and competitors - fully stable
   const potential = useMemo(() => {
-    const myPos = keyword.target_domain_position || 999;
-    const hasCompetitors = keyword.competitor_positions?.length > 0;
+    const myPos = targetPosition || 999;
+    const hasCompetitors = competitorPositionsLength > 0;
     const bestCompetitorPos = hasCompetitors ? 
-      Math.min(...keyword.competitor_positions.map(c => c.position)) : 999;
+      Math.min(...competitorPositions.map(c => c.position)) : 999;
     
     if (!hasCompetitors || myPos <= 3) return 'low';
     if (myPos > bestCompetitorPos + 5) return 'high';
     return 'medium';
-  }, [keyword.target_domain_position, keyword.competitor_positions]);
+  }, [targetPosition, competitorPositionsLength, competitorPositions]);
   
   return (
     <tr className="border-b transition-colors hover:bg-muted/50">

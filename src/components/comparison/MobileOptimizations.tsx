@@ -205,11 +205,10 @@ const MobileOptimizations = ({ keywords, onKeywordSelect, onExport }: MobileOpti
                     >
                       #{keyword.target_domain_position || '100+'}
                     </Badge>
-                    {keyword.competition_level && (
-                      <Badge variant="outline" className="text-xs">
-                        {keyword.competition_level === 'high' ? 'Alta' : keyword.competition_level === 'medium' ? 'Média' : 'Baixa'}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {keyword.search_volume && keyword.search_volume > 1000 ? 'Alta' : 
+                       keyword.search_volume && keyword.search_volume > 100 ? 'Média' : 'Baixa'}
+                    </Badge>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

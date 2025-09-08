@@ -37,3 +37,24 @@ export const getDebugInfo = () => {
     url: window.location.href
   };
 };
+
+// Clear component cache on critical errors
+export const handleCriticalError = (error: Error) => {
+  console.error('🔥 CRITICAL ERROR DETECTED:', error);
+  console.log('🧹 Clearing caches to resolve instability...');
+  
+  // Clear React-specific caches
+  try {
+    // Clear any React dev tools cache
+    if ((window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+      (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__.onCommitFiberRoot = null;
+    }
+  } catch (e) {
+    console.warn('Failed to clear React dev tools cache:', e);
+  }
+  
+  // Force a clean reload
+  setTimeout(() => {
+    clearBrowserCache();
+  }, 1000);
+};

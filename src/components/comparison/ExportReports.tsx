@@ -73,7 +73,9 @@ const ExportReports = ({ analysisData }: ExportReportsProps) => {
         csvContent += `"${keyword.keyword}",`;
         csvContent += `${keyword.target_domain_position || 'Not Found'},`;
         csvContent += `${keyword.search_volume || 'N/A'},`;
-        csvContent += `${keyword.competition_level || 'Unknown'},`;
+        const difficulty = keyword.search_volume && keyword.search_volume > 1000 ? 'high' : 
+                          keyword.search_volume && keyword.search_volume > 100 ? 'medium' : 'low';
+        csvContent += `${difficulty},`;
         csvContent += `"${bestCompetitor?.domain || 'N/A'}",`;
         csvContent += `${bestCompetitor?.position || 'N/A'},`;
         csvContent += `${keyword.target_domain_position && bestCompetitor?.position ? keyword.target_domain_position - bestCompetitor.position : 'N/A'},`;
