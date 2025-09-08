@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Trophy, RefreshCw, AlertTriangle, TrendingUp, Eye, BarChart3, HelpCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trophy, RefreshCw, AlertTriangle, TrendingUp, Eye, BarChart3, HelpCircle, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,9 @@ import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywor
 import KeywordDetailModal from "./KeywordDetailModal";
 import PositionTrendChart from "./PositionTrendChart";
 import AdvancedFilters, { FilterState } from "./AdvancedFilters";
+import CompetitiveVisualization from "./CompetitiveVisualization";
+import ExportReports from "./ExportReports";
+import EnhancedProgressTracker from "./EnhancedProgressTracker";
 import { useSupabaseCache } from "@/hooks/useSupabaseCache";
 import { CacheService } from "@/services/cacheService";
 
@@ -182,31 +185,15 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     return filteredKeywords.slice(startIndex, endIndex);
   };
 
-  if (loading) {
+  if (loading && !analysisData) {
     return (
       <div className="space-y-8">
         <div className="text-center space-y-4">
           <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <h2 className="text-2xl font-bold">
-            {analysisData?.analysis.status === 'analyzing' ? 'Análise em Progresso...' : 'Carregando Análise...'}
-          </h2>
+          <h2 className="text-2xl font-bold">Carregando Análise...</h2>
           <p className="text-muted-foreground">
-            {analysisData?.analysis.status === 'analyzing' 
-              ? 'Coletando dados do Google e analisando concorrentes...' 
-              : 'Aguarde enquanto coletamos os dados'
-            }
+            Aguarde enquanto coletamos os dados
           </p>
-          {analysisData?.analysis.metadata?.processed_keywords && (
-            <div className="space-y-2">
-              <Progress 
-                value={(analysisData.analysis.metadata.processed_keywords / analysisData.analysis.metadata.total_keywords) * 100} 
-                className="w-full max-w-md mx-auto"
-              />
-              <p className="text-sm text-muted-foreground">
-                {analysisData.analysis.metadata.processed_keywords} de {analysisData.analysis.metadata.total_keywords} palavras-chave analisadas
-              </p>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -239,28 +226,23 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   // Calculate enhanced competitive metrics
   const competitiveMetrics = calculateCompetitiveMetrics(keywords, competitors);
 
-  // Show loading state if analysis is still running
+  // Show enhanced progress tracker if analysis is still running
   if (analysis.status === 'analyzing' || analysis.status === 'pending') {
     const metadata = analysis.metadata || {};
     const totalKeywords = metadata.total_keywords || 0;
     const processedKeywords = metadata.processed_keywords || 0;
-    const progressPercentage = totalKeywords > 0 ? Math.round((processedKeywords / totalKeywords) * 100) : 30;
     
     return (
       <div className="space-y-8">
-        <div className="text-center space-y-4">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <h2 className="text-2xl font-bold">Análise em Progresso</h2>
-          <p className="text-muted-foreground">
-            Analisando <span className="font-semibold text-primary">{analysis.target_domain}</span>
-          </p>
-          <div className="max-w-md mx-auto space-y-3">
-            <Progress value={progressPercentage} className="w-full" />
-            <p className="text-sm text-muted-foreground">
-              {processedKeywords}/{totalKeywords} palavras-chave processadas
-            </p>
-          </div>
-        </div>
+        <EnhancedProgressTracker
+          status={analysis.status}
+          processedKeywords={processedKeywords}
+          totalKeywords={totalKeywords}
+          currentStage="keyword_analysis"
+          estimatedTimeRemaining={Math.max(0, (totalKeywords - processedKeywords) * 2)} // 2 seconds per keyword estimate
+          startTime={analysis.created_at}
+          metadata={metadata}
+        />
       </div>
     );
   }
@@ -360,13 +342,18 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
 
   return (
     <div className="space-y-8">
+      {/* Header with Export Button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Trophy className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-bold">Análise Competitiva - {analysis.target_domain}</h1>
+        </div>
+        <ExportReports analysisData={analysisData} />
+      </div>
+
       {/* Executive Summary */}
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Trophy className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Análise Competitiva - {analysis.target_domain}</CardTitle>
-          </div>
           <CardDescription className="text-base">
             {(() => {
               const gapAnalysis = getGapAnalysis(competitiveMetrics.averagePositionGap, keywords.length);
@@ -488,6 +475,9 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           </CardContent>
         </Card>
       </div>
+
+      {/* Competitive Visualization */}
+      <CompetitiveVisualization analysisData={analysisData} />
 
       {/* Position Trend Chart */}
       <PositionTrendChart targetDomain={analysis.target_domain} />
