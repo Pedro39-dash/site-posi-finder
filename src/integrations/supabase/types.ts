@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          data: Json
+          expires_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          data: Json
+          expires_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          data?: Json
+          expires_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_categories: {
         Row: {
           audit_report_id: string
@@ -817,6 +844,10 @@ export type Database = {
       calculate_dashboard_metrics: {
         Args: { _period_type?: string; _project_id?: string; _user_id: string }
         Returns: undefined
+      }
+      clean_expired_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       has_role: {
         Args: {

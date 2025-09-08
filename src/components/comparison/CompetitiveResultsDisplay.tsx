@@ -19,63 +19,129 @@ interface CompetitiveResultsDisplayProps {
 }
 
 const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResultsDisplayProps) => {
-  const { getCache, setCache } = useAnalysisCache();
-  const [analysisData, setAnalysisData] = useState<CompetitiveAnalysisData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [keywordFilter, setKeywordFilter] = useState<'all' | 'winning' | 'losing' | 'opportunities'>('all');
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
   const [retryCount, setRetryCount] = useState(0);
-  const [lastLoadTime, setLastLoadTime] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState('overview');
+  
+  // Advanced filters state
+  const [filters, setFilters] = useState<FilterState>({
+    search: '',
+    positionRange: [1, 100],
+    opportunityTypes: [],
+    competitionLevel: [],
+    sortBy: 'keyword',
+    sortOrder: 'asc',
+    showOnlyWinning: false,
+    showOnlyLosing: false,
+    showOnlyOpportunities: false
+  });
   
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    loadAnalysisData();
-    
-    let pollCount = 0;
-    const maxPolls = 60; // Increased from 30 to 60 (2 minutes)
-    let pollInterval: NodeJS.Timeout;
-    
-    const startPolling = () => {
-      pollInterval = setInterval(async () => {
-        pollCount++;
-        
-        // Progressive polling - start fast, then slow down
-        const currentInterval = pollCount < 10 ? 1000 : pollCount < 20 ? 2000 : 3000;
-        
-        if (pollCount >= maxPolls) {
-          clearInterval(pollInterval);
-          setError('Análise demorou mais que o esperado. Tente novamente.');
-          return;
-        }
-        
-        // Only poll if we haven't loaded recently (prevent excessive calls)
-        const now = Date.now();
-        if (now - lastLoadTime > 1500) { // At least 1.5s between loads
-          if (analysisData?.analysis.status === 'analyzing' || 
-              analysisData?.analysis.status === 'pending') {
-            await loadAnalysisData();
-          } else if (analysisData?.analysis.status === 'completed' || 
-                     analysisData?.analysis.status === 'failed') {
-            clearInterval(pollInterval);
-          }
-        }
-        
-        // Clear interval and adjust timing
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          setTimeout(startPolling, currentInterval);
-        }
-      }, 1000);
-    };
+  // Use enhanced cache hook
+  const {
+    data: analysisData,
+    loading,
+    error,
+    refresh: refreshAnalysis,
+    lastUpdated
+  } = useSupabaseCache(
+    `analysis_${analysisId}`,
+    () => CompetitorAnalysisService.getAnalysisData(analysisId).then(result => {
+      if (!result.success) throw new Error(result.error || 'Failed to load analysis');
+      return result.data!;
+    }),
+    {
+      ttl: CacheService.ANALYSIS_TTL,
+      enableAutoRefresh: true,
+      refreshInterval: 30000
+    }
+  );
 
-    startPolling();
-    return () => clearInterval(pollInterval);
-  }, [analysisId, analysisData?.analysis.status, lastLoadTime]);
+  // Filter and sort keywords
+  const filteredKeywords = useMemo(() => {
+    if (!analysisData?.keywords) return [];
+    
+    let filtered = [...analysisData.keywords];
+    
+    // Apply search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(k => 
+        k.keyword.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply position range filter
+    filtered = filtered.filter(k => {
+      const position = k.target_domain_position;
+      if (!position) return filters.positionRange[0] === 1; // Include "not found" if range starts from 1
+      return position >= filters.positionRange[0] && position <= filters.positionRange[1];
+    });
+    
+    // Apply status filters
+    if (filters.showOnlyWinning) {
+      filtered = filtered.filter(k => k.target_domain_position && k.target_domain_position <= 3);
+    }
+    
+    if (filters.showOnlyLosing) {
+      filtered = filtered.filter(k => !k.target_domain_position || k.target_domain_position > 20);
+    }
+    
+    if (filters.showOnlyOpportunities) {
+      filtered = filtered.filter(k => {
+        const hasOpportunity = analysisData.opportunities?.some(o => o.keyword === k.keyword);
+        return hasOpportunity;
+      });
+    }
+    
+    // Apply competition level filter
+    if (filters.competitionLevel.length > 0) {
+      filtered = filtered.filter(k => 
+        k.competition_level && filters.competitionLevel.includes(k.competition_level)
+      );
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (filters.sortBy) {
+        case 'position':
+          aValue = a.target_domain_position || 999;
+          bValue = b.target_domain_position || 999;
+          break;
+        case 'difficulty':
+          aValue = getKeywordCompetitiveDifficulty(a).score;
+          bValue = getKeywordCompetitiveDifficulty(b).score;
+          break;
+        case 'opportunity':
+          const aOpp = analysisData.opportunities?.find(o => o.keyword === a.keyword);
+          const bOpp = analysisData.opportunities?.find(o => o.keyword === b.keyword);
+          aValue = aOpp?.priority_score || 0;
+          bValue = bOpp?.priority_score || 0;
+          break;
+        case 'competition':
+          aValue = a.competition_level || 'unknown';
+          bValue = b.competition_level || 'unknown';
+          break;
+        default:
+          aValue = a.keyword.toLowerCase();
+          bValue = b.keyword.toLowerCase();
+      }
+      
+      if (filters.sortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+    
+    return filtered;
+  }, [analysisData, filters]);
 
   const loadAnalysisData = async () => {
     const startTime = Date.now();
