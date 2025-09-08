@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ArrowUp, ArrowDown, Trophy, Target, RefreshCw, AlertTriangle, TrendingUp, TrendingDown, Users, Eye, BarChart3, Zap, ArrowUpCircle, HelpCircle, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Trophy, RefreshCw, AlertTriangle, TrendingUp, Eye, BarChart3, HelpCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,11 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword, CompetitorDomain } from "@/services/competitorAnalysisService";
+import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from "@/services/competitorAnalysisService";
 import { calculateCompetitiveMetrics, getKeywordCompetitiveDifficulty, getKeywordPotential, getCompetitorsAhead, getGapAnalysis, getCTRByPosition } from "@/utils/competitiveAnalysis";
 import KeywordDetailModal from "./KeywordDetailModal";
 import PositionTrendChart from "./PositionTrendChart";
-import { useAnalysisCache } from "@/hooks/useAnalysisCache";
+import AdvancedFilters, { FilterState } from "./AdvancedFilters";
+import { useSupabaseCache } from "@/hooks/useSupabaseCache";
+import { CacheService } from "@/services/cacheService";
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -23,8 +25,6 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
-  const [retryCount, setRetryCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('overview');
   
   // Advanced filters state
   const [filters, setFilters] = useState<FilterState>({
@@ -143,50 +143,43 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
     return filtered;
   }, [analysisData, filters]);
 
-  const loadAnalysisData = async () => {
-    const startTime = Date.now();
+  const handleReverifyKeyword = async (keyword: CompetitorKeyword) => {
+    if (!analysisData) return;
     
-    // Try cache first
-    const cacheKey = `analysis_${analysisId}`;
-    const cachedData = getCache<CompetitiveAnalysisData>(cacheKey);
-    
-    if (cachedData && cachedData.analysis.status === 'completed') {
-      console.log('📋 Using cached analysis data');
-      setAnalysisData(cachedData);
-      setError(null);
-      setLoading(false);
-      setLastLoadTime(Date.now());
-      return;
-    }
+    setReverifyingKeywords(prev => [...prev, keyword.keyword]);
     
     try {
-      const result = await CompetitorAnalysisService.getAnalysisData(analysisId);
-      if (result.success && result.data) {
-        setAnalysisData(result.data);
-        setError(null);
-        setRetryCount(0); // Reset retry count on success
+      const result = await CompetitorAnalysisService.reverifyKeyword(
+        analysisId,
+        keyword.keyword,
+        analysisData.analysis.target_domain
+      );
+      
+      if (result.success) {
+        // Reload analysis data to get updated position
+        await refreshAnalysis();
         
-        // Cache completed analysis for 30 minutes
-        if (result.data.analysis.status === 'completed') {
-          setCache(cacheKey, result.data, 30 * 60 * 1000); // 30 minutes
-        }
+        // Show toast notification with result
+        const message = result.newPosition 
+          ? `Posição atualizada: ${result.newPosition}ª para "${keyword.keyword}"`
+          : `"${keyword.keyword}" não encontrado nos primeiros 50 resultados`;
+        
+        console.log(`✅ Re-verification completed: ${message}`);
       } else {
-        setError(result.error || 'Failed to load analysis data');
+        console.error('❌ Re-verification failed:', result.error);
       }
-    } catch (err) {
-      setError('Unexpected error loading analysis');
-      console.error('Error loading analysis:', err);
+    } catch (error) {
+      console.error('❌ Error during re-verification:', error);
     } finally {
-      setLoading(false);
-      setLastLoadTime(Date.now());
+      setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
     }
   };
 
-  const handleRetry = async () => {
-    setRetryCount(prev => prev + 1);
-    setLoading(true);
-    setError(null);
-    await loadAnalysisData();
+  // Pagination helpers for new filtered keywords
+  const getPaginatedKeywords = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredKeywords.slice(startIndex, endIndex);
   };
 
   if (loading) {
@@ -226,18 +219,13 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="space-y-2">
             <p>{error || 'Não foi possível carregar os dados da análise'}</p>
-            {retryCount < 3 && (
-              <p className="text-sm">Tentativa {retryCount + 1} de 3</p>
-            )}
           </AlertDescription>
         </Alert>
         <div className="flex gap-2 justify-center">
-          {retryCount < 3 && (
-            <Button onClick={handleRetry} variant="outline" disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Tentar Novamente
-            </Button>
-          )}
+          <Button onClick={refreshAnalysis} variant="outline" disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Tentar Novamente
+          </Button>
           <Button onClick={onBackToForm} variant="outline">
             Voltar ao Formulário
           </Button>
@@ -368,81 +356,6 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
   const handleViewDetails = (keyword: CompetitorKeyword) => {
     setSelectedKeyword(keyword);
     setIsDetailModalOpen(true);
-  };
-
-  const handleReverifyKeyword = async (keyword: CompetitorKeyword) => {
-    if (!analysisData) return;
-    
-    setReverifyingKeywords(prev => [...prev, keyword.keyword]);
-    
-    try {
-      const result = await CompetitorAnalysisService.reverifyKeyword(
-        analysisId,
-        keyword.keyword,
-        analysisData.analysis.target_domain
-      );
-      
-      if (result.success) {
-        // Reload analysis data to get updated position
-        await loadAnalysisData();
-        
-        // Show toast notification with result
-        const message = result.newPosition 
-          ? `Posição atualizada: ${result.newPosition}ª para "${keyword.keyword}"`
-          : `"${keyword.keyword}" não encontrado nos primeiros 50 resultados`;
-        
-        // You can add toast notification here if you have a toast system
-        console.log(`✅ Re-verification completed: ${message}`);
-      } else {
-        console.error('❌ Re-verification failed:', result.error);
-      }
-    } catch (error) {
-      console.error('❌ Error during re-verification:', error);
-    } finally {
-      setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
-    }
-  };
-
-  const getFilteredKeywords = () => {
-    switch (keywordFilter) {
-      case 'winning':
-        return keywords.filter(k => {
-          if (!k.target_domain_position) return false;
-          
-          // If we have reference competitors, compare only against them
-          if (referenceCompetitors.length > 0) {
-            const referenceCompetitorDomains = new Set(referenceCompetitors.map(c => c.domain));
-            const referencePositions = k.competitor_positions.filter(cp => 
-              referenceCompetitorDomains.has(cp.domain)
-            );
-            return referencePositions.length > 0 && 
-                   referencePositions.every(cp => cp.position > k.target_domain_position!);
-          }
-          
-          // Fallback to all competitors if no reference competitors
-          return k.competitor_positions.every(cp => cp.position > k.target_domain_position!);
-        });
-      case 'losing':
-        return keywords.filter(k => 
-          k.competitor_positions.some(cp => 
-            !k.target_domain_position || (k.target_domain_position && cp.position < k.target_domain_position)
-          )
-        );
-      case 'opportunities':
-        return keywords.filter(k => {
-          const potential = getKeywordPotential(k);
-          return potential.improvementPotential === 'high';
-        });
-      default:
-        return keywords;
-    }
-  };
-
-  const getPaginatedKeywords = () => {
-    const filteredKeywords = getFilteredKeywords();
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return filteredKeywords.slice(startIndex, endIndex);
   };
 
   return (
@@ -579,42 +492,28 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
       {/* Position Trend Chart */}
       <PositionTrendChart targetDomain={analysis.target_domain} />
 
-      {/* Keywords Analysis with Filters and Pagination */}
+      {/* Keywords Analysis with Advanced Filters */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Análise Detalhada por Palavra-chave</CardTitle>
               <CardDescription>
-                {(() => {
-                  const filteredKeywords = getFilteredKeywords();
-                  return `${filteredKeywords.length} palavra${filteredKeywords.length !== 1 ? 's' : ''}-chave encontrada${filteredKeywords.length !== 1 ? 's' : ''}`;
-                })()}
+                {filteredKeywords.length} palavra{filteredKeywords.length !== 1 ? 's' : ''}-chave encontrada{filteredKeywords.length !== 1 ? 's' : ''}
               </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="gap-1">
-                <Filter className="h-3 w-3" />
-                Filtrar
-              </Badge>
-              <select 
-                value={keywordFilter} 
-                onChange={(e) => {
-                  setKeywordFilter(e.target.value as any);
-                  setCurrentPage(1);
-                }}
-                className="text-sm border border-input bg-background px-3 py-2 rounded-md focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="all">Todas ({keywords.length})</option>
-                <option value="winning">Vencendo ({keywordWins})</option>
-                <option value="losing">Perdendo ({competitorWins})</option>
-                <option value="opportunities">Melhorias Rápidas ({quickOpportunities})</option>
-              </select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Advanced Filters Component */}
+          <AdvancedFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            keywordCount={keywords.length}
+            filteredCount={filteredKeywords.length}
+          />
+
+          <div className="overflow-x-auto mt-6">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -766,7 +665,6 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
             
             {/* Pagination Controls */}
             {(() => {
-              const filteredKeywords = getFilteredKeywords();
               const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
               
               if (totalPages <= 1) return null;
@@ -819,7 +717,6 @@ const CompetitiveResultsDisplay = ({ analysisId, onBackToForm }: CompetitiveResu
           </div>
         </CardContent>
       </Card>
-
 
       {/* Keyword Detail Modal */}
       <KeywordDetailModal
