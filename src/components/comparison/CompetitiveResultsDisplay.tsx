@@ -40,6 +40,7 @@ interface CompetitiveResultsDisplayProps {
 }
 
 const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo(({ analysisId, onBackToForm }) => {
+  // ALL hooks must be called first - no early returns before this point
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
@@ -69,6 +70,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     { ttl: 5 * 60 * 1000, enableAutoRefresh: false }
   );
 
+  // ALL remaining hooks and memoized values (must be called consistently)
   // Verificar se deve mostrar o tour
   useEffect(() => {
     const hasSeenTour = localStorage.getItem('competitive-analysis-tour');
@@ -183,7 +185,39 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
   }, [analysisId, targetDomain, refresh]);
 
-  // Estados de loading, erro e dados vazios
+  // Calcular métricas
+  const getMetrics = useMemo(() => {
+    if (!analysisData?.keywords) return { firstPageKeywords: 0, opportunities: 0, avgPosition: '0.0', competitorGaps: 0 };
+    
+    const keywords = analysisData.keywords;
+    const firstPageKeywords = keywords.filter(k => k.target_domain_position && k.target_domain_position <= 10).length;
+    const opportunities = keywords.filter(k => !k.target_domain_position || k.target_domain_position > 10).length;
+    const avgPosition = keywords.reduce((sum, k) => sum + (k.target_domain_position || 100), 0) / keywords.length;
+    const competitorGaps = keywords.filter(k => k.competitor_positions?.some(c => c.position <= 10)).length;
+    
+    return {
+      firstPageKeywords,
+      opportunities,
+      avgPosition: avgPosition.toFixed(1),
+      competitorGaps
+    };
+  }, [analysisData?.keywords]);
+
+  // Paginação memoizada
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    return { totalPages, startIndex, endIndex };
+  }, [filteredKeywords.length, itemsPerPage, currentPage]);
+
+  // Keywords da página atual - memoizado para estabilidade
+  const currentPageKeywords = useMemo(() => {
+    return filteredKeywords.slice(paginationData.startIndex, paginationData.endIndex);
+  }, [filteredKeywords, paginationData.startIndex, paginationData.endIndex]);
+
+  // NOW we can do early returns - all hooks have been called consistently
   if (loading) {
     return (
       <div className="space-y-6">
@@ -252,36 +286,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
       </div>
     );
   }
-
-  // Calcular métricas
-  const getMetrics = useMemo(() => {
-    const keywords = analysisData.keywords;
-    const firstPageKeywords = keywords.filter(k => k.target_domain_position && k.target_domain_position <= 10).length;
-    const opportunities = keywords.filter(k => !k.target_domain_position || k.target_domain_position > 10).length;
-    const avgPosition = keywords.reduce((sum, k) => sum + (k.target_domain_position || 100), 0) / keywords.length;
-    const competitorGaps = keywords.filter(k => k.competitor_positions?.some(c => c.position <= 10)).length;
-    
-    return {
-      firstPageKeywords,
-      opportunities,
-      avgPosition: avgPosition.toFixed(1),
-      competitorGaps
-    };
-  }, [analysisData.keywords]);
-
-  // Paginação memoizada
-  const paginationData = useMemo(() => {
-    const totalPages = Math.ceil(filteredKeywords.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    
-    return { totalPages, startIndex, endIndex };
-  }, [filteredKeywords.length, itemsPerPage, currentPage]);
-
-  // Keywords da página atual - memoizado para estabilidade
-  const currentPageKeywords = useMemo(() => {
-    return filteredKeywords.slice(paginationData.startIndex, paginationData.endIndex);
-  }, [filteredKeywords, paginationData.startIndex, paginationData.endIndex]);
 
   return (
     <HookErrorBoundary>

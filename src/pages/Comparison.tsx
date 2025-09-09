@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Target } from "lucide-react";
 import DirectCompetitiveForm from "@/components/comparison/DirectCompetitiveForm";
 import CompetitiveResultsDisplay from "@/components/comparison/CompetitiveResultsDisplay";
+import { HookErrorBoundary } from "@/components/comparison/HookErrorBoundary";
 import { Button } from "@/components/ui/button";
 
 type AnalysisState = 'form' | 'results';
@@ -91,10 +92,12 @@ const Comparison = () => {
 
         {/* Analysis Results */}
         {state === 'results' && analysisId && (
-          <CompetitiveResultsDisplay 
-            analysisId={analysisId} 
-            onBackToForm={handleBackToForm}
-          />
+          <HookErrorBoundary>
+            <CompetitiveResultsDisplay 
+              analysisId={analysisId} 
+              onBackToForm={handleBackToForm}
+            />
+          </HookErrorBoundary>
         )}
       </div>
     </div>
