@@ -30,7 +30,9 @@ import MobileOptimizations from './MobileOptimizations';
 import { useSupabaseCache } from '@/hooks/useSupabaseCache';
 import { useOptimizedFilters } from './OptimizedFilterReducer';
 import { ErrorBoundary } from './ErrorBoundary';
+import { HookErrorBoundary } from './HookErrorBoundary';
 import { KeywordRow, PositionBadge, DifficultyBadge } from './OptimizedComponents';
+import { useDeepMemo, usePrimitiveMemo } from '@/hooks/useDeepMemo';
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -92,10 +94,21 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     }
   }, [filterActions]);
 
-  // Keywords estáveis para evitar re-renders
+  // Keywords estáveis para evitar re-renders - usando apenas valores primitivos
+  const keywords = analysisData?.keywords || [];
+  const keywordsLength = keywords.length;
+  const keywordsHash = useMemo(() => {
+    return keywords.map(k => `${k.id}-${k.keyword}-${k.target_domain_position}`).join('|');
+  }, [keywords]);
+  
   const stableKeywords = useMemo(() => {
-    return analysisData?.keywords || [];
-  }, [analysisData?.keywords]);
+    return keywords.map(keyword => ({
+      ...keyword,
+      search_volume: keyword.search_volume || 0,
+      target_domain_position: keyword.target_domain_position || null,
+      competitor_positions: keyword.competitor_positions || []
+    }));
+  }, [keywordsHash]);
 
   // Destructure filters for stable dependencies - use primitives only
   const searchTerm = filters.search;
@@ -138,7 +151,13 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
             : b.keyword.localeCompare(a.keyword);
       }
     });
-  }, [stableKeywords, searchTerm, competitionLevels, sortByField, sortDirection]);
+  }, [
+    keywordsHash, // Use hash instead of stableKeywords array
+    searchTerm,
+    competitionLevels.join(','), // Stringify array to primitive
+    sortByField,
+    sortDirection
+  ]);
 
   const filteredKeywords = filteredAndSortedKeywords;
 
@@ -265,32 +284,33 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   }, [filteredKeywords, paginationData.startIndex, paginationData.endIndex]);
 
   return (
-    <TooltipProvider>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={onBackToForm}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <h1 className="text-2xl font-bold">Análise Competitiva</h1>
+    <HookErrorBoundary>
+      <TooltipProvider>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={onBackToForm}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <h1 className="text-2xl font-bold">Análise Competitiva</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowTour(true)}
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Tour
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setShowTour(true)}
-            >
-              <Play className="h-4 w-4 mr-2" />
-              Tour
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
-            </Button>
-          </div>
-        </div>
 
         {/* Métricas Executivas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -455,6 +475,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
         />
       </div>
     </TooltipProvider>
+    </HookErrorBoundary>
   );
 });
 

@@ -17,9 +17,10 @@ export const useStableKeywords = (keywords: CompetitorKeyword[] | undefined) => 
       competitor_positions: keyword.competitor_positions || [],
       search_volume: keyword.search_volume || 0,
       created_at: keyword.created_at,
-      metadata: keyword.metadata || {}
+      metadata: keyword.metadata || {},
+      // Remove unstable competition_level field - calculate on demand
     }));
-  }, [keywords]);
+  }, [keywords?.length, keywords?.map(k => `${k.id}-${k.keyword}-${k.target_domain_position}`).join('|')]);
 };
 
 /**

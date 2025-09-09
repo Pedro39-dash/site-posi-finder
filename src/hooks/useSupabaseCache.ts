@@ -32,10 +32,12 @@ export const useSupabaseCache = <T>(
         const cachedData = await CacheService.get<T>(key);
         if (cachedData) {
           console.log('📋 Cache hit for:', key);
-          setData(cachedData);
+          // Normalize cached data to ensure consistency
+          const normalizedData = normalizeData(cachedData);
+          setData(normalizedData);
           setLoading(false);
           setLastUpdated(new Date());
-          return cachedData;
+          return normalizedData;
         }
       }
 
@@ -44,10 +46,13 @@ export const useSupabaseCache = <T>(
       
       const freshData = await fetcher();
       
-      // Cache the fresh data
-      await CacheService.set(key, freshData, ttl);
+      // Normalize fresh data before caching
+      const normalizedData = normalizeData(freshData);
       
-      setData(freshData);
+      // Cache the normalized data
+      await CacheService.set(key, normalizedData, ttl);
+      
+      setData(normalizedData);
       setLastUpdated(new Date());
       
       return freshData;
@@ -115,6 +120,45 @@ export const useSupabaseCache = <T>(
     isStale: lastUpdated ? Date.now() - lastUpdated.getTime() > ttl : false
   };
 };
+
+/**
+ * Normalize data to ensure consistent structure and prevent hook instability
+ */
+function normalizeData<T>(data: T): T {
+  if (!data || typeof data !== 'object') return data;
+  
+  if (Array.isArray(data)) {
+    return data.map(item => normalizeData(item)) as T;
+  }
+  
+  // For objects, ensure all properties exist and have consistent types
+  const normalized = { ...data } as any;
+  
+  // Special handling for competitive analysis data
+  if (normalized.keywords && Array.isArray(normalized.keywords)) {
+    normalized.keywords = normalized.keywords.map((keyword: any) => ({
+      ...keyword,
+      search_volume: keyword.search_volume ?? 0,
+      target_domain_position: keyword.target_domain_position ?? null,
+      competitor_positions: keyword.competitor_positions ?? [],
+      competition_level: keyword.competition_level ?? null,
+      metadata: keyword.metadata ?? {}
+    }));
+  }
+  
+  if (normalized.competitors && Array.isArray(normalized.competitors)) {
+    normalized.competitors = normalized.competitors.map((competitor: any) => ({
+      ...competitor,
+      relevance_score: competitor.relevance_score ?? 0,
+      total_keywords_found: competitor.total_keywords_found ?? 0,
+      average_position: competitor.average_position ?? 0,
+      share_of_voice: competitor.share_of_voice ?? 0,
+      metadata: competitor.metadata ?? {}
+    }));
+  }
+  
+  return normalized as T;
+}
 
 // Specialized hooks for common use cases
 export const useSerpCache = <T>(

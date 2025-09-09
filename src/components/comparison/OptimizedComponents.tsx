@@ -147,11 +147,33 @@ export const KeywordRow = memo(({
     </tr>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison for better memoization
-  return (
-    prevProps.keyword.id === nextProps.keyword.id &&
-    prevProps.keyword.target_domain_position === nextProps.keyword.target_domain_position &&
-    prevProps.reverifyingKeywords.includes(prevProps.keyword.keyword) === 
-    nextProps.reverifyingKeywords.includes(nextProps.keyword.keyword)
-  );
+  // More comprehensive comparison for better memoization
+  const prevKeyword = prevProps.keyword;
+  const nextKeyword = nextProps.keyword;
+  
+  // Check if basic properties changed
+  if (
+    prevKeyword.id !== nextKeyword.id ||
+    prevKeyword.keyword !== nextKeyword.keyword ||
+    prevKeyword.target_domain_position !== nextKeyword.target_domain_position ||
+    prevKeyword.search_volume !== nextKeyword.search_volume
+  ) {
+    return false;
+  }
+  
+  // Check competitor positions array length
+  const prevCompetitors = prevKeyword.competitor_positions?.length || 0;
+  const nextCompetitors = nextKeyword.competitor_positions?.length || 0;
+  if (prevCompetitors !== nextCompetitors) {
+    return false;
+  }
+  
+  // Check reverifying state
+  const prevIsReverifying = prevProps.reverifyingKeywords.includes(prevKeyword.keyword);
+  const nextIsReverifying = nextProps.reverifyingKeywords.includes(nextKeyword.keyword);
+  if (prevIsReverifying !== nextIsReverifying) {
+    return false;
+  }
+  
+  return true;
 });
