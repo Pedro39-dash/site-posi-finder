@@ -1,10 +1,9 @@
-import { BarChart3, Search, FolderOpen, GitCompare, Monitor, LogOut, User, FileSearch, TrendingUp, Home, Zap, HelpCircle } from "lucide-react";
+import { BarChart3, Search, FileSearch, TrendingUp, Home, Zap, HelpCircle, User, LogOut, Settings } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
-import { RankingAlertSystem } from '@/components/alerts/RankingAlertSystem';
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +19,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 // Navigation sections based on user role
 const getNavigationItems = (isAdmin: boolean, isClient: boolean) => ({
@@ -95,152 +96,179 @@ export function AppSidebar() {
 
   return (
     <Sidebar 
-      className={`${state === "collapsed" ? "w-14" : "w-96 max-w-sm"} bg-blue-900 text-white`}
+      className={cn(
+        "border-r transition-all duration-300",
+        state === "collapsed" ? "w-16" : "w-72"
+      )}
       collapsible="icon"
     >
-      <SidebarHeader className="border-b border-blue-800">
-        <div className="flex items-center justify-between gap-2 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-8 w-8 text-blue-300 flex-shrink-0" />
+      <SidebarHeader className="border-b px-4 py-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+            <BarChart3 className="h-6 w-6 text-primary-foreground" />
           </div>
-          {state !== "collapsed" && <NotificationCenter />}
+          {state !== "collapsed" && (
+            <div className="flex flex-col">
+              <h2 className="text-lg font-semibold tracking-tight">SEO Tools</h2>
+              <p className="text-xs text-muted-foreground">Análise completa</p>
+            </div>
+          )}
         </div>
-        <RankingAlertSystem />
+        {state !== "collapsed" && <NotificationCenter />}
       </SidebarHeader>
 
-      <SidebarContent className="bg-blue-900">
+      <SidebarContent className="px-3 py-4">
         {/* Navegação Section */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-blue-300">Navegação</SidebarGroupLabel>
+          <SidebarGroupLabel className="px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Navegação
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navSections.navegacao.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton asChild>
-                    {state === "collapsed" ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <NavLink
-                            to={item.path}
-                            className={({ isActive: linkActive }) =>
-                              `flex items-center justify-center w-10 h-10 ${
-                                linkActive || isActive(item.path)
-                                  ? "bg-blue-700 text-white"
-                                  : "text-blue-300 hover:text-white hover:bg-blue-800"
-                              }`
-                            }
-                          >
-                            <item.icon className="h-5 w-5 flex-shrink-0" />
-                          </NavLink>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">
-                          <p>{item.title}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <NavLink
-                        to={item.path}
-                        className={({ isActive: linkActive }) =>
-                          `flex items-center gap-3 ${
-                            linkActive || isActive(item.path)
-                              ? "bg-blue-700 text-white"
-                              : "text-blue-300 hover:text-white hover:bg-blue-800"
-                          }`
-                        }
-                      >
-                        <item.icon className="h-5 w-5 flex-shrink-0" />
-                        <span className="font-medium">{item.title}</span>
-                      </NavLink>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="space-y-1">
+              {navSections.navegacao.map((item) => {
+                const itemIsActive = isActive(item.path);
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild>
+                      {state === "collapsed" ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <NavLink
+                              to={item.path}
+                              className={cn(
+                                "flex h-10 w-10 items-center justify-center rounded-md transition-colors",
+                                itemIsActive
+                                  ? "bg-primary text-primary-foreground"
+                                  : "hover:bg-accent hover:text-accent-foreground"
+                              )}
+                            >
+                              <item.icon className="h-4 w-4" />
+                            </NavLink>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>{item.title}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <NavLink
+                          to={item.path}
+                          className={cn(
+                            "flex h-10 items-center gap-3 rounded-md px-3 transition-colors",
+                            itemIsActive
+                              ? "bg-primary text-primary-foreground font-medium"
+                              : "hover:bg-accent hover:text-accent-foreground"
+                          )}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span className="text-sm">{item.title}</span>
+                        </NavLink>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         {/* Ferramentas Section */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-blue-300">Ferramentas</SidebarGroupLabel>
+        <SidebarGroup className="mt-6">
+          <SidebarGroupLabel className="px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Ferramentas SEO
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navSections.ferramentas.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton asChild>
-                    {state === "collapsed" ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <NavLink
-                            to={item.path}
-                            className={({ isActive: linkActive }) =>
-                              `flex items-center justify-center w-10 h-10 ${
-                                linkActive || isActive(item.path)
-                                  ? "bg-blue-700 text-white"
-                                  : "text-blue-300 hover:text-white hover:bg-blue-800"
-                              }`
-                            }
-                          >
-                            <item.icon className="h-5 w-5 flex-shrink-0" />
-                          </NavLink>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">
-                          <p>{item.title}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <NavLink
-                        to={item.path}
-                        className={({ isActive: linkActive }) =>
-                          `flex items-center gap-3 ${
-                            linkActive || isActive(item.path)
-                              ? "bg-blue-700 text-white"
-                              : "text-blue-300 hover:text-white hover:bg-blue-800"
-                          }`
-                        }
-                      >
-                        <item.icon className="h-5 w-5 flex-shrink-0" />
-                        <span className="font-medium">{item.title}</span>
-                      </NavLink>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="space-y-1">
+              {navSections.ferramentas.map((item) => {
+                const itemIsActive = isActive(item.path);
+                const hasNotification = item.path === '/rankings'; // Exemplo de notificação
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild>
+                      {state === "collapsed" ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <NavLink
+                              to={item.path}
+                              className={cn(
+                                "flex h-10 w-10 items-center justify-center rounded-md transition-colors relative",
+                                itemIsActive
+                                  ? "bg-primary text-primary-foreground"
+                                  : "hover:bg-accent hover:text-accent-foreground"
+                              )}
+                            >
+                              <item.icon className="h-4 w-4" />
+                              {hasNotification && (
+                                <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
+                                  2
+                                </Badge>
+                              )}
+                            </NavLink>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>{item.title}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <NavLink
+                          to={item.path}
+                          className={cn(
+                            "flex h-10 items-center gap-3 rounded-md px-3 transition-colors relative",
+                            itemIsActive
+                              ? "bg-primary text-primary-foreground font-medium"
+                              : "hover:bg-accent hover:text-accent-foreground"
+                          )}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span className="text-sm flex-1">{item.title}</span>
+                          {hasNotification && (
+                            <Badge className="h-5 w-5 rounded-full p-0 text-xs">
+                              2
+                            </Badge>
+                          )}
+                        </NavLink>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-blue-800 p-4 bg-blue-900">
-        {user && state !== "collapsed" && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-800/50 mb-4">
-            <User className="h-4 w-4 flex-shrink-0 text-blue-300" />
-            <span className="text-sm font-medium truncate text-white">{user.email}</span>
-          </div>
-        )}
-        
+      <SidebarFooter className="border-t p-4">
         <div className="flex items-center justify-between">
-          {state !== "collapsed" && (
-            <div className="text-sm text-blue-300">
-              <p className="font-medium mb-1 text-white">Ferramentas SEO</p>
-              <p>Analise, compare e monitore</p>
-            </div>
-          )}
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            {user && (
-              <Button
-                variant="ghost"
-                size={state === "collapsed" ? "icon" : "sm"}
-                onClick={logout}
-                title="Sair"
-                className="text-blue-300 hover:text-white hover:bg-blue-800"
-              >
-                <LogOut className="h-4 w-4" />
-                {state !== "collapsed" && <span className="ml-2">Sair</span>}
-              </Button>
-            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Settings className="h-4 w-4" />
+            </Button>
           </div>
+          
+          {user && (
+            <Button
+              variant="ghost"
+              size={state === "collapsed" ? "icon" : "sm"}
+              onClick={logout}
+              className="h-8"
+            >
+              <LogOut className="h-4 w-4" />
+              {state !== "collapsed" && <span className="ml-2 text-sm">Sair</span>}
+            </Button>
+          )}
         </div>
+        
+        {user && state !== "collapsed" && (
+          <div className="mt-3 flex items-center gap-3 rounded-lg border bg-muted/50 p-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+              <User className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium leading-none truncate">{user.email?.split('@')[0]}</p>
+              <p className="text-xs text-muted-foreground mt-1">Usuário ativo</p>
+            </div>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

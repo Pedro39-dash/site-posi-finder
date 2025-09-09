@@ -13,7 +13,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
-import { ProjectSelector } from "@/components/projects/ProjectSelector";
+import { TopBar } from "@/components/layout/TopBar";
 import { ProjectModal } from "@/components/projects/ProjectModal";
 import { useProject } from "@/hooks/useProject";
 import Index from "./pages/Index";
@@ -60,19 +60,14 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <SidebarProvider defaultOpen={typeof window !== 'undefined' && window.innerWidth >= 1280}>
-      <div className="min-h-screen flex w-full max-w-screen-xl mx-auto">
+      <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center justify-between border-b bg-background px-4 sticky top-0 z-40">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="hover:bg-accent" />
+          <TopBar onCreateProject={handleCreateProject} />
+          <main className="flex-1 overflow-auto">
+            <div className="container mx-auto p-6">
+              {children}
             </div>
-            <div className="flex items-center gap-4">
-              <ProjectSelector onCreateProject={handleCreateProject} />
-            </div>
-          </header>
-          <main className="flex-1 p-4">
-            {children}
           </main>
         </div>
       </div>
