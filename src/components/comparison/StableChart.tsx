@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Line, LineChart } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Line, LineChart, Tooltip } from 'recharts';
 
 // Stable color palette - never changes
 const STABLE_COLORS = {
@@ -63,7 +63,7 @@ export const StableBarChart = memo<StableBarChartProps>(({
           fill={color}
           radius={[2, 2, 0, 0]}
         />
-        <CustomTooltip />
+        <Tooltip content={<CustomTooltip />} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -106,7 +106,7 @@ export const StablePieChart = memo<StablePieChartProps>(({ data, dataKey, nameKe
             <Cell key={`cell-${index}`} fill={STABLE_COLORS.chart[index % STABLE_COLORS.chart.length]} />
           ))}
         </Pie>
-        <CustomTooltip />
+        <Tooltip content={<CustomTooltip />} />
       </PieChart>
     </ResponsiveContainer>
   );
@@ -160,7 +160,7 @@ export const StableAreaChart = memo<StableAreaChartProps>(({
           fill={color} 
           fillOpacity={0.3}
         />
-        <CustomTooltip />
+        <Tooltip content={<CustomTooltip />} />
       </AreaChart>
     </ResponsiveContainer>
   );
