@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Eye, RotateCcw, ArrowLeft, Filter, Download, Bell, Target, TrendingUp, 
-  Users, Trophy, Settings, AlertTriangle, RefreshCw, Play, BarChart3, 
+  Users, Trophy, Settings, AlertTriangle, RefreshCw, BarChart3, 
   ChevronLeft, ChevronRight 
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,7 +21,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import EnhancedProgressTracker from './EnhancedProgressTracker';
 import CompetitiveVisualization from './CompetitiveVisualization';
 import PositionTrendChart from './PositionTrendChart';
-import GuidedTour from './GuidedTour';
+
 import ProductivityFeatures from './ProductivityFeatures';
 import IntelligentNotifications from './IntelligentNotifications';
 import ExportReports from './ExportReports';
@@ -44,7 +44,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
-  const [showTour, setShowTour] = useState(false);
+  
   const [showProductivityPanel, setShowProductivityPanel] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
@@ -71,13 +71,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   );
 
   // ALL remaining hooks and memoized values (must be called consistently)
-  // Verificar se deve mostrar o tour
-  useEffect(() => {
-    const hasSeenTour = localStorage.getItem('competitive-analysis-tour');
-    if (!hasSeenTour && analysisData) {
-      setShowTour(true);
-    }
-  }, [analysisData]);
 
   // Handler para ações de oportunidade
   const handleOpportunityAction = useCallback((action: string, keyword?: string) => {
@@ -301,14 +294,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
               <h1 className="text-2xl font-bold">Análise Competitiva</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowTour(true)}
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Tour
-              </Button>
               <Button variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
@@ -468,15 +453,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
           />
         )}
 
-        {/* Tour Guiado */}
-        <GuidedTour
-          isOpen={showTour}
-          onClose={() => setShowTour(false)}
-          onComplete={() => {
-            localStorage.setItem('competitive-analysis-tour', 'completed');
-            toast.success("Tour concluído! Explore todas as funcionalidades.");
-          }}
-        />
       </div>
     </TooltipProvider>
     </HookErrorBoundary>

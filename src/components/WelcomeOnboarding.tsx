@@ -184,7 +184,7 @@ const WelcomeOnboarding = ({ onComplete }: WelcomeOnboardingProps) => {
             
             <div className="flex gap-2">
               <Button variant="ghost" onClick={skip}>
-                Pular tour
+                Pular
               </Button>
               <Button onClick={nextStep}>
                 {currentStep === steps.length - 1 ? 'Começar!' : 'Próximo'}
