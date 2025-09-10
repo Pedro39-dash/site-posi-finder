@@ -135,37 +135,36 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            Análise Competitiva SEO
-          </CardTitle>
-          <CardDescription>
-            Analise seu site diretamente comparando com concorrentes usando dados reais do Google. A análise coletará automaticamente os dados necessários durante o processo.
-          </CardDescription>
-        </CardHeader>
+    <Card className="bg-sidebar-primary border-sidebar-border">
+      <CardHeader className="border-b border-sidebar-border">
+        <CardTitle className="flex items-center gap-2 text-sidebar-foreground">
+          <Target className="h-5 w-5 text-primary" />
+          Análise Competitiva SEO
+        </CardTitle>
+        <CardDescription className="text-sidebar-muted-foreground">
+          Analise seu site diretamente comparando com concorrentes usando dados reais do Google. A análise coletará automaticamente os dados necessários durante o processo.
+        </CardDescription>
+      </CardHeader>
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-8">
             
             {/* Data Source Selection */}
             <div className="space-y-3">
-              <Label>Selecionar Projeto (Opcional)</Label>
+              <Label className="text-sidebar-foreground">Selecionar Projeto (Opcional)</Label>
               <Select
                 value={selectedProject?.id || ""}
                 onValueChange={handleProjectChange}
               >
-                <SelectTrigger>
+                <SelectTrigger className="bg-sidebar-background border-sidebar-border text-sidebar-foreground">
                   <SelectValue placeholder="Carregar dados de um projeto" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-sidebar-background border-sidebar-border">
                   {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
+                    <SelectItem key={project.id} value={project.id} className="text-sidebar-foreground hover:bg-sidebar-accent">
                       <div className="flex flex-col">
                         <span className="font-medium">{project.name}</span>
-                        <span className="text-sm text-muted-foreground">{project.mainDomain}</span>
+                        <span className="text-sm text-sidebar-muted-foreground">{project.mainDomain}</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -173,23 +172,24 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
               </Select>
             </div>
 
-            <Separator />
+            <Separator className="bg-sidebar-border" />
 
             {/* Client Domain */}
             <div className="space-y-3">
-              <Label htmlFor="client-domain">Site do Cliente *</Label>
+              <Label htmlFor="client-domain" className="text-sidebar-foreground">Site do Cliente *</Label>
               <Input
                 id="client-domain"
                 type="text"
                 placeholder="meusite.com.br"
                 value={clientDomain}
                 onChange={(e) => setClientDomain(e.target.value)}
+                className="bg-sidebar-background border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-muted-foreground focus:border-primary"
               />
             </div>
 
             {/* Competitors */}
             <div className="space-y-4">
-              <Label>Concorrentes *</Label>
+              <Label className="text-sidebar-foreground">Concorrentes *</Label>
               
               <div className="flex gap-2">
                 <Input
@@ -197,19 +197,19 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
                   value={newCompetitor}
                   onChange={(e) => setNewCompetitor(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCompetitor())}
-                  className="flex-1"
+                  className="flex-1 bg-sidebar-background border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-muted-foreground focus:border-primary"
                 />
-                <Button type="button" onClick={addCompetitor} variant="outline" size="icon">
+                <Button type="button" onClick={addCompetitor} variant="outline" size="icon" className="border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
 
               {competitors.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Concorrentes adicionados:</p>
+                  <p className="text-sm text-sidebar-muted-foreground">Concorrentes adicionados:</p>
                   <div className="flex flex-wrap gap-2">
                     {competitors.map((competitor) => (
-                      <Badge key={competitor} variant="secondary" className="flex items-center gap-1">
+                      <Badge key={competitor} variant="secondary" className="flex items-center gap-1 bg-sidebar-accent text-sidebar-accent-foreground">
                         {competitor}
                         <X 
                           className="h-3 w-3 cursor-pointer hover:text-destructive" 
@@ -229,18 +229,18 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
                       <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-2">
                         <span className="text-primary font-bold">1</span>
                       </div>
-                      <p className="text-xs font-medium">{clientDomain}</p>
+                      <p className="text-xs font-medium text-sidebar-foreground">{clientDomain}</p>
                     </div>
                     
-                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                    <div className="text-sm font-medium text-muted-foreground">VS</div>
-                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                    <ArrowRight className="h-5 w-5 text-sidebar-muted-foreground" />
+                    <div className="text-sm font-medium text-sidebar-muted-foreground">VS</div>
+                    <ArrowRight className="h-5 w-5 text-sidebar-muted-foreground" />
                     
                     <div className="text-center">
                       <div className="w-12 h-12 bg-destructive/20 rounded-full flex items-center justify-center mb-2">
                         <span className="text-destructive font-bold">{competitors.length}</span>
                       </div>
-                      <p className="text-xs font-medium">
+                      <p className="text-xs font-medium text-sidebar-foreground">
                         {competitors.length === 1 ? competitors[0] : `${competitors.length} concorrentes`}
                       </p>
                     </div>
@@ -251,7 +251,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
 
             {/* Keywords */}
             <div className="space-y-4">
-              <Label>Palavras-chave *</Label>
+              <Label className="text-sidebar-foreground">Palavras-chave *</Label>
               
               <div className="flex gap-2">
                 <Input
@@ -259,13 +259,14 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
                   value={newKeyword}
                   onChange={(e) => setNewKeyword(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addKeyword())}
-                  className="flex-1"
+                  className="flex-1 bg-sidebar-background border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-muted-foreground focus:border-primary"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={addKeyword}
                   disabled={!newKeyword.trim()}
+                  className="border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -273,13 +274,13 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
 
               {selectedKeywords.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Palavras-chave selecionadas ({selectedKeywords.length}):</p>
+                  <p className="text-sm text-sidebar-muted-foreground">Palavras-chave selecionadas ({selectedKeywords.length}):</p>
                   <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                     {selectedKeywords.map((keyword, index) => (
                       <Badge
                         key={index}
                         variant="secondary"
-                        className="flex items-center gap-1"
+                        className="flex items-center gap-1 bg-sidebar-accent text-sidebar-accent-foreground"
                       >
                         {keyword}
                         <X
@@ -295,7 +296,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
               {/* Project Keywords Suggestions */}
               {selectedProject && selectedProject.keywords && selectedProject.keywords.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-sidebar-muted-foreground">
                     Palavras-chave do projeto:
                   </p>
                   <div className="flex flex-wrap gap-2 max-h-20 overflow-y-auto">
@@ -306,7 +307,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
                         variant="outline"
                         size="sm"
                         onClick={() => addSuggestedKeyword(keywordObj.keyword)}
-                        className="text-xs h-7"
+                        className="text-xs h-7 border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent"
                       >
                         <Plus className="h-3 w-3 mr-1" />
                         {keywordObj.keyword}
@@ -318,17 +319,17 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             </div>
 
             {/* Analysis Info */}
-            <Alert>
-              <Target className="h-4 w-4" />
-              <AlertDescription>
+            <Alert className="bg-sidebar-background border-sidebar-border">
+              <Target className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-sidebar-foreground">
                 <strong>Análise Competitiva:</strong> Compararemos o desempenho SEO do seu site com os concorrentes usando dados reais do Google. A edge function possui fallbacks automáticos caso as APIs não estejam configuradas.
               </AlertDescription>
             </Alert>
 
             {/* Requirements Check */}
             {(!clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0) && (
-              <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-                <AlertDescription className="text-blue-800 dark:text-blue-200">
+              <Alert className="border-primary/30 bg-primary/10">
+                <AlertDescription className="text-sidebar-foreground">
                   <strong>Para iniciar a análise, você precisa:</strong>
                   <ul className="mt-2 space-y-1 text-sm">
                     {!clientDomain.trim() && <li>• Informar o domínio do cliente</li>}
@@ -343,7 +344,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             <Button
               type="submit"
               disabled={!clientDomain.trim() || competitors.length === 0 || selectedKeywords.length === 0 || loading}
-              className="w-full"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
               size="lg"
             >
               {loading ? (
@@ -361,7 +362,6 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
           </form>
         </CardContent>
       </Card>
-    </div>
   );
 };
 

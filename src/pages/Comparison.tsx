@@ -43,62 +43,97 @@ const Comparison = () => {
         <link rel="canonical" href="/comparison" />
       </Helmet>
 
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
-        
-        {/* Header with navigation */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            {state === 'results' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBackToForm}
-                className="gap-2 absolute left-4"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Voltar
-              </Button>
-            )}
-            <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
-              Análise Competitiva SEO
-            </h1>
+    <div className="min-h-screen bg-sidebar-background dark">
+      <div className="flex w-full min-h-screen">
+        {/* Fixed Sidebar */}
+        <div className="fixed left-0 top-0 h-full w-64 bg-sidebar-primary border-r border-sidebar-border z-40">
+          <div className="flex flex-col h-full">
+            {/* Logo Section */}
+            <div className="p-6 border-b border-sidebar-border">
+              <h2 className="text-xl font-bold text-sidebar-foreground">ITX COMPANY</h2>
+              <p className="text-sm text-sidebar-muted-foreground mt-1">SEO Dashboard</p>
+            </div>
+            
+            {/* Navigation */}
+            <div className="flex-1 p-4 space-y-2">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-sidebar-muted-foreground uppercase tracking-wider mb-3">
+                  ANÁLISES
+                </p>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                >
+                  <Target className="mr-2 h-4 w-4" />
+                  Análise Competitiva
+                </Button>
+              </div>
+            </div>
           </div>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            {state === 'form' && "Configure sua análise competitiva com dados reais do Google"}
-            {state === 'results' && "Resultados da análise competitiva"}
-          </p>
-        </div>
-        
-        <div className="flex items-center justify-between mb-8">
-          <div></div>
-          
-          {state === 'results' && (
-            <Button
-              variant="outline"
-              onClick={handleNewAnalysis}
-              className="gap-2"
-            >
-              <Target className="h-4 w-4" />
-              Nova Análise
-            </Button>
-          )}
         </div>
 
-        {/* Direct Analysis Form */}
-        {state === 'form' && (
-          <DirectCompetitiveForm onAnalysisStarted={handleAnalysisStarted} />
-        )}
+        {/* Main Content Area */}
+        <div className="flex-1 ml-64">
+          {/* Top Navigation */}
+          <div className="bg-sidebar-primary border-b border-sidebar-border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {state === 'results' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackToForm}
+                    className="gap-2 text-sidebar-muted-foreground hover:text-sidebar-foreground"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar
+                  </Button>
+                )}
+                <h1 className="text-2xl font-semibold text-sidebar-foreground">
+                  Análise Competitiva SEO
+                </h1>
+              </div>
+              
+              {state === 'results' && (
+                <Button
+                  variant="outline"
+                  onClick={handleNewAnalysis}
+                  className="gap-2 border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent"
+                >
+                  <Target className="h-4 w-4" />
+                  Nova Análise
+                </Button>
+              )}
+            </div>
+          </div>
 
-        {/* Analysis Results */}
-        {state === 'results' && analysisId && (
-          <HookErrorBoundary>
-            <CompetitiveResultsDisplay 
-              analysisId={analysisId} 
-              onBackToForm={handleBackToForm}
-            />
-          </HookErrorBoundary>
-        )}
+          {/* Content */}
+          <div className="p-8 bg-sidebar-background">
+            <div className="max-w-4xl mx-auto">
+              <div className="mb-8">
+                <p className="text-sidebar-muted-foreground">
+                  {state === 'form' && "Configure sua análise competitiva com dados reais do Google"}
+                  {state === 'results' && "Resultados da análise competitiva"}
+                </p>
+              </div>
+
+              {/* Direct Analysis Form */}
+              {state === 'form' && (
+                <DirectCompetitiveForm onAnalysisStarted={handleAnalysisStarted} />
+              )}
+
+              {/* Analysis Results */}
+              {state === 'results' && analysisId && (
+                <HookErrorBoundary>
+                  <CompetitiveResultsDisplay 
+                    analysisId={analysisId} 
+                    onBackToForm={handleBackToForm}
+                  />
+                </HookErrorBoundary>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     </>
