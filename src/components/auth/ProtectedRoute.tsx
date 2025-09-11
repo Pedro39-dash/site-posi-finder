@@ -12,13 +12,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      // Save the attempted location for redirecting after login
-      navigate('/login', { 
-        state: { from: location.pathname },
-        replace: true 
-      });
-    }
+    // Add a small delay to prevent race conditions
+    const timeoutId = setTimeout(() => {
+      console.log('ProtectedRoute check:', { isLoading, isAuthenticated, path: location.pathname });
+      if (!isLoading && !isAuthenticated) {
+        console.log('Redirecting to login from:', location.pathname);
+        // Save the attempted location for redirecting after login
+        navigate('/login', { 
+          state: { from: location.pathname },
+          replace: true 
+        });
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [isAuthenticated, isLoading, navigate, location]);
 
   // Show loading spinner while checking authentication
