@@ -1,17 +1,15 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Settings } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const getPageTitle = (pathname: string) => {
   const routes = {
     '/': 'Dashboard',
-    '/audit': 'Auditoria do Site',
     '/comparison': 'Análise de Concorrentes',
     '/monitoring': 'Monitoramento',
-    '/rankings': 'Rankings',
     '/projects': 'Projetos',
     '/profile': 'Perfil',
     '/help': 'Ajuda'
@@ -34,12 +32,12 @@ export function TopBar({ onCreateProject }: TopBarProps) {
       <div className="flex h-16 items-center justify-between px-6">
         {/* Left Section */}
         <div className="flex items-center gap-4">
-          <SidebarTrigger />
           <h1 className="text-xl font-semibold tracking-tight">{pageTitle}</h1>
         </div>
 
-        {/* Right Section - Only User Profile */}
-        <div className="flex items-center">
+        {/* Right Section - User Profile */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -61,8 +59,12 @@ export function TopBar({ onCreateProject }: TopBarProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem>Perfil</DropdownMenuItem>
-                <DropdownMenuItem>Configurações</DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configurações
+                </DropdownMenuItem>
                 <DropdownMenuItem>Ajuda</DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-destructive">
                   Sair
                 </DropdownMenuItem>

@@ -18,11 +18,9 @@ import { ProjectModal } from "@/components/projects/ProjectModal";
 import { useProject } from "@/hooks/useProject";
 import Index from "./pages/Index";
 import Projects from "./pages/Projects";
-import Rankings from "./pages/Rankings";
 import Comparison from "./pages/Comparison";
 import Monitoring from "./pages/Monitoring";
 import AutoMonitoring from "./pages/AutoMonitoring";
-import Audit from "./pages/Audit";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -59,18 +57,18 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <SidebarProvider defaultOpen={typeof window !== 'undefined' && window.innerWidth >= 1280}>
-      <div className="min-h-screen flex w-full">
+    <div className="min-h-screen w-full">
+      {/* Top bar spanning 100% width */}
+      <TopBar onCreateProject={handleCreateProject} />
+      
+      {/* Content area with fixed sidebar */}
+      <div className="flex w-full">
         <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <TopBar onCreateProject={handleCreateProject} />
-          <main className="flex-1 overflow-auto">
-            <div className="container mx-auto p-6">
-              {children}
-            </div>
-          </main>
-        </div>
+        <main className="flex-1">
+          {children}
+        </main>
       </div>
+    </div>
       
       {/* Modals */}
       <OnboardingFlow 
@@ -113,13 +111,6 @@ const App = () => (
                       </AppLayout>
                     </ProtectedRoute>
                   } />
-                  <Route path="/rankings" element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <Rankings />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  } />
                   <Route path="/comparison" element={
                     <ProtectedRoute>
                       <AppLayout>
@@ -131,13 +122,6 @@ const App = () => (
                     <ProtectedRoute>
                       <AppLayout>
                         <Monitoring />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/audit" element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <Audit />
                       </AppLayout>
                     </ProtectedRoute>
                   } />
