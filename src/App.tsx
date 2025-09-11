@@ -57,19 +57,20 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="min-h-screen w-full">
-      {/* Top bar spanning 100% width */}
-      <TopBar onCreateProject={handleCreateProject} />
-      
-      {/* Content area with fixed sidebar */}
-      <div className="flex w-full">
-        <AppSidebar />
-        <main className="flex-1">
-          {children}
-        </main>
+    <SidebarProvider>
+      <div className="min-h-screen w-full">
+        {/* Top bar spanning 100% width */}
+        <TopBar onCreateProject={handleCreateProject} />
+        
+        {/* Content area with fixed sidebar */}
+        <div className="flex w-full">
+          <AppSidebar />
+          <main className="flex-1">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
-      
+        
       {/* Modals */}
       <OnboardingFlow 
         open={showOnboarding} 
