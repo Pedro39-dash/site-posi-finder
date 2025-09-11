@@ -1,4 +1,4 @@
-import { TrendingUp, Home, Zap, HelpCircle, BarChart3 } from "lucide-react";
+import { TrendingUp, Home, Zap, HelpCircle, BarChart } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
 import { useProject } from "@/hooks/useProject";
@@ -40,7 +40,7 @@ const getNavigationItems = (isAdmin: boolean, isClient: boolean) => ({
     {
       title: "Monitoramento",
       path: "/monitoring",
-      icon: BarChart3,
+      icon: BarChart,
     },
     // Show Projects only for clients
     ...(isClient ? [{
