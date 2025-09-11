@@ -12,10 +12,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    // Add a small delay to prevent race conditions
+    // Add a longer delay to prevent race conditions during auth initialization
     const timeoutId = setTimeout(() => {
       console.log('ProtectedRoute check:', { isLoading, isAuthenticated, path: location.pathname });
-      if (!isLoading && !isAuthenticated) {
+      
+      // Only redirect if we're sure auth has been checked and user is not authenticated
+      if (!isLoading && !isAuthenticated && location.pathname !== '/login') {
         console.log('Redirecting to login from:', location.pathname);
         // Save the attempted location for redirecting after login
         navigate('/login', { 
@@ -23,7 +25,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           replace: true 
         });
       }
-    }, 100);
+    }, 500); // Increased delay to 500ms
 
     return () => clearTimeout(timeoutId);
   }, [isAuthenticated, isLoading, navigate, location]);

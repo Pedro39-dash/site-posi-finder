@@ -7,18 +7,23 @@ import { useMemo, useRef } from 'react';
 export const useDeepMemo = <T>(factory: () => T, deps: any[]): T => {
   const prevDepsRef = useRef<any[]>([]);
   const prevResultRef = useRef<T>();
+  const isFirstRun = useRef(true);
 
-  // Deep compare dependencies
-  const depsChanged = useMemo(() => {
-    if (prevDepsRef.current.length !== deps.length) return true;
-    
-    return deps.some((dep, index) => {
-      const prevDep = prevDepsRef.current[index];
-      return !deepEqual(dep, prevDep);
-    });
-  }, deps);
+  // Simple dependencies check without nested useMemo
+  if (isFirstRun.current || prevDepsRef.current.length !== deps.length) {
+    isFirstRun.current = false;
+    prevDepsRef.current = deps;
+    prevResultRef.current = factory();
+    return prevResultRef.current as T;
+  }
 
-  if (depsChanged || prevResultRef.current === undefined) {
+  // Check if any dependency changed
+  const depsChanged = deps.some((dep, index) => {
+    const prevDep = prevDepsRef.current[index];
+    return !deepEqual(dep, prevDep);
+  });
+
+  if (depsChanged) {
     prevDepsRef.current = deps;
     prevResultRef.current = factory();
   }

@@ -34,28 +34,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     let isMounted = true;
+    let sessionChecked = false;
 
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
-        if (isMounted) {
+    // Get initial session FIRST - only once
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Initial session check:', session?.user?.id);
+        
+        if (isMounted && !sessionChecked) {
+          sessionChecked = true;
           setSession(session);
           setUser(session?.user ?? null);
           setIsLoading(false);
         }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (isMounted && !sessionChecked) {
+          sessionChecked = true;
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // Set up auth state listener AFTER initial check
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
+        if (isMounted && sessionChecked) {
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.id);
-      if (isMounted) {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-      }
-    });
+    initializeAuth();
 
     return () => {
       isMounted = false;

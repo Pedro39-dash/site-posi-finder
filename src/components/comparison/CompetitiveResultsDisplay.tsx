@@ -34,7 +34,7 @@ import { useOptimizedFilters } from './OptimizedFilterReducer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { HookErrorBoundary } from './HookErrorBoundary';
 import { KeywordRow, PositionBadge, DifficultyBadge } from './OptimizedComponents';
-import { useDeepMemo, usePrimitiveMemo } from '@/hooks/useDeepMemo';
+// Removed useDeepMemo import to avoid hook instability
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;

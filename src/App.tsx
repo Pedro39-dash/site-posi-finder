@@ -10,6 +10,7 @@ import { MonitoringProvider } from "@/contexts/MonitoringContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
@@ -89,64 +90,66 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <HelmetProvider>
       <ThemeProvider defaultTheme="dark">
-        <AuthProvider>
-          <ProjectProvider>
-            <MonitoringProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/" element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <Index />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/projects" element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <Projects />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/comparison" element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <Comparison />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/monitoring" element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <Monitoring />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/auto-monitoring" element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <AutoMonitoring />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  } />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={
-                    <ProtectedRoute>
-                      <AppLayout>
-                        <NotFound />
-                      </AppLayout>
-                    </ProtectedRoute>
-                  } />
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </MonitoringProvider>
-          </ProjectProvider>
-        </AuthProvider>
+        <AuthErrorBoundary>
+          <AuthProvider>
+            <ProjectProvider>
+              <MonitoringProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/" element={
+                      <ProtectedRoute>
+                        <AppLayout>
+                          <Index />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/projects" element={
+                      <ProtectedRoute>
+                        <AppLayout>
+                          <Projects />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/comparison" element={
+                      <ProtectedRoute>
+                        <AppLayout>
+                          <Comparison />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/monitoring" element={
+                      <ProtectedRoute>
+                        <AppLayout>
+                          <Monitoring />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/auto-monitoring" element={
+                      <ProtectedRoute>
+                        <AppLayout>
+                          <AutoMonitoring />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={
+                      <ProtectedRoute>
+                        <AppLayout>
+                          <NotFound />
+                        </AppLayout>
+                      </ProtectedRoute>
+                    } />
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </MonitoringProvider>
+            </ProjectProvider>
+          </AuthProvider>
+        </AuthErrorBoundary>
       </ThemeProvider>
     </HelmetProvider>
   </QueryClientProvider>
