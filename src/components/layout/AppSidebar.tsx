@@ -1,7 +1,7 @@
-import { BarChart3, TrendingUp, Home, Zap, HelpCircle } from "lucide-react";
+import { TrendingUp, Home, Zap, HelpCircle, BarChart3 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
-import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { useProject } from "@/hooks/useProject";
 import {
   Sidebar,
   SidebarContent,
@@ -54,6 +54,7 @@ const getNavigationItems = (isAdmin: boolean, isClient: boolean) => ({
 export function AppSidebar() {
   const location = useLocation();
   const { isAdmin, isClient, isLoading: roleLoading } = useRole();
+  const { activeProject } = useProject();
   
   const navSections = getNavigationItems(isAdmin, isClient);
 
@@ -74,20 +75,21 @@ export function AppSidebar() {
 
   return (
     <Sidebar 
-      className="w-72 border-r"
+      className="w-72 border-r h-full"
       collapsible="none"
     >
       <SidebarHeader className="border-b px-4 py-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <BarChart3 className="h-6 w-6 text-primary-foreground" />
+        {activeProject ? (
+          <div className="flex flex-col space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">{activeProject.name}</h2>
+            <p className="text-sm text-muted-foreground">{activeProject.domain}</p>
           </div>
-          <div className="flex flex-col">
-            <h2 className="text-lg font-semibold tracking-tight">SEO Tools</h2>
-            <p className="text-xs text-muted-foreground">Análise completa</p>
+        ) : (
+          <div className="flex flex-col space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">Nenhum Projeto</h2>
+            <p className="text-sm text-muted-foreground">Selecione um projeto</p>
           </div>
-        </div>
-        <NotificationCenter />
+        )}
       </SidebarHeader>
 
       <SidebarContent className="px-3 py-4">

@@ -28,8 +28,8 @@ export function TopBar({ onCreateProject }: TopBarProps) {
   const pageTitle = getPageTitle(location.pathname);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center justify-between px-6">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" style={{ height: 'var(--topbar-height)' }}>
+      <div className="flex items-center justify-between px-6" style={{ height: 'var(--topbar-height)' }}>
         {/* Left Section */}
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-semibold tracking-tight">{pageTitle}</h1>

@@ -58,14 +58,14 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen w-full">
+      <div className="min-h-screen w-full flex flex-col">
         {/* Top bar spanning 100% width */}
         <TopBar onCreateProject={handleCreateProject} />
         
-        {/* Content area with fixed sidebar */}
-        <div className="flex w-full">
+        {/* Content area with fixed sidebar - remaining height */}
+        <div className="flex w-full" style={{ height: 'calc(100vh - var(--topbar-height))' }}>
           <AppSidebar />
-          <main className="flex-1">
+          <main className="flex-1 overflow-auto">
             {children}
           </main>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,13 @@ interface DirectCompetitiveFormProps {
 
 const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps) => {
   const { activeProject } = useProject();
+  
+  // Track if user has manually entered data
+  const hasUserInputRef = useRef({
+    domain: false,
+    competitors: false,
+    keywords: false
+  });
   
   // Form data
   const [clientDomain, setClientDomain] = useState<string>("");
@@ -38,14 +45,20 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
 
   useEffect(() => {
     if (activeProject) {
-      setClientDomain(activeProject.domain || '');
-      // Auto-load project keywords
-      const projectKeywords = activeProject.focus_keywords || [];
-      setSelectedKeywords(projectKeywords.slice(0, 5)); // Limit to 5
+      // Only auto-fill if user hasn't manually entered data
+      if (!hasUserInputRef.current.domain) {
+        setClientDomain(activeProject.domain || '');
+      }
       
-      // Auto-load project competitors  
-      const projectCompetitors = activeProject.competitor_domains || [];
-      setCompetitors(projectCompetitors.slice(0, 5)); // Limit to 5
+      if (!hasUserInputRef.current.keywords) {
+        const projectKeywords = activeProject.focus_keywords || [];
+        setSelectedKeywords(projectKeywords.slice(0, 5)); // Limit to 5
+      }
+      
+      if (!hasUserInputRef.current.competitors) {
+        const projectCompetitors = activeProject.competitor_domains || [];
+        setCompetitors(projectCompetitors.slice(0, 5)); // Limit to 5
+      }
     }
   }, [activeProject]);
 
@@ -53,6 +66,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     if (competitorInput.trim() && !competitors.includes(competitorInput.trim()) && competitors.length < 5) {
       const cleanedCompetitor = competitorInput.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
       if (cleanedCompetitor !== clientDomain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]) {
+        hasUserInputRef.current.competitors = true;
         setCompetitors([...competitors, cleanedCompetitor]);
         setCompetitorInput("");
       } else {
@@ -66,12 +80,14 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
   };
 
   const removeCompetitor = (index: number) => {
+    hasUserInputRef.current.competitors = true;
     setCompetitors(competitors.filter((_, i) => i !== index));
   };
 
   const addKeyword = (keyword?: string) => {
     const keywordToAdd = keyword || keywordInput.trim();
     if (keywordToAdd && !selectedKeywords.includes(keywordToAdd) && selectedKeywords.length < 5) {
+      hasUserInputRef.current.keywords = true;
       setSelectedKeywords(prev => [...prev, keywordToAdd]);
       if (!keyword) {
         setKeywordInput('');
@@ -81,6 +97,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
   };
 
   const removeKeyword = (index: number) => {
+    hasUserInputRef.current.keywords = true;
     setSelectedKeywords(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -172,7 +189,10 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
           type="text"
           placeholder="exemplo.com"
           value={clientDomain}
-          onChange={(e) => setClientDomain(e.target.value)}
+          onChange={(e) => {
+            hasUserInputRef.current.domain = true;
+            setClientDomain(e.target.value);
+          }}
           className={errors.clientDomain ? "border-red-500" : ""}
         />
         {errors.clientDomain && (
@@ -193,7 +213,10 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             type="text"
             placeholder="concorrente.com"
             value={competitorInput}
-            onChange={(e) => setCompetitorInput(e.target.value)}
+            onChange={(e) => {
+              hasUserInputRef.current.competitors = true;
+              setCompetitorInput(e.target.value);
+            }}
             onKeyPress={(e) => e.key === 'Enter' && addCompetitor()}
             className="flex-1"
           />
@@ -266,6 +289,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             placeholder="Digite uma palavra-chave..."
             value={keywordInput}
             onChange={(e) => {
+              hasUserInputRef.current.keywords = true;
               setKeywordInput(e.target.value);
               setCurrentKeywordInput(e.target.value);
             }}
