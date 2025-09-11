@@ -144,27 +144,7 @@ const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo((
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      {/* Position Distribution */}
-      <ErrorBoundary>
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribuição de Posições</CardTitle>
-            <CardDescription>
-              Como suas palavras-chave estão distribuídas nos resultados de busca
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StableBarChart
-              data={chartData.positionDistribution}
-              dataKey="count"
-              xAxisKey="range"
-              height={300}
-            />
-          </CardContent>
-        </Card>
-      </ErrorBoundary>
-
+    <div className="space-y-6">
       {/* Share of Voice */}
       <ErrorBoundary>
         <Card>
@@ -185,34 +165,13 @@ const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo((
         </Card>
       </ErrorBoundary>
 
-      {/* Competitor Comparison */}
-      <ErrorBoundary>
-        <Card>
-          <CardHeader>
-            <CardTitle>Comparação de Concorrentes</CardTitle>
-            <CardDescription>
-              Posição média dos principais concorrentes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StableBarChart
-              data={chartData.competitorComparison}
-              dataKey="avgPosition"
-              xAxisKey="domain"
-              height={300}
-              color="hsl(var(--secondary))"
-            />
-          </CardContent>
-        </Card>
-      </ErrorBoundary>
-
       {/* Opportunity Trend */}
       <ErrorBoundary>
         <Card>
           <CardHeader>
-            <CardTitle>Tendência de Oportunidades</CardTitle>
+            <CardTitle>Tendência de Posições</CardTitle>
             <CardDescription>
-              Evolução das oportunidades de ranking nos últimos 30 dias
+              Evolução das posições nos últimos 30 dias
             </CardDescription>
           </CardHeader>
           <CardContent>

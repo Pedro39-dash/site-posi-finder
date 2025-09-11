@@ -11,8 +11,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Eye, RotateCcw, ArrowLeft, Filter, Download, Bell, Target, TrendingUp, 
-  Users, Trophy, Settings, AlertTriangle, RefreshCw, BarChart3, 
-  ChevronLeft, ChevronRight 
+  Users, Trophy, Settings, AlertTriangle, RefreshCw, BarChart, 
+  ChevronLeft, ChevronRight, MapPin, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from '@/services/competitorAnalysisService';
@@ -20,7 +20,9 @@ import KeywordDetailModal from './KeywordDetailModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import EnhancedProgressTracker from './EnhancedProgressTracker';
 import CompetitiveVisualization from './CompetitiveVisualization';
-import PositionTrendChart from './PositionTrendChart';
+import TrafficChart from './TrafficChart';
+import CompetitorTable from './CompetitorTable';
+import StrategicOpportunities from './StrategicOpportunities';
 
 import ProductivityFeatures from './ProductivityFeatures';
 import IntelligentNotifications from './IntelligentNotifications';
@@ -280,79 +282,92 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     );
   }
 
+  // Get all domains for the header
+  const allDomains = useMemo(() => {
+    const domains = [analysisData.analysis.target_domain];
+    analysisData.competitors.forEach(comp => {
+      if (!domains.includes(comp.domain)) {
+        domains.push(comp.domain);
+      }
+    });
+    return domains;
+  }, [analysisData.analysis.target_domain, analysisData.competitors]);
+
   return (
     <HookErrorBoundary>
       <TooltipProvider>
         <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={onBackToForm}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-              <h1 className="text-2xl font-bold">Análise Competitiva</h1>
+          {/* New Header Design */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={onBackToForm}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">Rastreamento dos concorrentes</h1>
+                  <p className="text-sm text-muted-foreground">Análise competitiva em tempo real</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Brasil
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Últimos 30 dias
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
+            
+            {/* Domain Badges */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground">Domínios analisados:</span>
+              {allDomains.map((domain, index) => (
+                <Badge 
+                  key={domain} 
+                  variant={index === 0 ? "default" : "secondary"}
+                  className="flex items-center gap-2"
+                >
+                  <div 
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: index === 0 ? '#8884d8' : ['#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][index - 1] || '#d084d0' }}
+                  />
+                  {domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}
+                  {index === 0 && <span className="text-xs">(principal)</span>}
+                </Badge>
+              ))}
             </div>
           </div>
 
-        {/* Métricas Executivas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <Target className="h-8 w-8 text-primary" />
-                <div>
-                  <p className="text-sm text-muted-foreground">1ª Página</p>
-                  <p className="text-2xl font-bold">{getMetrics.firstPageKeywords}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-8 w-8 text-orange-500" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Oportunidades</p>
-                  <p className="text-2xl font-bold">{getMetrics.opportunities}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-8 w-8 text-blue-500" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Posição Média</p>
-                  <p className="text-2xl font-bold">{getMetrics.avgPosition}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <Users className="h-8 w-8 text-green-500" />
-                <div>
-                  <p className="text-sm text-muted-foregreen">Concorrentes</p>
-                  <p className="text-2xl font-bold">{analysisData.competitors.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Traffic Chart */}
+          <TrafficChart 
+            domains={allDomains}
+            targetDomain={analysisData.analysis.target_domain}
+          />
 
-        {/* Visualizações */}
-        <ErrorBoundary>
-          <CompetitiveVisualization analysisData={analysisData} />
-        </ErrorBoundary>
+          {/* Competitor Table */}
+          <CompetitorTable 
+            competitors={analysisData.competitors}
+            keywords={analysisData.keywords}
+            targetDomain={analysisData.analysis.target_domain}
+          />
+
+          {/* Two Column Layout for Visualizations */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ErrorBoundary>
+              <CompetitiveVisualization analysisData={analysisData} />
+            </ErrorBoundary>
+            
+            <div className="space-y-6">
+              <StrategicOpportunities 
+                keywords={analysisData.keywords}
+                targetDomain={analysisData.analysis.target_domain}
+              />
+            </div>
+          </div>
 
         {/* Filtros e Tabela */}
         <Card>
