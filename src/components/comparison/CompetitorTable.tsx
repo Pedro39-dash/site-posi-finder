@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, Download, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Download, ExternalLink, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
+import { generateBacklinkEstimate, calculateTrafficEstimate, formatDomainDisplay } from '@/utils/domainEstimation';
 
 interface CompetitorTableProps {
   competitors: CompetitorDomain[];
@@ -21,63 +23,58 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  // Calculate metrics for each competitor
-  const competitorMetrics = competitors.map(competitor => {
-    const cleanDomain = competitor.domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
-    
-    // Find keywords where this competitor appears
-    const competitorKeywords = keywords.filter(keyword => 
-      keyword.competitor_positions?.some(pos => 
-        pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
-      )
-    );
-    
-    // Count common keywords (where both target and competitor appear)
-    const commonKeywords = competitorKeywords.filter(keyword => 
-      keyword.target_domain_position && keyword.target_domain_position > 0
-    ).length;
-    
-    // Count different keywords (where only competitor appears)
-    const differentKeywords = competitorKeywords.filter(keyword => 
-      !keyword.target_domain_position || keyword.target_domain_position === 0
-    ).length;
-    
-    // Estimate traffic based on keywords and positions
-    const estimatedTraffic = competitorKeywords.reduce((total, keyword) => {
-      const position = keyword.competitor_positions?.find(pos => 
-        pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
-      )?.position || 100;
+  // Calculate metrics for each competitor - memoized for stability
+  const competitorMetrics = useMemo(() => {
+    return competitors.map(competitor => {
+      const cleanDomain = competitor.domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
       
-      const searchVolume = keyword.search_volume || 0;
-      const ctr = position <= 3 ? 0.3 : position <= 10 ? 0.15 : 0.05;
-      return total + (searchVolume * ctr);
-    }, 0);
-    
-    // Simulate backlinks data
-    const estimatedBacklinks = Math.floor(Math.random() * 50000) + 10000;
+      // Find keywords where this competitor appears
+      const competitorKeywords = keywords.filter(keyword => 
+        keyword.competitor_positions?.some(pos => 
+          pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
+        )
+      );
+      
+      // Count common keywords (where both target and competitor appear)
+      const commonKeywords = competitorKeywords.filter(keyword => 
+        keyword.target_domain_position && keyword.target_domain_position > 0
+      ).length;
+      
+      // Count different keywords (where only competitor appears)
+      const differentKeywords = competitorKeywords.filter(keyword => 
+        !keyword.target_domain_position || keyword.target_domain_position === 0
+      ).length;
+      
+      // Calculate stable traffic estimate
+      const estimatedTraffic = Math.round(calculateTrafficEstimate(competitorKeywords, cleanDomain, false));
+      
+      // Generate stable backlinks estimate based on domain
+      const estimatedBacklinks = generateBacklinkEstimate(cleanDomain, false);
+      
+      return {
+        domain: cleanDomain,
+        originalDomain: competitor.domain,
+        commonKeywords,
+        differentKeywords,
+        estimatedTraffic,
+        estimatedBacklinks
+      };
+    });
+  }, [competitors, keywords]);
+
+  // Add target domain to the table - memoized for stability
+  const targetMetrics = useMemo(() => {
+    const cleanTargetDomain = targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
     
     return {
-      domain: cleanDomain,
-      commonKeywords,
-      differentKeywords,
-      estimatedTraffic: Math.round(estimatedTraffic),
-      estimatedBacklinks
+      domain: cleanTargetDomain,
+      originalDomain: targetDomain,
+      commonKeywords: keywords.filter(k => k.target_domain_position && k.target_domain_position > 0).length,
+      differentKeywords: 0, // Target domain doesn't have "different" keywords from itself
+      estimatedTraffic: Math.round(calculateTrafficEstimate(keywords, cleanTargetDomain, true)),
+      estimatedBacklinks: generateBacklinkEstimate(cleanTargetDomain, true)
     };
-  });
-
-  // Add target domain to the table
-  const targetMetrics = {
-    domain: targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, ''),
-    commonKeywords: keywords.filter(k => k.target_domain_position && k.target_domain_position > 0).length,
-    differentKeywords: 0, // Target domain doesn't have "different" keywords from itself
-    estimatedTraffic: keywords.reduce((total, keyword) => {
-      const position = keyword.target_domain_position || 100;
-      const searchVolume = keyword.search_volume || 0;
-      const ctr = position <= 3 ? 0.3 : position <= 10 ? 0.15 : 0.05;
-      return total + (searchVolume * ctr);
-    }, 0),
-    estimatedBacklinks: Math.floor(Math.random() * 75000) + 25000
-  };
+  }, [targetDomain, keywords]);
 
   const allMetrics = [targetMetrics, ...competitorMetrics];
 
@@ -104,22 +101,39 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Concorrentes Rastreados</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Concorrente
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
-            </Button>
+    <TooltipProvider>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle>Concorrentes Rastreados</CardTitle>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="max-w-xs">
+                    <p className="font-medium mb-1">Análise por URL Específica</p>
+                    <p className="text-xs">
+                      Esta análise compara URLs específicas, não sites inteiros. 
+                      Os dados mostram métricas estimadas baseadas nas páginas encontradas durante a pesquisa.
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Concorrente
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
       <CardContent>
         <div className="rounded-md border">
           <Table>
@@ -144,7 +158,26 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                           className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: globalIndex === 0 ? '#8884d8' : ['#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][globalIndex - 1] || '#d084d0' }}
                         />
-                        <span className="font-medium">{metrics.domain}</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-medium cursor-help hover:text-primary">
+                              {formatDomainDisplay(metrics.domain).display}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-xs">
+                              <p className="font-medium">URL Analisada:</p>
+                              <p className="text-muted-foreground break-all">
+                                {formatDomainDisplay(metrics.originalDomain || metrics.domain).fullUrl}
+                              </p>
+                              {formatDomainDisplay(metrics.domain).isPage && (
+                                <p className="text-orange-500 mt-1">
+                                  ⚠️ Página específica analisada
+                                </p>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                         {globalIndex === 0 && (
                           <Badge variant="secondary" className="ml-2">
                             Seu Site
@@ -168,9 +201,22 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className="font-mono text-sm">
-                        {metrics.estimatedBacklinks.toLocaleString()}
-                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="font-mono text-sm cursor-help hover:text-primary">
+                            {metrics.estimatedBacklinks.toLocaleString()}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-xs">
+                            <p className="font-medium">Estimativa de Backlinks</p>
+                            <p className="text-muted-foreground">
+                              Baseado na autoridade e características do domínio.
+                              Valores são estimativas algorítmicas.
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
                     <TableCell className="text-center">
                       <Button variant="ghost" size="sm">
@@ -236,6 +282,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         )}
       </CardContent>
     </Card>
+    </TooltipProvider>
   );
 };
 
