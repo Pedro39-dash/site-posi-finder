@@ -76,7 +76,7 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold mb-4">Oportunidades Estratégicas</h3>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         {opportunities.map((opportunity) => {
           const Icon = opportunity.icon;
           return (

@@ -354,27 +354,30 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
 
             {/* Unified Competitor Analysis Block */}
             <div className="space-y-6">
+              {/* Position Variation Chart - moved before table */}
+              <PositionVariationChart 
+                domains={allDomains}
+                selectedDomains={selectedDomains}
+                targetDomain={analysisData?.analysis?.target_domain || ''}
+              />
+
               {/* Competitor Table */}
               <CompetitorTable 
                 competitors={analysisData?.competitors || []}
                 keywords={analysisData?.keywords || []}
                 targetDomain={analysisData?.analysis?.target_domain || ''}
               />
-
-              {/* Position Variation Chart */}
-              <PositionVariationChart 
-                domains={allDomains}
-                selectedDomains={selectedDomains}
-                targetDomain={analysisData?.analysis?.target_domain || ''}
-              />
             </div>
 
-            {/* Two Column Layout for Share of Voice and Strategic Opportunities */}
-            <div className="grid gap-8 lg:grid-cols-2">
+            {/* Share of Voice Block - 100% width */}
+            <div className="w-full">
               <ErrorBoundary>
                 <CompetitiveVisualization analysisData={analysisData} />
               </ErrorBoundary>
-              
+            </div>
+
+            {/* Strategic Opportunities Block */}
+            <div className="w-full">
               <ErrorBoundary>
                 <StrategicOpportunities 
                   keywords={analysisData?.keywords || []}

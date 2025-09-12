@@ -87,7 +87,7 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
           </div>
 
           {/* Domain selection grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             {domains.map((domain, index) => {
               const isSelected = selectedDomains.includes(domain);
               const isTarget = domain === targetDomain;

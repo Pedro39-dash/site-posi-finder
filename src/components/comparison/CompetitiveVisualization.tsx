@@ -151,25 +151,6 @@ const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo((
         <ShareOfVoiceChart data={chartData.shareOfVoiceData} />
       </ErrorBoundary>
 
-      {/* Opportunity Trend */}
-      <ErrorBoundary>
-        <Card>
-          <CardHeader>
-            <CardTitle>Tendência de Oportunidades</CardTitle>
-            <CardDescription>
-              Evolução das oportunidades nos últimos 30 dias
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StableAreaChart
-              data={chartData.opportunityTrend}
-              dataKey="opportunities"
-              xAxisKey="date"
-              height={300}
-            />
-          </CardContent>
-        </Card>
-      </ErrorBoundary>
     </div>
   );
 });
