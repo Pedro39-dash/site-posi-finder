@@ -348,6 +348,38 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 </div>
               </div>
               
+              {/* Analysis Summary Card - Moved here from CompetitorTable */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4">
+                  <h4 className="font-medium mb-3 text-sm">Resumo da Análise</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">URL Analisada</p>
+                      <p className="font-medium break-all">{analysisData?.analysis?.target_domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Posição Média</p>
+                      <p className="font-medium">
+                        {(() => {
+                          const positionsWithValues = (analysisData?.keywords || []).filter(k => k.target_domain_position && k.target_domain_position > 0);
+                          if (positionsWithValues.length === 0) return 'N/A';
+                          const avg = Math.round(positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length);
+                          return `${avg}º`;
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Palavras-chave</p>
+                      <p className="font-medium">{analysisData?.keywords?.length || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Concorrentes Encontrados</p>
+                      <p className="font-medium">{analysisData?.competitors?.length || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
               {/* Domain Selection Panel */}
               {allDomains.length > 0 && (
                 <GraphSelectionPanel

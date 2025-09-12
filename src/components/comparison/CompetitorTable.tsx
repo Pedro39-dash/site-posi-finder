@@ -48,8 +48,19 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
       // Calculate stable traffic estimate
       const estimatedTraffic = Math.round(calculateTrafficEstimate(competitorKeywords, cleanDomain, false));
       
-      // Generate stable backlinks estimate based on domain
-      const estimatedBacklinks = generateBacklinkEstimate(cleanDomain, false);
+      // Calculate average position for this competitor
+      const competitorPositions = keywords
+        .map(keyword => {
+          const position = keyword.competitor_positions?.find(pos => 
+            pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
+          );
+          return position?.position;
+        })
+        .filter((pos): pos is number => pos !== undefined && pos > 0);
+      
+      const averagePosition = competitorPositions.length > 0 
+        ? Math.round(competitorPositions.reduce((sum, pos) => sum + pos, 0) / competitorPositions.length)
+        : null;
       
       return {
         domain: cleanDomain,
@@ -57,7 +68,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         commonKeywords,
         differentKeywords,
         estimatedTraffic,
-        estimatedBacklinks,
+        averagePosition,
         detectedAutomatically: competitor.detected_automatically
       };
     });
@@ -144,28 +155,6 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
           </div>
         </CardHeader>
       <CardContent>
-        {/* Analysis Summary Card */}
-        <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
-          <h4 className="font-medium mb-3 text-sm">Resumo da Análise</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">URL Analisada</p>
-              <p className="font-medium break-all">{formatDomainDisplay(targetDomain).display}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Posição Média</p>
-              <p className="font-medium">{averagePosition > 0 ? `${averagePosition}º` : 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Palavras-chave</p>
-              <p className="font-medium">{keywords.length}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Concorrentes Encontrados</p>
-              <p className="font-medium">{competitors.length}</p>
-            </div>
-          </div>
-        </div>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -174,7 +163,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                 <TableHead className="text-center">Palavras-chave Comuns</TableHead>
                 <TableHead className="text-center">Diferentes</TableHead>
                 <TableHead className="text-center">Tráfego Est.</TableHead>
-                <TableHead className="text-center">Backlinks Est.</TableHead>
+                <TableHead className="text-center">Posição Média</TableHead>
                 <TableHead className="text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -210,7 +199,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                           </TooltipContent>
                         </Tooltip>
                         {!metrics.detectedAutomatically && (
-                          <Badge variant="outline" className="ml-2 text-xs border-primary text-primary">
+                          <Badge variant="outline" className="ml-2 text-xs border-primary text-primary whitespace-nowrap">
                             Concorrente Mencionado
                           </Badge>
                         )}
@@ -232,22 +221,9 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="font-mono text-sm cursor-help hover:text-primary">
-                            {metrics.estimatedBacklinks.toLocaleString()}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="text-xs">
-                            <p className="font-medium">Estimativa de Backlinks</p>
-                            <p className="text-muted-foreground">
-                              Baseado na autoridade e características do domínio.
-                              Valores são estimativas algorítmicas.
-                            </p>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
+                      <span className="font-mono text-sm">
+                        {metrics.averagePosition ? `${metrics.averagePosition}º` : 'N/A'}
+                      </span>
                     </TableCell>
                     <TableCell className="text-center">
                       <Button variant="ghost" size="sm">

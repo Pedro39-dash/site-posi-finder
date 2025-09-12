@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Target, Star } from 'lucide-react';
 
 interface GraphSelectionPanelProps {
   domains: string[];
@@ -101,10 +101,12 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
               return (
                 <div
                   key={domain}
-                  className={`flex items-center space-x-2 p-2 rounded-md border transition-colors ${
-                    isSelected ? 'bg-accent/50 border-accent' : 'hover:bg-accent/20'
+                  className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${
+                    isSelected ? 'bg-accent/50' : 'hover:bg-accent/20'
                   } ${!canToggle && !isSelected ? 'opacity-50' : ''} ${
-                    isMentioned ? 'border-primary/30 bg-primary/5' : ''
+                    isTarget ? 'border-2 border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20' : 
+                    isMentioned ? 'border-2 border-green-500/50 bg-green-50/50 dark:bg-green-950/20' : 
+                    'border border-border'
                   }`}
                 >
                   <Checkbox
@@ -118,6 +120,12 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
                       className="w-3 h-3 rounded-full flex-shrink-0"
                       style={{ backgroundColor: colors[index % colors.length] }}
                     />
+                    {isTarget && (
+                      <Target className="w-3 h-3 text-blue-600 flex-shrink-0" />
+                    )}
+                    {isMentioned && !isTarget && (
+                      <Star className="w-3 h-3 text-green-600 flex-shrink-0" />
+                    )}
                     <label 
                       htmlFor={`domain-${index}`}
                       className="text-sm font-medium truncate cursor-pointer flex-1"
@@ -125,16 +133,6 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
                     >
                       {cleanDomain}
                     </label>
-                    {isTarget && (
-                      <Badge variant="outline" className="text-xs px-1 py-0">
-                        Principal
-                      </Badge>
-                    )}
-                    {isMentioned && !isTarget && (
-                      <Badge variant="outline" className="text-xs px-1 py-0 border-primary text-primary">
-                        Mencionado
-                      </Badge>
-                    )}
                   </div>
                 </div>
               );
