@@ -159,7 +159,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   const filteredKeywords = filteredAndSortedKeywords;
 
   // Handler para reverificar palavra-chave - memoized with stable dependencies
-  const targetDomain = useMemo(() => analysisData?.analysis.target_domain || '', [analysisData?.analysis.target_domain]);
+  const targetDomain = useMemo(() => analysisData?.analysis?.target_domain || '', [analysisData?.analysis?.target_domain]);
   
   const handleReverifyKeyword = useCallback(async (keyword: CompetitorKeyword) => {
     setReverifyingKeywords(prev => [...prev, keyword.keyword]);
@@ -180,15 +180,17 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
   }, [analysisId, targetDomain, refresh]);
 
-  // Calcular métricas
+  // Calcular métricas - null-safe
   const getMetrics = useMemo(() => {
-    if (!analysisData?.keywords) return { firstPageKeywords: 0, opportunities: 0, avgPosition: '0.0', competitorGaps: 0 };
+    if (!analysisData?.keywords || !Array.isArray(analysisData.keywords) || analysisData.keywords.length === 0) {
+      return { firstPageKeywords: 0, opportunities: 0, avgPosition: '0.0', competitorGaps: 0 };
+    }
     
     const keywords = analysisData.keywords;
-    const firstPageKeywords = keywords.filter(k => k.target_domain_position && k.target_domain_position <= 10).length;
-    const opportunities = keywords.filter(k => !k.target_domain_position || k.target_domain_position > 10).length;
-    const avgPosition = keywords.reduce((sum, k) => sum + (k.target_domain_position || 100), 0) / keywords.length;
-    const competitorGaps = keywords.filter(k => k.competitor_positions?.some(c => c.position <= 10)).length;
+    const firstPageKeywords = keywords.filter(k => k?.target_domain_position && k.target_domain_position <= 10).length;
+    const opportunities = keywords.filter(k => !k?.target_domain_position || k.target_domain_position > 10).length;
+    const avgPosition = keywords.reduce((sum, k) => sum + (k?.target_domain_position || 100), 0) / keywords.length;
+    const competitorGaps = keywords.filter(k => k?.competitor_positions?.some(c => c?.position <= 10)).length;
     
     return {
       firstPageKeywords,
@@ -215,16 +217,20 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   // Determine what to render - NO EARLY RETURNS, only JSX conditionals
   console.log('CompetitiveResultsDisplay render state:', { loading, error, hasData: !!analysisData, status: analysisData?.analysis?.status });
 
-  // Get all domains for the header
+  // Get all domains for the header - null-safe
   const allDomains = useMemo(() => {
+    if (!analysisData?.analysis?.target_domain || !analysisData?.competitors) {
+      return [];
+    }
+    
     const domains = [analysisData.analysis.target_domain];
     analysisData.competitors.forEach(comp => {
-      if (!domains.includes(comp.domain)) {
+      if (comp?.domain && !domains.includes(comp.domain)) {
         domains.push(comp.domain);
       }
     });
     return domains;
-  }, [analysisData.analysis.target_domain, analysisData.competitors]);
+  }, [analysisData?.analysis?.target_domain, analysisData?.competitors]);
 
   return (
     <HookErrorBoundary>
@@ -276,7 +282,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
         )}
 
         {/* Analysis In Progress State */}
-        {!loading && !error && analysisData && analysisData.analysis.status !== 'completed' && (
+        {!loading && !error && analysisData && analysisData.analysis?.status !== 'completed' && (
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={onBackToForm}>
@@ -294,180 +300,181 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
         )}
 
         {/* Success State - Complete Analysis */}
-        {!loading && !error && analysisData && analysisData.analysis.status === 'completed' && (
-        <div className="space-y-6">
-          {/* New Header Design */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={onBackToForm}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Voltar
-                </Button>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Rastreamento dos concorrentes</h1>
-                  <p className="text-sm text-muted-foreground">Análise competitiva em tempo real</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Brasil
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Últimos 30 dias
-                </Button>
-              </div>
-            </div>
-            
-            {/* Domain Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-muted-foreground">Domínios analisados:</span>
-              {allDomains.map((domain, index) => (
-                <Badge 
-                  key={domain} 
-                  variant={index === 0 ? "default" : "secondary"}
-                  className="flex items-center gap-2"
-                >
-                  <div 
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: index === 0 ? '#8884d8' : ['#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][index - 1] || '#d084d0' }}
-                  />
-                  {domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}
-                  {index === 0 && <span className="text-xs">(principal)</span>}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Traffic Chart */}
-          <TrafficChart 
-            domains={allDomains}
-            targetDomain={analysisData.analysis.target_domain}
-          />
-
-          {/* Competitor Table */}
-          <CompetitorTable 
-            competitors={analysisData.competitors}
-            keywords={analysisData.keywords}
-            targetDomain={analysisData.analysis.target_domain}
-          />
-
-          {/* Two Column Layout for Visualizations */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ErrorBoundary>
-              <CompetitiveVisualization analysisData={analysisData} />
-            </ErrorBoundary>
-            
-            <div className="space-y-6">
-              <StrategicOpportunities 
-                keywords={analysisData.keywords}
-                targetDomain={analysisData.analysis.target_domain}
-              />
-            </div>
-          </div>
-
-        {/* Filtros e Tabela */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Keywords Analisadas</CardTitle>
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Buscar keyword..."
-                  value={filters.search}
-                  onChange={(e) => filterActions.setSearch(e.target.value)}
-                  className="w-64"
-                />
-                <Select
-                  value={filters.sortBy}
-                  onValueChange={(value) => filterActions.setSort(value as any, filters.sortOrder)}
-                >
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="keyword">Keyword</SelectItem>
-                    <SelectItem value="position">Posição</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Keyword</TableHead>
-                    <TableHead>Posição</TableHead>
-                    <TableHead>Dificuldade</TableHead>
-                    <TableHead>Potencial</TableHead>
-                    <TableHead>Concorrentes</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {currentPageKeywords.map((keyword) => (
-                    <KeywordRow
-                      key={keyword.id}
-                      keyword={keyword}
-                      reverifyingKeywords={reverifyingKeywords}
-                      onViewDetails={(k) => {
-                        setSelectedKeyword(k);
-                        setIsDetailModalOpen(true);
-                      }}
-                      onReverify={handleReverifyKeyword}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Paginação */}
-            {paginationData.totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-muted-foreground">
-                  Mostrando {paginationData.startIndex + 1} a {Math.min(paginationData.endIndex, filteredKeywords.length)} de {filteredKeywords.length} keywords
+        {!loading && !error && analysisData && analysisData.analysis?.status === 'completed' && (
+          <div className="space-y-6">
+            {/* New Header Design */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="sm" onClick={onBackToForm}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar
+                  </Button>
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">Rastreamento dos concorrentes</h1>
+                    <p className="text-sm text-muted-foreground">Análise competitiva em tempo real</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
+                  <Button variant="outline" size="sm">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Brasil
                   </Button>
-                  <span className="text-sm">
-                    Página {currentPage} de {paginationData.totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(paginationData.totalPages, prev + 1))}
-                    disabled={currentPage === paginationData.totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
+                  <Button variant="outline" size="sm">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Últimos 30 dias
                   </Button>
                 </div>
               </div>
+              
+              {/* Domain Badges - null-safe rendering */}
+              {allDomains.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Domínios analisados:</span>
+                  {allDomains.map((domain, index) => (
+                    <Badge 
+                      key={domain} 
+                      variant={index === 0 ? "default" : "secondary"}
+                      className="flex items-center gap-2"
+                    >
+                      <div 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: index === 0 ? '#8884d8' : ['#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][index - 1] || '#d084d0' }}
+                      />
+                      {domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}
+                      {index === 0 && <span className="text-xs">(principal)</span>}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Traffic Chart */}
+            <TrafficChart 
+              domains={allDomains}
+              targetDomain={analysisData?.analysis?.target_domain || ''}
+            />
+
+            {/* Competitor Table */}
+            <CompetitorTable 
+              competitors={analysisData?.competitors || []}
+              keywords={analysisData?.keywords || []}
+              targetDomain={analysisData?.analysis?.target_domain || ''}
+            />
+
+            {/* Two Column Layout for Visualizations */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <ErrorBoundary>
+                <CompetitiveVisualization analysisData={analysisData} />
+              </ErrorBoundary>
+              
+              <div className="space-y-6">
+                <StrategicOpportunities 
+                  keywords={analysisData?.keywords || []}
+                  targetDomain={analysisData?.analysis?.target_domain || ''}
+                />
+              </div>
+            </div>
+
+            {/* Filtros e Tabela */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Keywords Analisadas</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Buscar keyword..."
+                      value={filters.search}
+                      onChange={(e) => filterActions.setSearch(e.target.value)}
+                      className="w-64"
+                    />
+                    <Select
+                      value={filters.sortBy}
+                      onValueChange={(value) => filterActions.setSort(value as any, filters.sortOrder)}
+                    >
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="keyword">Keyword</SelectItem>
+                        <SelectItem value="position">Posição</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Keyword</TableHead>
+                        <TableHead>Posição</TableHead>
+                        <TableHead>Dificuldade</TableHead>
+                        <TableHead>Potencial</TableHead>
+                        <TableHead>Concorrentes</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {currentPageKeywords.map((keyword) => (
+                        <KeywordRow
+                          key={keyword.id}
+                          keyword={keyword}
+                          reverifyingKeywords={reverifyingKeywords}
+                          onViewDetails={(k) => {
+                            setSelectedKeyword(k);
+                            setIsDetailModalOpen(true);
+                          }}
+                          onReverify={handleReverifyKeyword}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Paginação */}
+                {paginationData.totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      Mostrando {paginationData.startIndex + 1} a {Math.min(paginationData.endIndex, filteredKeywords.length)} de {filteredKeywords.length} keywords
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm">
+                        Página {currentPage} de {paginationData.totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(paginationData.totalPages, prev + 1))}
+                        disabled={currentPage === paginationData.totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Modal de Detalhes */}
+            {selectedKeyword && (
+              <KeywordDetailModal
+                keyword={selectedKeyword}
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                targetDomain={analysisData?.analysis?.target_domain || ''}
+              />
             )}
-          </CardContent>
-        </Card>
-
-        {/* Modal de Detalhes */}
-        {selectedKeyword && (
-          <KeywordDetailModal
-            keyword={selectedKeyword}
-            isOpen={isDetailModalOpen}
-            onClose={() => setIsDetailModalOpen(false)}
-            targetDomain={analysisData.analysis.target_domain}
-          />
-        )}
-
-        </div>
+          </div>
         )}
       </TooltipProvider>
     </HookErrorBoundary>
