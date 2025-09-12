@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import GraphSelectionPanel from './GraphSelectionPanel';
+
 
 interface PositionData {
   date: string;
@@ -12,16 +12,18 @@ interface PositionData {
 
 interface PositionVariationChartProps {
   domains: string[];
+  selectedDomains: string[];
   targetDomain: string;
 }
 
-const PositionVariationChart: React.FC<PositionVariationChartProps> = ({ domains, targetDomain }) => {
-  const [selectedDomains, setSelectedDomains] = useState<string[]>(
-    domains.slice(0, Math.min(3, domains.length)) // Start with first 3 domains
-  );
+const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
+  domains,
+  selectedDomains, 
+  targetDomain
+}) => {
 
-  // Generate realistic position data for the last 30 days
-  const generatePositionData = (): PositionData[] => {
+  // Generate deterministic position data for the last 30 days - stable without random
+  const positionData = useMemo(() => {
     const data: PositionData[] = [];
     const today = new Date();
     
@@ -32,16 +34,16 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({ domains
       const dateStr = date.toLocaleDateString('pt-BR');
       const dataPoint: PositionData = { date: dateStr };
       
-      // Generate data for target domain (starting around position 15)
+      // Generate deterministic data for target domain (starting around position 15)
       const targetBase = 15;
-      const targetVariation = Math.sin((i / 30) * Math.PI * 2) * 3 + Math.random() * 2 - 1;
+      const targetVariation = Math.sin((i / 30) * Math.PI * 2) * 3 + Math.sin((i / 10) * Math.PI) * 1;
       dataPoint[targetDomain] = Math.max(1, Math.min(100, Math.round(targetBase + targetVariation)));
       
-      // Generate data for competitors
+      // Generate deterministic data for competitors
       domains.forEach((domain, index) => {
         if (domain !== targetDomain) {
-          const competitorBase = 8 + (index * 4) + Math.random() * 5;
-          const competitorVariation = Math.sin(((i + index * 7) / 30) * Math.PI * 2) * 2 + Math.random() * 1.5 - 0.75;
+          const competitorBase = 8 + (index * 4) + (index % 3) * 2;
+          const competitorVariation = Math.sin(((i + index * 7) / 30) * Math.PI * 2) * 2 + Math.cos((i + index * 3) / 15 * Math.PI) * 1;
           dataPoint[domain] = Math.max(1, Math.min(100, Math.round(competitorBase + competitorVariation)));
         }
       });
@@ -50,9 +52,7 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({ domains
     }
     
     return data;
-  };
-
-  const positionData = useMemo(() => generatePositionData(), [domains, targetDomain]);
+  }, [domains, targetDomain]);
 
   // Calculate position variations for each domain
   const positionVariations = useMemo(() => {
@@ -119,15 +119,8 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({ domains
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Graph Selection Panel */}
-        <GraphSelectionPanel 
-          domains={domains}
-          selectedDomains={selectedDomains}
-          onSelectionChange={setSelectedDomains}
-          targetDomain={targetDomain}
-        />
-
+        <CardContent className="space-y-4">
+          {/* Chart Container */}
         {/* Position Chart */}
         <div style={{ width: '100%', height: 400 }}>
           <ResponsiveContainer>

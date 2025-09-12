@@ -23,6 +23,7 @@ import CompetitiveVisualization from './CompetitiveVisualization';
 import PositionVariationChart from './PositionVariationChart';
 import CompetitorTable from './CompetitorTable';
 import StrategicOpportunities from './StrategicOpportunities';
+import GraphSelectionPanel from './GraphSelectionPanel';
 
 import ProductivityFeatures from './ProductivityFeatures';
 import IntelligentNotifications from './IntelligentNotifications';
@@ -43,6 +44,9 @@ interface CompetitiveResultsDisplayProps {
 
 const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo(({ analysisId, onBackToForm }) => {
   // ALL hooks must be called first - no early returns before this point
+  // State for domain selection in chart
+  const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
+  
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
@@ -232,6 +236,15 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     return domains;
   }, [analysisData?.analysis?.target_domain, analysisData?.competitors]);
 
+  // Initialize selected domains when analysis data changes
+  useEffect(() => {
+    if (allDomains.length > 0 && selectedDomains.length === 0) {
+      // Start with target domain + first 2 competitors (max 3 to start)
+      const initialSelected = allDomains.slice(0, Math.min(3, allDomains.length));
+      setSelectedDomains(initialSelected);
+    }
+  }, [allDomains, selectedDomains.length]);
+
   return (
     <HookErrorBoundary>
       <TooltipProvider>
@@ -327,40 +340,34 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 </div>
               </div>
               
-              {/* Domain Badges - null-safe rendering */}
+              {/* Domain Selection Panel */}
               {allDomains.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-muted-foreground">Domínios analisados:</span>
-                  {allDomains.map((domain, index) => (
-                    <Badge 
-                      key={domain} 
-                      variant={index === 0 ? "default" : "secondary"}
-                      className="flex items-center gap-2"
-                    >
-                      <div 
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: index === 0 ? '#8884d8' : ['#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][index - 1] || '#d084d0' }}
-                      />
-                      {domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}
-                      {index === 0 && <span className="text-xs">(principal)</span>}
-                    </Badge>
-                  ))}
-                </div>
+                <GraphSelectionPanel
+                  domains={allDomains}
+                  selectedDomains={selectedDomains}
+                  onSelectionChange={setSelectedDomains}
+                  targetDomain={analysisData?.analysis?.target_domain || ''}
+                  maxSelection={10}
+                />
               )}
             </div>
 
-            {/* Position Variation Chart */}
-            <PositionVariationChart 
-              domains={allDomains}
-              targetDomain={analysisData?.analysis?.target_domain || ''}
-            />
+            {/* Unified Competitor Analysis Block */}
+            <div className="space-y-6">
+              {/* Competitor Table */}
+              <CompetitorTable 
+                competitors={analysisData?.competitors || []}
+                keywords={analysisData?.keywords || []}
+                targetDomain={analysisData?.analysis?.target_domain || ''}
+              />
 
-            {/* Competitor Table */}
-            <CompetitorTable 
-              competitors={analysisData?.competitors || []}
-              keywords={analysisData?.keywords || []}
-              targetDomain={analysisData?.analysis?.target_domain || ''}
-            />
+              {/* Position Variation Chart */}
+              <PositionVariationChart 
+                domains={allDomains}
+                selectedDomains={selectedDomains}
+                targetDomain={analysisData?.analysis?.target_domain || ''}
+              />
+            </div>
 
             {/* Two Column Layout for Visualizations */}
             <div className="grid gap-6 lg:grid-cols-2">
