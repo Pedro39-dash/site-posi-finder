@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Download, ExternalLink } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Plus, Download, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
 
 interface CompetitorTableProps {
@@ -17,6 +18,9 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
   keywords, 
   targetDomain 
 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
   // Calculate metrics for each competitor
   const competitorMetrics = competitors.map(competitor => {
     const cleanDomain = competitor.domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
@@ -77,6 +81,28 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
 
   const allMetrics = [targetMetrics, ...competitorMetrics];
 
+  // Pagination logic
+  const paginationData = useMemo(() => {
+    const totalItems = allMetrics.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    return { 
+      totalPages, 
+      totalItems,
+      startIndex, 
+      endIndex,
+      currentPageItems: allMetrics.slice(startIndex, endIndex)
+    };
+  }, [allMetrics, currentPage, itemsPerPage]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= paginationData.totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -108,52 +134,106 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {allMetrics.map((metrics, index) => (
-                <TableRow key={metrics.domain}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: index === 0 ? '#8884d8' : ['#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][index - 1] || '#d084d0' }}
-                      />
-                      <span className="font-medium">{metrics.domain}</span>
-                      {index === 0 && (
-                        <Badge variant="secondary" className="ml-2">
-                          Seu Site
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="outline" className="font-mono">
-                      {metrics.commonKeywords}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="outline" className="font-mono">
-                      {metrics.differentKeywords}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <span className="font-mono text-sm">
-                      {metrics.estimatedTraffic.toLocaleString()}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <span className="font-mono text-sm">
-                      {metrics.estimatedBacklinks.toLocaleString()}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button variant="ghost" size="sm">
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {paginationData.currentPageItems.map((metrics, pageIndex) => {
+                const globalIndex = paginationData.startIndex + pageIndex;
+                return (
+                  <TableRow key={metrics.domain}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: globalIndex === 0 ? '#8884d8' : ['#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][globalIndex - 1] || '#d084d0' }}
+                        />
+                        <span className="font-medium">{metrics.domain}</span>
+                        {globalIndex === 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            Seu Site
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="font-mono">
+                        {metrics.commonKeywords}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="font-mono">
+                        {metrics.differentKeywords}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="font-mono text-sm">
+                        {metrics.estimatedTraffic.toLocaleString()}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="font-mono text-sm">
+                        {metrics.estimatedBacklinks.toLocaleString()}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button variant="ghost" size="sm">
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination Controls */}
+        {paginationData.totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4">
+            <div className="text-sm text-muted-foreground">
+              Mostrando {paginationData.startIndex + 1} a {Math.min(paginationData.endIndex, paginationData.totalItems)} de {paginationData.totalItems} domínios
+            </div>
+            
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    className="gap-1 pl-2.5"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                </PaginationItem>
+                
+                {Array.from({ length: paginationData.totalPages }, (_, i) => i + 1).map((page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => handlePageChange(page)}
+                      isActive={page === currentPage}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                
+                <PaginationItem>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= paginationData.totalPages}
+                    className="gap-1 pr-2.5"
+                  >
+                    Próximo
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

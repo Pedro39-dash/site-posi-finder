@@ -20,7 +20,7 @@ import KeywordDetailModal from './KeywordDetailModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import EnhancedProgressTracker from './EnhancedProgressTracker';
 import CompetitiveVisualization from './CompetitiveVisualization';
-import TrafficChart from './TrafficChart';
+import PositionVariationChart from './PositionVariationChart';
 import CompetitorTable from './CompetitorTable';
 import StrategicOpportunities from './StrategicOpportunities';
 
@@ -349,8 +349,8 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
               )}
             </div>
 
-            {/* Traffic Chart */}
-            <TrafficChart 
+            {/* Position Variation Chart */}
+            <PositionVariationChart 
               domains={allDomains}
               targetDomain={analysisData?.analysis?.target_domain || ''}
             />
@@ -375,95 +375,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 />
               </div>
             </div>
-
-            {/* Filtros e Tabela */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Keywords Analisadas</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Buscar keyword..."
-                      value={filters.search}
-                      onChange={(e) => filterActions.setSearch(e.target.value)}
-                      className="w-64"
-                    />
-                    <Select
-                      value={filters.sortBy}
-                      onValueChange={(value) => filterActions.setSort(value as any, filters.sortOrder)}
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="keyword">Keyword</SelectItem>
-                        <SelectItem value="position">Posição</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Keyword</TableHead>
-                        <TableHead>Posição</TableHead>
-                        <TableHead>Dificuldade</TableHead>
-                        <TableHead>Potencial</TableHead>
-                        <TableHead>Concorrentes</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentPageKeywords.map((keyword) => (
-                        <KeywordRow
-                          key={keyword.id}
-                          keyword={keyword}
-                          reverifyingKeywords={reverifyingKeywords}
-                          onViewDetails={(k) => {
-                            setSelectedKeyword(k);
-                            setIsDetailModalOpen(true);
-                          }}
-                          onReverify={handleReverifyKeyword}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Paginação */}
-                {paginationData.totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      Mostrando {paginationData.startIndex + 1} a {Math.min(paginationData.endIndex, filteredKeywords.length)} de {filteredKeywords.length} keywords
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm">
-                        Página {currentPage} de {paginationData.totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.min(paginationData.totalPages, prev + 1))}
-                        disabled={currentPage === paginationData.totalPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
             {/* Modal de Detalhes */}
             {selectedKeyword && (
