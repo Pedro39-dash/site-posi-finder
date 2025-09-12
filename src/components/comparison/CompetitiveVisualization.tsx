@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CompetitiveAnalysisData } from '@/services/competitorAnalysisService';
 import { StableBarChart, StablePieChart, StableAreaChart } from './StableChart';
 import { ErrorBoundary } from './ErrorBoundary';
+import ShareOfVoiceChart from './ShareOfVoiceChart';
 
 interface CompetitiveVisualizationProps {
   analysisData: CompetitiveAnalysisData;
@@ -147,31 +148,16 @@ const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo((
     <div className="space-y-6">
       {/* Share of Voice */}
       <ErrorBoundary>
-        <Card>
-          <CardHeader>
-            <CardTitle>Share of Voice</CardTitle>
-            <CardDescription>
-              Participação nos primeiros 10 resultados por domínio
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StablePieChart
-              data={chartData.shareOfVoiceData}
-              dataKey="percentage"
-              nameKey="domain"
-              height={300}
-            />
-          </CardContent>
-        </Card>
+        <ShareOfVoiceChart data={chartData.shareOfVoiceData} />
       </ErrorBoundary>
 
       {/* Opportunity Trend */}
       <ErrorBoundary>
         <Card>
           <CardHeader>
-            <CardTitle>Tendência de Posições</CardTitle>
+            <CardTitle>Tendência de Oportunidades</CardTitle>
             <CardDescription>
-              Evolução das posições nos últimos 30 dias
+              Evolução das oportunidades nos últimos 30 dias
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -369,18 +369,18 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
               />
             </div>
 
-            {/* Two Column Layout for Visualizations */}
-            <div className="grid gap-6 lg:grid-cols-2">
+            {/* Two Column Layout for Share of Voice and Strategic Opportunities */}
+            <div className="grid gap-8 lg:grid-cols-2">
               <ErrorBoundary>
                 <CompetitiveVisualization analysisData={analysisData} />
               </ErrorBoundary>
               
-              <div className="space-y-6">
+              <ErrorBoundary>
                 <StrategicOpportunities 
                   keywords={analysisData?.keywords || []}
                   targetDomain={analysisData?.analysis?.target_domain || ''}
                 />
-              </div>
+              </ErrorBoundary>
             </div>
 
             {/* Modal de Detalhes */}

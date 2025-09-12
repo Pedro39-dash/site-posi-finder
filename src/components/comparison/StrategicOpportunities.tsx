@@ -66,10 +66,10 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'border-red-200 bg-red-50';
-      case 'medium': return 'border-yellow-200 bg-yellow-50';
-      case 'low': return 'border-blue-200 bg-blue-50';
-      default: return 'border-gray-200 bg-gray-50';
+      case 'high': return 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20';
+      case 'medium': return 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20';
+      case 'low': return 'border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20';
+      default: return 'border-border bg-card';
     }
   };
 
@@ -91,8 +91,8 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
                       <Icon className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-sm">{opportunity.title}</h4>
-                      <Badge variant="outline" className="text-xs mt-1">
+                      <h4 className="font-medium text-sm text-foreground">{opportunity.title}</h4>
+                      <Badge variant="outline" className="text-xs mt-1 text-muted-foreground">
                         {opportunity.count} oportunidades
                       </Badge>
                     </div>
@@ -107,7 +107,7 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
                   </Badge>
                 </div>
                 
-                <p className="text-xs text-muted-foreground mb-3">
+                <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                   {opportunity.description}
                 </p>
                 
