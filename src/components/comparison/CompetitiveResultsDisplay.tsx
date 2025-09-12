@@ -212,75 +212,8 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     return filteredKeywords.slice(paginationData.startIndex, paginationData.endIndex);
   }, [filteredKeywords, paginationData.startIndex, paginationData.endIndex]);
 
-  // NOW we can do early returns - all hooks have been called consistently
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onBackToForm}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-        </div>
-        <EnhancedProgressTracker 
-          status="analyzing" 
-          currentStage="analysis"
-          estimatedTimeRemaining={120}
-        />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onBackToForm}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-        </div>
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Erro ao carregar dados da análise. 
-            <Button variant="link" className="p-0 h-auto ml-2" onClick={refresh}>
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Tentar novamente
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  if (!analysisData) {
-    return (
-      <Alert>
-        <AlertDescription>Análise não encontrada.</AlertDescription>
-      </Alert>
-    );
-  }
-
-  // Verificar se a análise ainda está em progresso
-  if (analysisData.analysis.status !== 'completed') {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onBackToForm}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-        </div>
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            A análise ainda está em progresso. Por favor, aguarde alguns minutos.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  // Determine what to render - NO EARLY RETURNS, only JSX conditionals
+  console.log('CompetitiveResultsDisplay render state:', { loading, error, hasData: !!analysisData, status: analysisData?.analysis?.status });
 
   // Get all domains for the header
   const allDomains = useMemo(() => {
@@ -296,6 +229,72 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   return (
     <HookErrorBoundary>
       <TooltipProvider>
+        {/* Loading State */}
+        {loading && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={onBackToForm}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+            </div>
+            <EnhancedProgressTracker 
+              status="analyzing" 
+              currentStage="analysis"
+              estimatedTimeRemaining={120}
+            />
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={onBackToForm}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+            </div>
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Erro ao carregar dados da análise. 
+                <Button variant="link" className="p-0 h-auto ml-2" onClick={refresh}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Tentar novamente
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        {/* No Data State */}
+        {!loading && !error && !analysisData && (
+          <Alert>
+            <AlertDescription>Análise não encontrada.</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Analysis In Progress State */}
+        {!loading && !error && analysisData && analysisData.analysis.status !== 'completed' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={onBackToForm}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+            </div>
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                A análise ainda está em progresso. Por favor, aguarde alguns minutos.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        {/* Success State - Complete Analysis */}
+        {!loading && !error && analysisData && analysisData.analysis.status === 'completed' && (
         <div className="space-y-6">
           {/* New Header Design */}
           <div className="space-y-4">
@@ -468,8 +467,9 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
           />
         )}
 
-      </div>
-    </TooltipProvider>
+        </div>
+        )}
+      </TooltipProvider>
     </HookErrorBoundary>
   );
 });

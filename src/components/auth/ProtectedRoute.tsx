@@ -14,18 +14,23 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   useEffect(() => {
     // Add a longer delay to prevent race conditions during auth initialization
     const timeoutId = setTimeout(() => {
-      console.log('ProtectedRoute check:', { isLoading, isAuthenticated, path: location.pathname });
+      console.log('ProtectedRoute: Auth check after delay:', { 
+        isLoading, 
+        isAuthenticated, 
+        path: location.pathname,
+        timestamp: new Date().toISOString()
+      });
       
-      // Only redirect if we're sure auth has been checked and user is not authenticated
+      // Only redirect if we're absolutely sure auth has been checked and user is not authenticated
       if (!isLoading && !isAuthenticated && location.pathname !== '/login') {
-        console.log('Redirecting to login from:', location.pathname);
+        console.log('ProtectedRoute: Redirecting to login from:', location.pathname);
         // Save the attempted location for redirecting after login
         navigate('/login', { 
           state: { from: location.pathname },
           replace: true 
         });
       }
-    }, 500); // Increased delay to 500ms
+    }, 1000); // Increased delay to 1000ms for better stability
 
     return () => clearTimeout(timeoutId);
   }, [isAuthenticated, isLoading, navigate, location]);
