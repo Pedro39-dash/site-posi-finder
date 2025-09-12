@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { X, Plus, Target, Users, Loader2, AlertTriangle, Check } from 'lucide-react';
+import { X, Plus, Target, Users, Loader2, AlertTriangle, Check, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CompetitorAnalysisService } from '@/services/competitorAnalysisService';
 import { toast } from '@/hooks/use-toast';
 import { useProject } from '@/hooks/useProject';
@@ -161,6 +162,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
   };
 
   return (
+    <TooltipProvider>
     <div className="w-full max-w-4xl mx-auto space-y-8">
       {/* Project Selection */}
       <div className="space-y-4 p-6 border border-border rounded-lg">
@@ -206,6 +208,20 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
           <Users className="h-4 w-4 text-primary" />
           <Label className="text-base font-medium">Concorrentes</Label>
           <Badge variant="secondary">{competitors.length}/5</Badge>
+          <Tooltip>
+            <TooltipTrigger>
+              <Info className="h-4 w-4 text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="max-w-xs">
+                <p className="font-medium mb-1">Descoberta Automática</p>
+                <p className="text-xs">
+                  Os concorrentes mencionados aqui serão destacados nos resultados. 
+                  Outros concorrentes serão descobertos automaticamente baseados nas palavras-chave.
+                </p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         </div>
         
         <div className="flex gap-2">
@@ -398,6 +414,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
         </Button>
       </div>
     </div>
+    </TooltipProvider>
   );
 };
 

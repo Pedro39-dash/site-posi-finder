@@ -57,7 +57,8 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         commonKeywords,
         differentKeywords,
         estimatedTraffic,
-        estimatedBacklinks
+        estimatedBacklinks,
+        detectedAutomatically: competitor.detected_automatically
       };
     });
   }, [competitors, keywords]);
@@ -72,7 +73,8 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
       commonKeywords: keywords.filter(k => k.target_domain_position && k.target_domain_position > 0).length,
       differentKeywords: 0, // Target domain doesn't have "different" keywords from itself
       estimatedTraffic: Math.round(calculateTrafficEstimate(keywords, cleanTargetDomain, true)),
-      estimatedBacklinks: generateBacklinkEstimate(cleanTargetDomain, true)
+      estimatedBacklinks: generateBacklinkEstimate(cleanTargetDomain, true),
+      detectedAutomatically: false // Target domain is never detected automatically
     };
   }, [targetDomain, keywords]);
 
@@ -181,6 +183,11 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                         {globalIndex === 0 && (
                           <Badge variant="secondary" className="ml-2">
                             Seu Site
+                          </Badge>
+                        )}
+                        {globalIndex > 0 && !metrics.detectedAutomatically && (
+                          <Badge variant="outline" className="ml-2 text-xs border-primary text-primary">
+                            Concorrente Mencionado
                           </Badge>
                         )}
                       </div>

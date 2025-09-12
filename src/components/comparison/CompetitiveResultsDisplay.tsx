@@ -257,11 +257,19 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 Voltar
               </Button>
             </div>
-            <EnhancedProgressTracker 
-              status="analyzing" 
-              currentStage="analysis"
-              estimatedTimeRemaining={120}
-            />
+            <div className="space-y-3">
+              <Alert>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <AlertDescription>
+                  Descobrindo concorrentes automaticamente baseado nas palavras-chave fornecidas...
+                </AlertDescription>
+              </Alert>
+              <EnhancedProgressTracker 
+                status="analyzing" 
+                currentStage="analysis"
+                estimatedTimeRemaining={120}
+              />
+            </div>
           </div>
         )}
 
@@ -348,6 +356,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                   onSelectionChange={setSelectedDomains}
                   targetDomain={analysisData?.analysis?.target_domain || ''}
                   maxSelection={10}
+                  competitors={analysisData?.competitors || []}
                 />
               )}
             </div>

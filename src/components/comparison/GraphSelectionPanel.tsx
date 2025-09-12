@@ -11,6 +11,7 @@ interface GraphSelectionPanelProps {
   onSelectionChange: (selected: string[]) => void;
   targetDomain: string;
   maxSelection?: number;
+  competitors?: Array<{ domain: string; detected_automatically: boolean }>;
 }
 
 const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
@@ -18,7 +19,8 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
   selectedDomains,
   onSelectionChange,
   targetDomain,
-  maxSelection = 10
+  maxSelection = 10,
+  competitors = []
 }) => {
   const handleDomainToggle = (domain: string, checked: boolean) => {
     if (checked && selectedDomains.length >= maxSelection) {
@@ -93,13 +95,17 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
               const isTarget = domain === targetDomain;
               const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
               const canToggle = isSelected || !isAtMaxLimit;
+              const competitor = competitors.find(c => c.domain === domain);
+              const isMentioned = competitor && !competitor.detected_automatically;
               
               return (
                 <div
                   key={domain}
                   className={`flex items-center space-x-2 p-2 rounded-md border transition-colors ${
                     isSelected ? 'bg-accent/50 border-accent' : 'hover:bg-accent/20'
-                  } ${!canToggle && !isSelected ? 'opacity-50' : ''}`}
+                  } ${!canToggle && !isSelected ? 'opacity-50' : ''} ${
+                    isMentioned ? 'border-primary/30 bg-primary/5' : ''
+                  }`}
                 >
                   <Checkbox
                     id={`domain-${index}`}
@@ -122,6 +128,11 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
                     {isTarget && (
                       <Badge variant="outline" className="text-xs px-1 py-0">
                         Principal
+                      </Badge>
+                    )}
+                    {isMentioned && !isTarget && (
+                      <Badge variant="outline" className="text-xs px-1 py-0 border-primary text-primary">
+                        Mencionado
                       </Badge>
                     )}
                   </div>
