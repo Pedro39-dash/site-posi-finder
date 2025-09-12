@@ -78,7 +78,14 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
     };
   }, [targetDomain, keywords]);
 
-  const allMetrics = [targetMetrics, ...competitorMetrics];
+  // Calculate average position for summary
+  const averagePosition = useMemo(() => {
+    const positionsWithValues = keywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
+    if (positionsWithValues.length === 0) return 0;
+    return Math.round(positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length);
+  }, [keywords]);
+
+  const allMetrics = competitorMetrics; // Only show competitors, not target domain
 
   // Pagination logic
   const paginationData = useMemo(() => {
@@ -137,6 +144,28 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
           </div>
         </CardHeader>
       <CardContent>
+        {/* Analysis Summary Card */}
+        <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
+          <h4 className="font-medium mb-3 text-sm">Resumo da Análise</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">URL Analisada</p>
+              <p className="font-medium break-all">{formatDomainDisplay(targetDomain).display}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Posição Média</p>
+              <p className="font-medium">{averagePosition > 0 ? `${averagePosition}º` : 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Palavras-chave</p>
+              <p className="font-medium">{keywords.length}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Concorrentes Encontrados</p>
+              <p className="font-medium">{competitors.length}</p>
+            </div>
+          </div>
+        </div>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -158,7 +187,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                       <div className="flex items-center gap-2">
                         <div 
                           className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: globalIndex === 0 ? '#8884d8' : ['#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][globalIndex - 1] || '#d084d0' }}
+                          style={{ backgroundColor: ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][globalIndex] || '#d084d0' }}
                         />
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -180,12 +209,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                             </div>
                           </TooltipContent>
                         </Tooltip>
-                        {globalIndex === 0 && (
-                          <Badge variant="secondary" className="ml-2">
-                            Seu Site
-                          </Badge>
-                        )}
-                        {globalIndex > 0 && !metrics.detectedAutomatically && (
+                        {!metrics.detectedAutomatically && (
                           <Badge variant="outline" className="ml-2 text-xs border-primary text-primary">
                             Concorrente Mencionado
                           </Badge>

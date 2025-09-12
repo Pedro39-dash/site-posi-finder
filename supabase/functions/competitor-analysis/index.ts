@@ -1217,9 +1217,9 @@ async function performSimulatedAnalysis(
     console.log(`🏢 FASE 4: Generated realistic competitors: [${realisticCompetitors.slice(0, 6).join(', ')}]`);
     
     // Combine with manual competitors (manual ones take priority)
-    const allCompetitors = [...additionalCompetitors, ...realisticCompetitors.slice(0, 3)]
+    const allCompetitors = [...additionalCompetitors, ...realisticCompetitors.slice(0, 8)]
       .filter((domain, index, array) => array.indexOf(domain) === index) // Remove duplicates
-      .slice(0, 5); // Max 5 competitors (user manual + 2-3 contextual)
+      .slice(0, 15); // Max 15 competitors (user manual + contextual)
     
     console.log(`🏆 FASE 4: Final competitor list: [${allCompetitors.join(', ')}]`);
 
@@ -1238,11 +1238,11 @@ async function performSimulatedAnalysis(
       console.log(`📝 SIMULATION: No manual keywords, using generic ones`);
     }
     
-    // Add additional competitors and limit to 6
+    // Add additional competitors and limit to 15
     const finalCompetitors = [
       ...additionalCompetitors, // Prioritize manual competitors first
       ...allCompetitors.filter(comp => !additionalCompetitors.includes(comp))
-    ].slice(0, 6);
+    ].slice(0, 15);
     
     console.log(`🏢 FASE 4: Generated realistic competitors: [${finalCompetitors.join(', ')}]`);
     
