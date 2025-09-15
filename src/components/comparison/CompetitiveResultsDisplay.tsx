@@ -187,19 +187,27 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   // Calcular métricas - null-safe
   const getMetrics = useMemo(() => {
     if (!analysisData?.keywords || !Array.isArray(analysisData.keywords) || analysisData.keywords.length === 0) {
-      return { firstPageKeywords: 0, opportunities: 0, avgPosition: '0.0', competitorGaps: 0 };
+      return { firstPageKeywords: 0, opportunities: 0, avgPosition: 'N/A', competitorGaps: 0 };
     }
     
     const keywords = analysisData.keywords;
+    const positionsWithValues = keywords.filter(k => k?.target_domain_position && k.target_domain_position > 0);
+    
     const firstPageKeywords = keywords.filter(k => k?.target_domain_position && k.target_domain_position <= 10).length;
     const opportunities = keywords.filter(k => !k?.target_domain_position || k.target_domain_position > 10).length;
-    const avgPosition = keywords.reduce((sum, k) => sum + (k?.target_domain_position || 100), 0) / keywords.length;
     const competitorGaps = keywords.filter(k => k?.competitor_positions?.some(c => c?.position <= 10)).length;
+    
+    // Calculate average only for keywords where domain actually ranks
+    let avgPosition = 'N/A';
+    if (positionsWithValues.length > 0) {
+      const sum = positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0);
+      avgPosition = Math.round(sum / positionsWithValues.length).toString();
+    }
     
     return {
       firstPageKeywords,
       opportunities,
-      avgPosition: avgPosition.toFixed(1),
+      avgPosition,
       competitorGaps
     };
   }, [analysisData?.keywords]);

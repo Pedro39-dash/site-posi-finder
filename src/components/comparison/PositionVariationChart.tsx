@@ -30,19 +30,22 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
     return getTop10CompetitorsAhead(competitors, keywords, targetDomain);
   }, [competitors, keywords, targetDomain]);
 
+  // Check if target domain is ranking  
+  const isTargetRanking = useMemo(() => {
+    return keywords.some(k => k.target_domain_position && k.target_domain_position > 0);
+  }, [keywords]);
+
   // Get all domain names for the chart (filtered competitors + target if ranking)
   const domains = useMemo(() => {
     const competitorDomains = filteredCompetitors.map(c => c.domain);
+    const cleanTargetDomain = targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
     
-    // Check if target domain is ranking
-    const targetRanking = keywords.some(k => k.target_domain_position && k.target_domain_position > 0);
-    
-    if (targetRanking) {
-      return [targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, ''), ...competitorDomains];
+    if (isTargetRanking) {
+      return [cleanTargetDomain, ...competitorDomains];
     }
     
     return competitorDomains;
-  }, [filteredCompetitors, targetDomain, keywords]);
+  }, [filteredCompetitors, targetDomain, isTargetRanking]);
 
   // Generate deterministic position data for the last 30 days - stable without random
   const positionData = useMemo(() => {
@@ -56,13 +59,17 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
       const dateStr = date.toLocaleDateString('pt-BR');
       const dataPoint: PositionData = { date: dateStr };
       
-      // For target domain - show "Não rankeando" if no data, otherwise show trending around current average
-      if (targetDomain === "Não rankeando" || targetDomain.includes("Não rankeando")) {
-        // Don't add target domain data if it's not ranking
-      } else {
-        const targetBase = 15; // Default simulation - could be made dynamic based on real data
-        const targetVariation = Math.sin((i / 30) * Math.PI * 2) * 3 + Math.sin((i / 10) * Math.PI) * 1;
-        dataPoint[targetDomain] = Math.max(1, Math.min(100, Math.round(targetBase + targetVariation)));
+      // Add target domain data only if it's ranking
+      if (isTargetRanking) {
+        const cleanTargetDomain = targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+        // Calculate real average position for target domain
+        const positionsWithValues = keywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
+        const realAvgPosition = positionsWithValues.length > 0 
+          ? Math.round(positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length)
+          : 15;
+        
+        const targetVariation = Math.sin((i / 30) * Math.PI * 2) * 2 + Math.sin((i / 10) * Math.PI) * 1;
+        dataPoint[cleanTargetDomain] = Math.max(1, Math.min(100, Math.round(realAvgPosition + targetVariation)));
       }
       
       // Generate deterministic data for competitors
@@ -80,9 +87,18 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
     return data;
   }, [domains, targetDomain]);
 
-  // Calculate position variations for each domain
+  // Calculate position variations for each domain (excluding target if not ranking)
   const positionVariations = useMemo(() => {
-    return selectedDomains.map(domain => {
+    const cleanTargetDomain = targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    const domainsToShow = selectedDomains.filter(domain => {
+      // If target domain is not ranking, exclude it from badges
+      if (!isTargetRanking && domain === cleanTargetDomain) {
+        return false;
+      }
+      return true;
+    });
+    
+    return domainsToShow.map(domain => {
       const firstPosition = positionData[0]?.[domain] as number || 50;
       const lastPosition = positionData[positionData.length - 1]?.[domain] as number || 50;
       const variation = firstPosition - lastPosition; // Positive = improved (lower position)
@@ -93,7 +109,7 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
         status: variation > 0 ? 'improved' : variation < 0 ? 'declined' : 'stable'
       };
     });
-  }, [selectedDomains, positionData]);
+  }, [selectedDomains, positionData, isTargetRanking, targetDomain]);
   
   // Get colors for domains
   const getColorForDomain = (domain: string) => {
@@ -124,7 +140,9 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
           <div>
             <CardTitle>Variação de Posições</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Evolução das posições médias nos últimos 30 dias
+              {isTargetRanking 
+                ? "Evolução das posições médias nos últimos 30 dias" 
+                : "Evolução dos 10 competidores à frente (seu domínio não rankeia)"}
             </p>
           </div>
           
@@ -187,7 +205,11 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
         </div>
         
         <div className="text-xs text-muted-foreground">
-          <p>💡 <strong>Dica:</strong> Posições menores são melhores. Selecione até 10 domínios para comparar suas variações.</p>
+          {isTargetRanking ? (
+            <p>💡 <strong>Dica:</strong> Posições menores são melhores. Selecione até 10 domínios para comparar suas variações.</p>
+          ) : (
+            <p>⚠️ <strong>Seu domínio não rankeia</strong> nas primeiras 100 posições para as palavras-chave analisadas. O gráfico mostra apenas os competidores à frente.</p>
+          )}
         </div>
       </CardContent>
     </Card>
