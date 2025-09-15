@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { CheckCircle, AlertTriangle, Info, TrendingUp, Target, Lightbulb, X } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,95 +27,134 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (analysisData) {
-      generateOpportunities(analysisData);
-    }
-  }, [analysisData]);
+  const generateOpportunities = useCallback((data: CompetitiveAnalysisData) => {
+    if (!data?.keywords?.length) return;
 
-  const generateOpportunities = (data: CompetitiveAnalysisData) => {
     const newOpportunities: Opportunity[] = [];
 
-    // High-impact opportunities (positions 11-20)
-    const nearFirstPage = data.keywords.filter(k => 
-      (k.target_domain_position || 100) > 10 && (k.target_domain_position || 100) <= 20
-    );
-    
-    if (nearFirstPage.length > 0) {
+    // Content Gap Analysis - Keywords competitors rank for but target doesn't
+    const contentGaps = data.keywords
+      .filter(k => {
+        const hasCompetitorInTop10 = k.competitor_positions?.some(cp => cp.position <= 10);
+        const targetNotInTop20 = !k.target_domain_position || k.target_domain_position > 20;
+        return hasCompetitorInTop10 && targetNotInTop20 && k.search_volume && k.search_volume > 300;
+      })
+      .slice(0, 3);
+
+    if (contentGaps.length > 0) {
       newOpportunities.push({
-        id: 'near-first-page',
+        id: 'content-gaps',
         type: 'high-impact',
-        title: `${nearFirstPage.length} palavras-chave próximas da primeira página`,
-        description: 'Oportunidades de alto impacto para entrar no top 10',
+        title: 'Lacunas de Conteúdo Identificadas',
+        description: `${contentGaps.length} tópicos importantes onde concorrentes estão dominando. Criar conteúdo focado pode gerar tráfego significativo.`,
         impact: 'high',
         effort: 'medium',
-        keywords: nearFirstPage.slice(0, 3).map(k => k.keyword),
-        action: 'focus-keywords',
-        actionData: nearFirstPage
+        keywords: contentGaps.map(k => k.keyword),
+        action: 'create-content',
+        actionData: contentGaps
       });
     }
 
-    // Quick wins (easy keywords where competitors are weak)
-    const quickWins = data.keywords.filter(k => {
-      const avgCompetitorPos = k.competitor_positions.reduce((acc, c) => acc + (c.position || 100), 0) / k.competitor_positions.length;
-      return (k.target_domain_position || 100) > avgCompetitorPos && avgCompetitorPos > 30;
-    });
+    // Quick Position Wins - Keywords ranking 11-20 that can reach top 10
+    const quickWins = data.keywords
+      .filter(k => k.target_domain_position >= 11 && k.target_domain_position <= 20 && k.search_volume && k.search_volume > 200)
+      .sort((a, b) => (a.target_domain_position || 999) - (b.target_domain_position || 999))
+      .slice(0, 4);
 
     if (quickWins.length > 0) {
       newOpportunities.push({
-        id: 'quick-wins',
+        id: 'position-wins',
         type: 'quick-win',
-        title: `${quickWins.length} oportunidades de vitória rápida`,
-        description: 'Keywords onde os concorrentes estão fracos',
+        title: 'Oportunidades de Posicionamento',
+        description: `${quickWins.length} keywords na segunda página podem alcançar o top 10 com otimização técnica e de conteúdo.`,
         impact: 'medium',
         effort: 'low',
-        keywords: quickWins.slice(0, 3).map(k => k.keyword),
-        action: 'target-weak-competitors',
+        keywords: quickWins.map(k => k.keyword),
+        action: 'optimize-content',
         actionData: quickWins
       });
     }
 
-    // Trending opportunities (keywords where you're improving)
-    const trendingUp = data.keywords.filter(k => {
-      // Simulate trend data - in real app, this would come from historical data
-      return Math.random() > 0.7 && (k.target_domain_position || 100) < 50;
-    });
+    // High-Volume Untapped Keywords
+    const highVolumeUntapped = data.keywords
+      .filter(k => {
+        const isUntapped = !k.target_domain_position || k.target_domain_position > 30;
+        const hasHighVolume = k.search_volume && k.search_volume > 1000;
+        const hasWeakCompetition = !k.competitor_positions?.some(cp => cp.position <= 3);
+        return isUntapped && hasHighVolume && hasWeakCompetition;
+      })
+      .slice(0, 2);
 
-    if (trendingUp.length > 0) {
+    if (highVolumeUntapped.length > 0) {
       newOpportunities.push({
-        id: 'trending-up',
+        id: 'high-volume',
         type: 'trending',
-        title: `${trendingUp.length} palavras-chave em ascensão`,
-        description: 'Continue investindo nestas keywords que estão subindo',
-        impact: 'medium',
-        effort: 'low',
-        keywords: trendingUp.slice(0, 3).map(k => k.keyword),
-        action: 'maintain-momentum',
-        actionData: trendingUp
+        title: 'Keywords de Alto Volume Desexploradas',
+        description: `${highVolumeUntapped.length} keywords com alto volume de busca e baixa competição. Oportunidade para crescimento acelerado.`,
+        impact: 'high',
+        effort: 'high',
+        keywords: highVolumeUntapped.map(k => k.keyword),
+        action: 'create-pillar-content',
+        actionData: highVolumeUntapped
       });
     }
 
-    // Critical alerts (losing to new competitors)
-    const criticalLosses = data.keywords.filter(k => 
-      (k.target_domain_position || 100) > 50 && k.competitor_positions.some(c => (c.position || 100) < 10)
-    );
+    // Competitive Threats - Competitors dominating important keywords
+    const competitiveThreats = data.keywords
+      .filter(k => {
+        const competitorDominating = k.competitor_positions?.some(cp => cp.position <= 3);
+        const importantKeyword = k.search_volume && k.search_volume > 500;
+        const targetLagging = !k.target_domain_position || k.target_domain_position > 20;
+        return competitorDominating && importantKeyword && targetLagging;
+      })
+      .slice(0, 3);
 
-    if (criticalLosses.length > 0) {
+    if (competitiveThreats.length > 0) {
       newOpportunities.push({
-        id: 'critical-losses',
+        id: 'competitive-threats',
         type: 'alert',
-        title: `${criticalLosses.length} palavras-chave com perdas críticas`,
-        description: 'Concorrentes dominando keywords importantes',
+        title: 'Ameaças Competitivas Críticas',
+        description: `Concorrentes dominam ${competitiveThreats.length} keywords estratégicas. Ação imediata necessária para não perder market share.`,
         impact: 'high',
         effort: 'high',
-        keywords: criticalLosses.slice(0, 3).map(k => k.keyword),
-        action: 'competitive-analysis',
-        actionData: criticalLosses
+        keywords: competitiveThreats.map(k => k.keyword),
+        action: 'competitive-response',
+        actionData: competitiveThreats
+      });
+    }
+
+    // Long-tail Opportunities - Easy wins with specific intent
+    const longTailOpportunities = data.keywords
+      .filter(k => {
+        const isLongTail = k.keyword.split(' ').length >= 3;
+        const hasIntent = /como|onde|quando|porque|melhor|preço|comprar|tutorial/.test(k.keyword.toLowerCase());
+        const lowCompetition = !k.competitor_positions?.some(cp => cp.position <= 10) || k.competitor_positions?.length <= 2;
+        return isLongTail && hasIntent && lowCompetition;
+      })
+      .slice(0, 5);
+
+    if (longTailOpportunities.length > 0) {
+      newOpportunities.push({
+        id: 'long-tail',
+        type: 'quick-win',
+        title: 'Oportunidades Long-Tail com Intenção Clara',
+        description: `${longTailOpportunities.length} keywords específicas com baixa competição e alta intenção de conversão.`,
+        impact: 'medium',
+        effort: 'low',
+        keywords: longTailOpportunities.map(k => k.keyword),
+        action: 'target-long-tail',
+        actionData: longTailOpportunities
       });
     }
 
     setOpportunities(newOpportunities);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (analysisData) {
+      generateOpportunities(analysisData);
+    }
+  }, [analysisData, generateOpportunities]);
 
   const handleDismiss = (id: string) => {
     setDismissedIds(prev => [...prev, id]);
