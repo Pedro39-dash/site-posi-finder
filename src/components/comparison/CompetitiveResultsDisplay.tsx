@@ -50,6 +50,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
+  const [reverifyLoading, setReverifyLoading] = useState(false);
   
   const [showProductivityPanel, setShowProductivityPanel] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -116,6 +117,58 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   const competitionLevels = filters.competitionLevel;
   const sortByField = filters.sortBy;
   const sortDirection = filters.sortOrder;
+  
+  // Handler for reverifying positions
+  const handleReverifyPositions = useCallback(async () => {
+    if (!analysisData?.keywords?.length) {
+      toast.error('Nenhuma palavra-chave encontrada para reverificar');
+      return;
+    }
+
+    setReverifyLoading(true);
+    
+    try {
+      const keywords = analysisData.keywords.slice(0, 3);
+      const targetDomain = analysisData.analysis?.target_domain;
+      
+      if (!targetDomain) {
+        toast.error('Domínio alvo não encontrado');
+        return;
+      }
+
+      toast.info(`Iniciando reverificação de ${keywords.length} palavras-chave...`);
+      
+      let successCount = 0;
+      
+      for (const keyword of keywords) {
+        try {
+          const result = await CompetitorAnalysisService.reverifyKeyword(
+            analysisId, 
+            keyword.keyword, 
+            targetDomain
+          );
+          
+          if (result.success) {
+            successCount++;  
+          }
+        } catch (error) {
+          console.error(`Error reverifying "${keyword.keyword}":`, error);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      if (successCount > 0) {
+        toast.success(`Reverificação concluída: ${successCount} palavras-chave atualizadas`);
+        refresh();
+      }
+      
+    } catch (error) {
+      toast.error('Erro durante a reverificação das posições');
+    } finally {
+      setReverifyLoading(false);
+    }
+  }, [analysisData, analysisId, refresh]);
   
   // Keywords filtradas e ordenadas com dependências completamente estáveis
   const filteredAndSortedKeywords = useMemo(() => {
@@ -338,6 +391,25 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                   <Button variant="ghost" size="sm" onClick={onBackToForm}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Voltar
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleReverifyPositions}
+                    disabled={reverifyLoading}
+                    className="gap-2"
+                  >
+                    {reverifyLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                        Reverificando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4" />
+                        Reverificar Posições
+                      </>
+                    )}
                   </Button>
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">Rastreamento dos concorrentes</h1>

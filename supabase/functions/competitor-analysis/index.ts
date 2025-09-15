@@ -588,6 +588,25 @@ function shouldExcludeDomain(domain: string): boolean {
   );
 }
 
+// Helper function for Brazilian domain extraction  
+function extractBaseDomainName(domain: string): string {
+  if (!domain) return '';
+  
+  const parts = domain.split('.');
+  
+  // Handle Brazilian domains (.com.br, .org.br, .net.br, etc.)
+  if (parts.length >= 3 && parts[parts.length - 1] === 'br') {
+    return parts[0]; // Return first part for .com.br domains
+  }
+  
+  // Handle regular domains (.com, .org, etc.)
+  if (parts.length >= 2) {
+    return parts[0]; // Return first part
+  }
+  
+  return domain;
+}
+
 // Improved domain normalization function
 function normalizeDomain(domain: string): string {
   if (!domain) return '';
@@ -602,7 +621,7 @@ function normalizeDomain(domain: string): string {
     .split('#')[0];               // Remove fragments
 }
 
-// Enhanced domain matching function
+// Enhanced domain matching function - improved for Brazilian domains (.com.br)
 function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
   const normalizedTarget = normalizeDomain(targetDomain);
   const normalizedResult = normalizeDomain(resultDomain);
@@ -621,17 +640,48 @@ function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
     return true;
   }
   
-  // Check without TLD for similar domains
-  const targetWithoutTLD = normalizedTarget.split('.')[0];
-  const resultWithoutTLD = normalizedResult.split('.')[0];
+  // IMPROVED: Brazilian domain specific matching (.com.br, .org.br, etc.)
+  // Extract base domain name for more robust comparison
+  const targetBaseName = extractBaseDomainName(normalizedTarget);
+  const resultBaseName = extractBaseDomainName(normalizedResult);
   
-  if (targetWithoutTLD === resultWithoutTLD && targetWithoutTLD.length > 3) {
-    console.log(`✅ DOMAIN_MATCH: Base domain match found (${targetWithoutTLD})`);
+  console.log(`🔍 DOMAIN_MATCH: Base names - Target: "${targetBaseName}", Result: "${resultBaseName}"`);
+  
+  if (targetBaseName === resultBaseName && targetBaseName.length > 3) {
+    console.log(`✅ DOMAIN_MATCH: Base domain name match found (${targetBaseName})`);
     return true;
+  }
+  
+  // IMPROVED: Partial matching for variations (with stricter conditions)
+  if (targetBaseName.length >= 6 && resultBaseName.length >= 6) {
+    // Check if one domain name is contained in the other (for branded variations)
+    if (targetBaseName.includes(resultBaseName) || resultBaseName.includes(targetBaseName)) {
+      console.log(`✅ DOMAIN_MATCH: Partial domain name match found`);
+      return true;
+    }
   }
   
   console.log(`❌ DOMAIN_MATCH: No match found`);
   return false;
+}
+
+// Helper function to extract base domain name (handles .com.br, .org.br, etc.)
+function extractBaseDomainName(domain: string): string {
+  if (!domain) return '';
+  
+  const parts = domain.split('.');
+  
+  // Handle Brazilian domains (.com.br, .org.br, .net.br, etc.)
+  if (parts.length >= 3 && parts[parts.length - 1] === 'br') {
+    return parts[0]; // Return first part for .com.br domains
+  }
+  
+  // Handle regular domains (.com, .org, etc.)
+  if (parts.length >= 2) {
+    return parts[0]; // Return first part
+  }
+  
+  return domain;
 }
 
 async function analyzeKeywordPositions(keyword: string, targetDomain: string): Promise<KeywordAnalysis> {
@@ -643,10 +693,10 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       throw new Error('SERPAPI_KEY not configured');
     }
 
-    // IMPROVEMENT: Increased results from 20 to 50 for better coverage
-    const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=50&api_key=${serpApiKey}`;
+    // IMPROVEMENT: Increased results from 50 to 100 for better coverage and detection
+    const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=100&api_key=${serpApiKey}`;
     
-    console.log(`🌐 SERPAPI: Fetching 50 results for "${keyword}" (increased from 20)`);
+    console.log(`🌐 SERPAPI: Fetching 100 results for "${keyword}" (increased from 50 for better position detection)`);
     console.log(`🎯 SERPAPI: Target domain (normalized): "${normalizeDomain(targetDomain)}"`);
     
     const response = await fetch(serpApiUrl, {
@@ -681,6 +731,17 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     let allTargetDomainMatches: { position: number; url: string; normalized_domain: string }[] = [];
 
     console.log(`🔍 POSITION_DEBUG: Starting position detection for target domain "${normalizeDomain(targetDomain)}"`);
+    console.log(`🔍 POSITION_DEBUG: Base domain name: "${extractBaseDomainName(normalizeDomain(targetDomain))}"`);
+    console.log(`🔍 POSITION_DEBUG: Will scan ${organicResults.length} organic results for target domain...`);
+    
+    // Log first 20 domains we'll be checking for comprehensive debugging
+    console.log(`🔍 FIRST_20_DOMAINS: The first 20 domains we'll check are:`);
+    organicResults.slice(0, 20).forEach((result: any, index: number) => {
+      const position = result.position || (index + 1);
+      const rawDomain = extractDomain(result.link);
+      const normalizedDomain = normalizeDomain(rawDomain);
+      console.log(`  Position ${position}: ${normalizedDomain} (${result.title?.substring(0, 50) || 'No title'}...)`);  
+    });
 
     organicResults.forEach((result: any, index: number) => {
       const rawDomain = extractDomain(result.link);
