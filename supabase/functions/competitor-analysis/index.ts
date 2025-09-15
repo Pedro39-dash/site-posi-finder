@@ -665,24 +665,6 @@ function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
   return false;
 }
 
-// Helper function to extract base domain name (handles .com.br, .org.br, etc.)
-function extractBaseDomainName(domain: string): string {
-  if (!domain) return '';
-  
-  const parts = domain.split('.');
-  
-  // Handle Brazilian domains (.com.br, .org.br, .net.br, etc.)
-  if (parts.length >= 3 && parts[parts.length - 1] === 'br') {
-    return parts[0]; // Return first part for .com.br domains
-  }
-  
-  // Handle regular domains (.com, .org, etc.)
-  if (parts.length >= 2) {
-    return parts[0]; // Return first part
-  }
-  
-  return domain;
-}
 
 async function analyzeKeywordPositions(keyword: string, targetDomain: string): Promise<KeywordAnalysis> {
   console.log(`🔍 SERPAPI: Starting enhanced analysis for "${keyword}" targeting ${targetDomain}`);
