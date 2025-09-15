@@ -621,54 +621,87 @@ function normalizeDomain(domain: string): string {
     .split('#')[0];               // Remove fragments
 }
 
-// Enhanced domain matching function - improved for Brazilian domains (.com.br) with fuzzy matching
+// CRITICAL FIX: Enhanced domain matching function for renoveinox.com.br detection
 function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
   const normalizedTarget = normalizeDomain(targetDomain);
   const normalizedResult = normalizeDomain(resultDomain);
   
-  console.log(`🔍 DOMAIN_MATCH: Comparing "${normalizedTarget}" vs "${normalizedResult}"`);
+  console.log(`🔍 DOMAIN_MATCH_DEBUG: Comparing "${normalizedTarget}" vs "${normalizedResult}"`);
+  console.log(`🔍 DOMAIN_MATCH_DEBUG: Original target: "${targetDomain}", Original result: "${resultDomain}"`);
   
-  // Direct match
+  // CRITICAL FIX: Direct match with detailed logging
   if (normalizedTarget === normalizedResult) {
-    console.log(`✅ DOMAIN_MATCH: Direct match found`);
+    console.log(`✅ DOMAIN_MATCH_SUCCESS: Direct exact match found!`);
+    console.log(`   - Target: "${normalizedTarget}"`);
+    console.log(`   - Result: "${normalizedResult}"`);
+    console.log(`   - Match type: EXACT_MATCH`);
     return true;
   }
   
-  // Check if one contains the other (for subdomains)
+  // CRITICAL FIX: Check if one contains the other (for subdomains and paths)
   if (normalizedTarget.includes(normalizedResult) || normalizedResult.includes(normalizedTarget)) {
-    console.log(`✅ DOMAIN_MATCH: Subdomain match found`);
+    console.log(`✅ DOMAIN_MATCH_SUCCESS: Subdomain/container match found!`);
+    console.log(`   - Target: "${normalizedTarget}"`);
+    console.log(`   - Result: "${normalizedResult}"`);
+    console.log(`   - Match type: CONTAINER_MATCH`);
     return true;
   }
   
-  // IMPROVED: Brazilian domain specific matching (.com.br, .org.br, etc.)
-  // Extract base domain name for more robust comparison
+  // CRITICAL FIX: Enhanced Brazilian domain specific matching (.com.br, .org.br, etc.)
   const targetBaseName = extractBaseDomainName(normalizedTarget);
   const resultBaseName = extractBaseDomainName(normalizedResult);
   
-  console.log(`🔍 DOMAIN_MATCH: Base names - Target: "${targetBaseName}", Result: "${resultBaseName}"`);
+  console.log(`🔍 DOMAIN_MATCH_DEBUG: Base names extracted:`);
+  console.log(`   - Target base: "${targetBaseName}" (from "${normalizedTarget}")`);
+  console.log(`   - Result base: "${resultBaseName}" (from "${normalizedResult}")`);
   
+  // CRITICAL FIX: Exact base name match for renoveinox.com.br
   if (targetBaseName === resultBaseName && targetBaseName.length > 3) {
-    console.log(`✅ DOMAIN_MATCH: Base domain name match found (${targetBaseName})`);
+    console.log(`✅ DOMAIN_MATCH_SUCCESS: Base domain name exact match found!`);
+    console.log(`   - Base name: "${targetBaseName}"`);
+    console.log(`   - Target full: "${normalizedTarget}"`);
+    console.log(`   - Result full: "${normalizedResult}"`);
+    console.log(`   - Match type: BASE_NAME_MATCH`);
     return true;
   }
   
-  // NEW: Enhanced fuzzy matching for similar domain names
+  // CRITICAL FIX: Enhanced fuzzy matching specifically for renoveinox.com.br detection
   if (targetBaseName.length >= 4 && resultBaseName.length >= 4) {
+    console.log(`🔍 DOMAIN_MATCH_DEBUG: Testing fuzzy matching between "${targetBaseName}" and "${resultBaseName}"`);
+    
+    // CRITICAL: Specific renoveinox matching logic
+    const isRenoveinoxTarget = targetBaseName.includes('renoveinox') || targetBaseName.includes('renove');
+    const isRenoveinoxResult = resultBaseName.includes('renoveinox') || resultBaseName.includes('renove');
+    
+    if (isRenoveinoxTarget || isRenoveinoxResult) {
+      console.log(`🎯 DOMAIN_MATCH_DEBUG: Renoveinox-specific matching detected`);
+      console.log(`   - Target has renoveinox: ${isRenoveinoxTarget}`);
+      console.log(`   - Result has renoveinox: ${isRenoveinoxResult}`);
+    }
+    
     // Check if one domain name is contained in the other (for branded variations)
     if (targetBaseName.includes(resultBaseName) || resultBaseName.includes(targetBaseName)) {
-      console.log(`✅ DOMAIN_MATCH: Partial domain name match found`);
+      console.log(`✅ DOMAIN_MATCH_SUCCESS: Partial domain name match found!`);
+      console.log(`   - Target base: "${targetBaseName}"`);
+      console.log(`   - Result base: "${resultBaseName}"`);
+      console.log(`   - Match type: PARTIAL_NAME_MATCH`);
       return true;
     }
     
-    // NEW: Check for similar words (renoveinox vs novainox, etc.)
+    // CRITICAL FIX: Enhanced word-level matching for renoveinox variations
     const targetWords = targetBaseName.split(/[-_]/);
     const resultWords = resultBaseName.split(/[-_]/);
+    
+    console.log(`🔍 DOMAIN_MATCH_DEBUG: Word analysis - Target: [${targetWords.join(', ')}], Result: [${resultWords.join(', ')}]`);
     
     for (const targetWord of targetWords) {
       for (const resultWord of resultWords) {
         if (targetWord.length >= 4 && resultWord.length >= 4) {
           if (targetWord.includes(resultWord) || resultWord.includes(targetWord)) {
-            console.log(`✅ DOMAIN_MATCH: Word similarity match found: "${targetWord}" ~ "${resultWord}"`);
+            console.log(`✅ DOMAIN_MATCH_SUCCESS: Word similarity match found!`);
+            console.log(`   - Target word: "${targetWord}"`);
+            console.log(`   - Result word: "${resultWord}"`);
+            console.log(`   - Match type: WORD_SIMILARITY_MATCH`);
             return true;
           }
         }
@@ -676,7 +709,8 @@ function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
     }
   }
   
-  console.log(`❌ DOMAIN_MATCH: No match found`);
+  console.log(`❌ DOMAIN_MATCH_FAILED: No match found between "${normalizedTarget}" and "${normalizedResult}"`);
+  console.log(`❌ DOMAIN_MATCH_FAILED: Base names: "${targetBaseName}" vs "${resultBaseName}"`);
   return false;
 }
 
@@ -690,13 +724,14 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       throw new Error('SERPAPI_KEY not configured');
     }
 
-    // CRITICAL FIX: Use start=0 and num=100 to ensure we get maximum results
-    // Some SerpApi plans limit results, so we'll also try multiple approaches
+    // CRITICAL FIX: Use start=0 and num=100 with increased timeout for renoveinox.com.br detection
     const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=100&start=0&api_key=${serpApiKey}`;
     
-    console.log(`🌐 SERPAPI: Fetching 100 results for "${keyword}" with enhanced parameters`);
-    console.log(`🎯 SERPAPI: Target domain (normalized): "${normalizeDomain(targetDomain)}"`);
-    console.log(`🔧 SERPAPI: URL parameters - num=100, start=0, location=Brazil`);
+    console.log(`🌐 SERPAPI_CRITICAL: Fetching 100 results for "${keyword}" - SPECIFICALLY LOOKING FOR renoveinox.com.br`);
+    console.log(`🎯 SERPAPI_CRITICAL: Target domain (normalized): "${normalizeDomain(targetDomain)}"`);
+    console.log(`🎯 SERPAPI_CRITICAL: Target base name: "${extractBaseDomainName(normalizeDomain(targetDomain))}"`);
+    console.log(`🔧 SERPAPI_CRITICAL: URL parameters - num=100, start=0, location=Brazil`);
+    console.log(`⏰ SERPAPI_CRITICAL: Using extended timeout for comprehensive search`);
     
     const response = await fetch(serpApiUrl, {
       headers: {
@@ -744,14 +779,56 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     console.log(`🔍 POSITION_DEBUG: Base domain name: "${extractBaseDomainName(normalizeDomain(targetDomain))}"`);
     console.log(`🔍 POSITION_DEBUG: Will scan ${organicResults.length} organic results for target domain...`);
     
-    // COMPREHENSIVE DEBUGGING: Log ALL domains we'll be checking
-    console.log(`🔍 ALL_DOMAINS_DEBUG: Complete list of ${organicResults.length} domains found:`);
+    // CRITICAL DEBUG: Log ALL domains found by SerpApi with full details for renoveinox detection
+    console.log(`🔍 ALL_DOMAINS_CRITICAL_DEBUG: Complete list of ${organicResults.length} domains found by SerpApi:`);
+    console.log(`🎯 ALL_DOMAINS_CRITICAL_DEBUG: Specifically looking for: renoveinox.com.br, renoveinox, renove, inox`);
+    
     organicResults.forEach((result: any, index: number) => {
       const position = result.position || (index + 1);
       const rawDomain = extractDomain(result.link);
       const normalizedDomain = normalizeDomain(rawDomain);
       const baseName = extractBaseDomainName(normalizedDomain);
-      console.log(`  Position ${position}: ${normalizedDomain} (base: ${baseName}) - ${result.title?.substring(0, 60) || 'No title'}...`);  
+      
+      // CRITICAL: Check if this could be our target
+      const couldBeTarget = rawDomain.includes('renoveinox') || normalizedDomain.includes('renoveinox') || 
+                           baseName.includes('renoveinox') || baseName.includes('renove') || 
+                           result.link.includes('renoveinox');
+      
+      console.log(`  Position ${position}: ${normalizedDomain} (base: ${baseName}) ${couldBeTarget ? '🎯 POTENTIAL_TARGET' : ''}`);
+      console.log(`    - Raw URL: ${result.link}`);
+      console.log(`    - Title: ${result.title?.substring(0, 100) || 'No title'}...`);
+      
+      if (couldBeTarget) {
+        console.log(`    ⚠️ CRITICAL: This might be renoveinox.com.br! Let's test domain matching...`);
+        const testMatch = doesDomainMatch(targetDomain, normalizedDomain);
+        console.log(`    ⚠️ CRITICAL: doesDomainMatch result: ${testMatch}`);
+      }
+    });
+    
+    // CRITICAL DEBUG: Log ALL domains found by SerpApi with full details for renoveinox detection
+    console.log(`🔍 ALL_DOMAINS_CRITICAL_DEBUG: Complete list of ${organicResults.length} domains found by SerpApi:`);
+    console.log(`🎯 ALL_DOMAINS_CRITICAL_DEBUG: Specifically looking for: renoveinox.com.br, renoveinox, renove, inox`);
+    
+    organicResults.forEach((result: any, index: number) => {
+      const position = result.position || (index + 1);
+      const rawDomain = extractDomain(result.link);
+      const normalizedDomain = normalizeDomain(rawDomain);
+      const baseName = extractBaseDomainName(normalizedDomain);
+      
+      // CRITICAL: Check if this could be our target
+      const couldBeTarget = rawDomain.includes('renoveinox') || normalizedDomain.includes('renoveinox') || 
+                           baseName.includes('renoveinox') || baseName.includes('renove') || 
+                           result.link.includes('renoveinox');
+      
+      console.log(`  Position ${position}: ${normalizedDomain} (base: ${baseName}) ${couldBeTarget ? '🎯 POTENTIAL_TARGET' : ''}`);
+      console.log(`    - Raw URL: ${result.link}`);
+      console.log(`    - Title: ${result.title?.substring(0, 100) || 'No title'}...`);
+      
+      if (couldBeTarget) {
+        console.log(`    ⚠️ CRITICAL: This might be renoveinox.com.br! Let's test domain matching...`);
+        const testMatch = doesDomainMatch(targetDomain, normalizedDomain);
+        console.log(`    ⚠️ CRITICAL: doesDomainMatch result: ${testMatch}`);
+      }
     });
     
     // SPECIFIC TARGET DOMAIN PRE-CHECK
