@@ -85,6 +85,8 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
                   dataKey="percentage"
                   strokeWidth={2}
                   stroke="hsl(var(--background))"
+                  label={(entry) => `${entry.percentage}% (${entry.count})`}
+                  labelLine={false}
                 >
                   {filteredData.map((_, index) => (
                     <Cell 

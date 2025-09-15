@@ -35,14 +35,12 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         )
       );
       
-      // Count common keywords (where both target and competitor appear)
-      const commonKeywords = competitorKeywords.filter(keyword => 
-        keyword.target_domain_position && keyword.target_domain_position > 0
-      ).length;
+      // Count common keywords (where keyword is being analyzed for both target and competitor)
+      const commonKeywords = competitorKeywords.length; // All keywords where competitor appears are being analyzed
       
-      // Count different keywords (where only competitor appears)
+      // Count different keywords (where only competitor ranks, target doesn't)
       const differentKeywords = competitorKeywords.filter(keyword => 
-        !keyword.target_domain_position || keyword.target_domain_position === 0
+        !keyword.target_domain_position || keyword.target_domain_position === null
       ).length;
       
       // Calculate stable traffic estimate
@@ -81,7 +79,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
     return {
       domain: cleanTargetDomain,
       originalDomain: targetDomain,
-      commonKeywords: keywords.filter(k => k.target_domain_position && k.target_domain_position > 0).length,
+      commonKeywords: keywords.length, // All analyzed keywords are "common" to target domain
       differentKeywords: 0, // Target domain doesn't have "different" keywords from itself
       estimatedTraffic: Math.round(calculateTrafficEstimate(keywords, cleanTargetDomain, true)),
       estimatedBacklinks: generateBacklinkEstimate(cleanTargetDomain, true),

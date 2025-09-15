@@ -35,12 +35,12 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
     // Content Gap Analysis - Keywords competitors rank for but target doesn't
     const contentGaps = data.keywords
       .filter(k => {
-        const hasCompetitorInTop10 = k.competitor_positions?.some(cp => cp.position <= 10);
-        const targetNotInTop20 = !k.target_domain_position || k.target_domain_position > 20;
-        // Relaxed search volume condition - use any available volume or if competitor is ranking well
-        return hasCompetitorInTop10 && targetNotInTop20 && (!k.search_volume || k.search_volume > 50);
+        const notRanking = !k.target_domain_position;
+        const competitorRanking = k.competitor_positions?.length > 0;
+        const competitorInTop20 = k.competitor_positions?.some(p => p.position <= 20);
+        return notRanking && competitorRanking && competitorInTop20;
       })
-      .slice(0, 3);
+      .slice(0, 8);
 
     if (contentGaps.length > 0) {
       newOpportunities.push({
@@ -56,11 +56,15 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
       });
     }
 
-    // Quick Position Wins - Keywords ranking 11-20 that can reach top 10
+    // Quick Position Wins - Keywords where competitors rank top 10 but we don't, or we don't rank at all
     const quickWins = data.keywords
-      .filter(k => k.target_domain_position >= 11 && k.target_domain_position <= 20 && (!k.search_volume || k.search_volume > 50))
-      .sort((a, b) => (a.target_domain_position || 999) - (b.target_domain_position || 999))
-      .slice(0, 4);
+      .filter(k => {
+        const hasCompetitorInTop10 = k.competitor_positions?.some(p => p.position <= 10);
+        const targetNotRanking = !k.target_domain_position;
+        const targetRankingPoor = k.target_domain_position && k.target_domain_position > 20;
+        return hasCompetitorInTop10 && (targetNotRanking || targetRankingPoor);
+      })
+      .slice(0, 5);
 
     if (quickWins.length > 0) {
       newOpportunities.push({
@@ -100,15 +104,19 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
       });
     }
 
-    // Competitive Threats - Competitors dominating important keywords
+    // Competitive Threats - Keywords where competitors significantly outrank us or we don't rank
     const competitiveThreats = data.keywords
       .filter(k => {
-        const competitorDominating = k.competitor_positions?.some(cp => cp.position <= 3);
-        const hasAnyVolume = !k.search_volume || k.search_volume > 10; // Very relaxed condition
-        const targetLagging = !k.target_domain_position || k.target_domain_position > 20;
-        return competitorDominating && hasAnyVolume && targetLagging;
+        const ourPosition = k.target_domain_position;
+        const bestCompetitorPos = k.competitor_positions?.reduce((best, current) => 
+          current.position < best ? current.position : best, 999
+        );
+        
+        if (!ourPosition && bestCompetitorPos && bestCompetitorPos <= 10) return true; // We don't rank, they do
+        if (ourPosition && bestCompetitorPos && (ourPosition - bestCompetitorPos) > 15) return true; // Big gap
+        return false;
       })
-      .slice(0, 3);
+      .slice(0, 4);
 
     if (competitiveThreats.length > 0) {
       newOpportunities.push({
