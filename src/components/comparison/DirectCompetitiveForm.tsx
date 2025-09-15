@@ -10,7 +10,7 @@ import { CompetitorAnalysisService } from '@/services/competitorAnalysisService'
 import { toast } from '@/hooks/use-toast';
 import { useProject } from '@/hooks/useProject';
 import { ProjectSelector } from '@/components/projects/ProjectSelector';
-import KeywordSuggestions from './KeywordSuggestions';
+import AdvancedKeywordSuggestions from './AdvancedKeywordSuggestions';
 
 interface DirectCompetitiveFormProps {
   onAnalysisStarted: (analysisId: string) => void;
@@ -322,13 +322,14 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
           </Button>
         </div>
 
-        {/* Keyword Suggestions */}
-        <KeywordSuggestions
-          inputKeyword={currentKeywordInput}
-          onAddKeyword={addKeyword}
-          existingKeywords={selectedKeywords}
-          maxSuggestions={5}
-        />
+              {/* Advanced Keyword Suggestions */}
+              <AdvancedKeywordSuggestions
+                targetDomain={clientDomain}
+                competitors={competitors}
+                baseKeywords={selectedKeywords}
+                onAddKeyword={addKeyword}
+                existingKeywords={selectedKeywords}
+              />
 
         {selectedKeywords.length > 0 && (
           <div className="space-y-2">
