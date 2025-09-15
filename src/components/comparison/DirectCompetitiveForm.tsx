@@ -113,9 +113,6 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
       newErrors.clientDomain = "Digite o domínio do cliente";
     }
 
-    if (competitors.length === 0) {
-      newErrors.competitors = "Adicione pelo menos um concorrente";
-    }
 
     if (selectedKeywords.length === 0) {
       newErrors.keywords = "Digite pelo menos uma palavra-chave";
@@ -207,6 +204,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-primary" />
           <Label className="text-base font-medium">Concorrentes</Label>
+          <Badge variant="outline">Opcional</Badge>
           <Badge variant="secondary">{competitors.length}/5</Badge>
           <Tooltip>
             <TooltipTrigger>
@@ -214,10 +212,11 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             </TooltipTrigger>
             <TooltipContent>
               <div className="max-w-xs">
-                <p className="font-medium mb-1">Descoberta Automática</p>
+                <p className="font-medium mb-1">Concorrentes Opcionais</p>
                 <p className="text-xs">
-                  Os concorrentes mencionados aqui serão destacados nos resultados. 
-                  Outros concorrentes serão descobertos automaticamente baseados nas palavras-chave.
+                  Adicione concorrentes específicos que deseja destacar nos resultados. 
+                  Se não adicionar nenhum, o sistema descobrirá automaticamente concorrentes 
+                  baseado nas palavras-chave fornecidas.
                 </p>
               </div>
             </TooltipContent>
@@ -227,7 +226,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
         <div className="flex gap-2">
           <Input
             type="text"
-            placeholder="concorrente.com"
+            placeholder="concorrente.com (opcional)"
             value={competitorInput}
             onChange={(e) => {
               hasUserInputRef.current.competitors = true;
@@ -273,19 +272,26 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
         )}
 
         {/* Visual Comparison */}
-        {clientDomain && competitors.length > 0 && (
+        {clientDomain && (
           <div className="p-4 bg-muted/30 rounded-lg border border-dashed border-border">
             <div className="text-sm font-medium text-muted-foreground mb-3">Preview da Comparação:</div>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="default" className="bg-primary/10 text-primary border-primary">
                 {clientDomain} (Você)
               </Badge>
-              <span className="text-muted-foreground">vs</span>
-              {competitors.map((competitor, index) => (
-                <Badge key={index} variant="outline">
-                  {competitor}
-                </Badge>
-              ))}
+              {competitors.length > 0 && (
+                <>
+                  <span className="text-muted-foreground">vs</span>
+                  {competitors.map((competitor, index) => (
+                    <Badge key={index} variant="outline">
+                      {competitor}
+                    </Badge>
+                  ))}
+                </>
+              )}
+              {competitors.length === 0 && (
+                <span className="text-muted-foreground text-sm">+ Concorrentes descobertos automaticamente</span>
+              )}
             </div>
           </div>
         )}
@@ -384,7 +390,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
       </div>
 
       {/* Validation Alerts */}
-      {(errors.clientDomain || errors.competitors || errors.keywords) && (
+      {(errors.clientDomain || errors.keywords) && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
