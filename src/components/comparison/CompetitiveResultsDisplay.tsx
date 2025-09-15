@@ -436,7 +436,8 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
             <div className="space-y-6">
               {/* Position Variation Chart - moved before table */}
               <PositionVariationChart 
-                domains={allDomains}
+                competitors={analysisData?.competitors || []}
+                keywords={analysisData?.keywords || []}
                 selectedDomains={selectedDomains}
                 targetDomain={analysisData?.analysis?.target_domain || ''}
               />

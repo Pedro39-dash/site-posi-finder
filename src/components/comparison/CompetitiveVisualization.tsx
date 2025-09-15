@@ -148,7 +148,12 @@ const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo((
     <div className="space-y-6">
       {/* Share of Voice */}
       <ErrorBoundary>
-        <ShareOfVoiceChart data={chartData.shareOfVoiceData} />
+        <ShareOfVoiceChart 
+          data={chartData.shareOfVoiceData} 
+          competitors={analysisData?.competitors || []}
+          keywords={analysisData?.keywords || []}
+          targetDomain={analysisData?.analysis?.target_domain || ''}
+        />
       </ErrorBoundary>
 
     </div>

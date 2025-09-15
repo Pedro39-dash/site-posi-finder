@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Cell, PieChart, Pie, ResponsiveContainer, LineChart, Line, XAxis, YAxis } from 'recharts';
+import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
+import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
 
 interface ShareOfVoiceData {
   domain: string;
@@ -11,28 +13,44 @@ interface ShareOfVoiceData {
 
 interface ShareOfVoiceChartProps {
   data: ShareOfVoiceData[];
+  competitors: CompetitorDomain[];
+  keywords: CompetitorKeyword[];
+  targetDomain: string;
 }
 
-const COLORS = [
-  'hsl(217, 89%, 61%)', // Primary
-  'hsl(145, 63%, 49%)', // Accent  
-  'hsl(0, 84%, 60%)',   // Destructive
-  'hsl(45, 93%, 47%)',  // Warning
-  'hsl(263, 85%, 66%)', // Purple
-  'hsl(173, 80%, 40%)', // Teal
-  'hsl(25, 95%, 53%)',  // Orange
-  'hsl(142, 76%, 36%)', // Green
-];
 
-const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
-  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(
-    new Set(data.map(item => item.domain))
-  );
+const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors, keywords, targetDomain }) => {
+  // Filter data to show only top 10 competitors ahead
+  const filteredData = useMemo(() => {
+    const filteredCompetitors = getTop10CompetitorsAhead(competitors, keywords, targetDomain);
+    const filteredDomains = filteredCompetitors.map(c => c.domain);
+    
+    // Filter original data to only include these domains
+    const filtered = data.filter(item => 
+      filteredDomains.includes(item.domain.replace(/^https?:\/\//, '').replace(/^www\./, ''))
+    );
+    
+    // Recalculate percentages based on filtered data only
+    const totalCount = filtered.reduce((sum, item) => sum + item.count, 0);
+    
+    return filtered.map(item => ({
+      ...item,
+      percentage: totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0
+    }));
+  }, [data, competitors, keywords, targetDomain]);
+  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set());
+
+  // Update selected domains when filteredData changes
+  useEffect(() => {
+    if (filteredData.length > 0) {
+      setSelectedDomains(new Set(filteredData.map(item => item.domain)));
+    }
+  }, [filteredData]);
 
   // Filter data based on selection
-  const filteredData = useMemo(() => 
-    data.filter(item => selectedDomains.has(item.domain)),
-    [data, selectedDomains]
+  const displayData = useMemo(() => 
+    filteredData.filter(item => selectedDomains.has(item.domain)),
+    [filteredData, selectedDomains]
   );
 
   // Generate trend data (simulated)
@@ -41,7 +59,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
       const date = new Date();
       date.setDate(date.getDate() - (6 - i));
       
-      const totalVoice = filteredData.reduce((sum, item) => sum + item.percentage, 0);
+      const totalVoice = displayData.reduce((sum, item) => sum + item.percentage, 0);
       const variation = Math.sin((i / 7) * Math.PI * 2) * 5;
       
       return {
@@ -49,7 +67,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
         shareOfVoice: Math.max(0, totalVoice + variation)
       };
     });
-  }, [filteredData]);
+  }, [displayData]);
 
   const handleDomainToggle = (domain: string, checked: boolean) => {
     const newSelected = new Set(selectedDomains);
@@ -77,7 +95,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
-                  data={filteredData}
+                  data={displayData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -88,10 +106,10 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
                   label={(entry) => `${entry.percentage}% (${entry.count})`}
                   labelLine={false}
                 >
-                  {filteredData.map((_, index) => (
+                  {displayData.map((_, index) => (
                     <Cell 
                       key={`cell-${index}`} 
-                      fill={COLORS[index % COLORS.length]}
+                      fill={getDomainColor(index)}
                     />
                   ))}
                 </Pie>
@@ -126,7 +144,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
           <div className="space-y-3">
             <h4 className="text-sm font-medium mb-4">Domínios</h4>
             <div className="max-h-80 overflow-y-auto space-y-3">
-              {data.map((item, index) => (
+              {filteredData.map((item, index) => (
                 <div 
                   key={item.domain}
                   className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
@@ -140,7 +158,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
                     />
                     <div 
                       className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      style={{ backgroundColor: getDomainColor(index) }}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-foreground truncate">
@@ -160,7 +178,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data }) => {
               ))}
             </div>
             
-            {data.length === 0 && (
+            {filteredData.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <p className="text-sm">Nenhum dado disponível</p>
               </div>

@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Plus, Download, ExternalLink, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { generateBacklinkEstimate, calculateTrafficEstimate, formatDomainDisplay } from '@/utils/domainEstimation';
+import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
 
 interface CompetitorTableProps {
   competitors: CompetitorDomain[];
@@ -23,10 +24,15 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  // Calculate metrics for each competitor - memoized for stability
+  // Filter to show only top 10 competitors ahead of target domain
+  const filteredCompetitors = useMemo(() => {
+    return getTop10CompetitorsAhead(competitors, keywords, targetDomain);
+  }, [competitors, keywords, targetDomain]);
+
+  // Calculate metrics for filtered competitors - memoized for stability
   const competitorMetrics = useMemo(() => {
-    return competitors.map(competitor => {
-      const cleanDomain = competitor.domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    return filteredCompetitors.map(filtered => {
+      const cleanDomain = filtered.domain;
       
       // Find keywords where this competitor appears
       const competitorKeywords = keywords.filter(keyword => 
@@ -46,31 +52,17 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
       // Calculate stable traffic estimate
       const estimatedTraffic = Math.round(calculateTrafficEstimate(competitorKeywords, cleanDomain, false));
       
-      // Calculate average position for this competitor
-      const competitorPositions = keywords
-        .map(keyword => {
-          const position = keyword.competitor_positions?.find(pos => 
-            pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
-          );
-          return position?.position;
-        })
-        .filter((pos): pos is number => pos !== undefined && pos > 0);
-      
-      const averagePosition = competitorPositions.length > 0 
-        ? Math.round(competitorPositions.reduce((sum, pos) => sum + pos, 0) / competitorPositions.length)
-        : null;
-      
       return {
         domain: cleanDomain,
-        originalDomain: competitor.domain,
+        originalDomain: filtered.originalDomain,
         commonKeywords,
         differentKeywords,
         estimatedTraffic,
-        averagePosition,
-        detectedAutomatically: competitor.detected_automatically
+        averagePosition: filtered.averagePosition,
+        detectedAutomatically: filtered.detectedAutomatically
       };
     });
-  }, [competitors, keywords]);
+  }, [filteredCompetitors, keywords]);
 
   // Add target domain to the table - memoized for stability
   const targetMetrics = useMemo(() => {
@@ -124,17 +116,17 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle>Concorrentes Rastreados</CardTitle>
+              <CardTitle>Top 10 Concorrentes à Frente</CardTitle>
               <Tooltip>
                 <TooltipTrigger>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="max-w-xs">
-                    <p className="font-medium mb-1">Análise por URL Específica</p>
+                    <p className="font-medium mb-1">Filtro Inteligente</p>
                     <p className="text-xs">
-                      Esta análise compara URLs específicas, não sites inteiros. 
-                      Os dados mostram métricas estimadas baseadas nas páginas encontradas durante a pesquisa.
+                      Mostrando os 10 domínios que estão à frente da sua posição: 
+                      sempre incluindo os 3 primeiros + competidores imediatamente à sua frente.
                     </p>
                   </div>
                 </TooltipContent>
@@ -174,7 +166,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                       <div className="flex items-center gap-2">
                         <div 
                           className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1'][globalIndex] || '#d084d0' }}
+                          style={{ backgroundColor: getDomainColor(globalIndex) }}
                         />
                         <Tooltip>
                           <TooltipTrigger asChild>

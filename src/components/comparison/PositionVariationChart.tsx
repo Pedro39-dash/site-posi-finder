@@ -3,6 +3,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
+import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
 
 
 interface PositionData {
@@ -11,16 +13,36 @@ interface PositionData {
 }
 
 interface PositionVariationChartProps {
-  domains: string[];
+  competitors: CompetitorDomain[];
+  keywords: CompetitorKeyword[];
   selectedDomains: string[];
   targetDomain: string;
 }
 
 const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
-  domains,
+  competitors,
+  keywords,
   selectedDomains, 
   targetDomain
 }) => {
+  // Filter to show only top 10 competitors ahead
+  const filteredCompetitors = useMemo(() => {
+    return getTop10CompetitorsAhead(competitors, keywords, targetDomain);
+  }, [competitors, keywords, targetDomain]);
+
+  // Get all domain names for the chart (filtered competitors + target if ranking)
+  const domains = useMemo(() => {
+    const competitorDomains = filteredCompetitors.map(c => c.domain);
+    
+    // Check if target domain is ranking
+    const targetRanking = keywords.some(k => k.target_domain_position && k.target_domain_position > 0);
+    
+    if (targetRanking) {
+      return [targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, ''), ...competitorDomains];
+    }
+    
+    return competitorDomains;
+  }, [filteredCompetitors, targetDomain, keywords]);
 
   // Generate deterministic position data for the last 30 days - stable without random
   const positionData = useMemo(() => {
@@ -73,8 +95,11 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
     });
   }, [selectedDomains, positionData]);
   
-  // Colors for different domains
-  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0', '#ff69b4', '#00ced1', '#ffd700', '#ff6347'];
+  // Get colors for domains
+  const getColorForDomain = (domain: string) => {
+    const index = domains.indexOf(domain);
+    return getDomainColor(index);
+  };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -151,7 +176,7 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
                   key={domain}
                   type="monotone"
                   dataKey={domain}
-                  stroke={colors[domains.indexOf(domain) % colors.length]}
+                  stroke={getColorForDomain(domain)}
                   strokeWidth={domain === targetDomain ? 3 : 2}
                   dot={false}
                   name={domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}
