@@ -70,9 +70,24 @@ export class CompetitorKeywordService {
       const uniqueSuggestions = this.removeDuplicateKeywords(suggestions);
       uniqueSuggestions.sort((a, b) => b.relevance_score - a.relevance_score);
       
+      // Filtrar apenas as 5 sugestões mais semanticamente relevantes às palavras-chave base
+      const topRelevantSuggestions = uniqueSuggestions.filter(suggestion => {
+        if (baseKeywords.length === 0) return true; // Se não há base, mantém todas
+        
+        // Calcula relevância semântica com palavras-chave base
+        const maxRelevance = Math.max(...baseKeywords.map(base => 
+          this.calculateSemanticRelevance(base, suggestion.suggested_keyword)
+        ));
+        
+        // Mantém apenas sugestões com relevância > 60% ou que sejam sinônimos/variações
+        return maxRelevance > 60 || suggestion.relevance_score > 80;
+      });
+      
+      console.log(`CompetitorKeywordService: Generated ${suggestions.length} total, filtered to ${topRelevantSuggestions.length} relevant suggestions`);
+      
       return {
         success: true,
-        suggestions: uniqueSuggestions.slice(0, 20) // Limit to top 20
+        suggestions: topRelevantSuggestions.slice(0, 5) // Limit to top 5 most relevant
       };
     } catch (error) {
       console.error('Error generating competitor suggestions:', error);

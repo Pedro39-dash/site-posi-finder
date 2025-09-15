@@ -361,9 +361,21 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                       <p className="text-muted-foreground">Posição Média</p>
                       <p className="font-medium">
                         {(() => {
-                          const positionsWithValues = (analysisData?.keywords || []).filter(k => k.target_domain_position && k.target_domain_position > 0);
+                          const keywords = analysisData?.keywords || [];
+                          const positionsWithValues = keywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
+                          
+                          console.log('Average Position Debug:', {
+                            totalKeywords: keywords.length,
+                            keywordsWithPositions: positionsWithValues.length,
+                            positions: positionsWithValues.map(k => ({keyword: k.keyword, position: k.target_domain_position}))
+                          });
+                          
                           if (positionsWithValues.length === 0) return 'N/A';
-                          const avg = Math.round(positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length);
+                          const sum = positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0);
+                          const avg = Math.round(sum / positionsWithValues.length);
+                          
+                          console.log('Average Position Calculation:', {sum, count: positionsWithValues.length, avg});
+                          
                           return `${avg}º`;
                         })()}
                       </p>

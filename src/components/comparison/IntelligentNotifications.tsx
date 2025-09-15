@@ -37,7 +37,8 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
       .filter(k => {
         const hasCompetitorInTop10 = k.competitor_positions?.some(cp => cp.position <= 10);
         const targetNotInTop20 = !k.target_domain_position || k.target_domain_position > 20;
-        return hasCompetitorInTop10 && targetNotInTop20 && k.search_volume && k.search_volume > 300;
+        // Relaxed search volume condition - use any available volume or if competitor is ranking well
+        return hasCompetitorInTop10 && targetNotInTop20 && (!k.search_volume || k.search_volume > 50);
       })
       .slice(0, 3);
 
@@ -57,7 +58,7 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
 
     // Quick Position Wins - Keywords ranking 11-20 that can reach top 10
     const quickWins = data.keywords
-      .filter(k => k.target_domain_position >= 11 && k.target_domain_position <= 20 && k.search_volume && k.search_volume > 200)
+      .filter(k => k.target_domain_position >= 11 && k.target_domain_position <= 20 && (!k.search_volume || k.search_volume > 50))
       .sort((a, b) => (a.target_domain_position || 999) - (b.target_domain_position || 999))
       .slice(0, 4);
 
@@ -79,9 +80,9 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
     const highVolumeUntapped = data.keywords
       .filter(k => {
         const isUntapped = !k.target_domain_position || k.target_domain_position > 30;
-        const hasHighVolume = k.search_volume && k.search_volume > 1000;
+        const hasVolume = !k.search_volume || k.search_volume > 100; // Relaxed volume requirement
         const hasWeakCompetition = !k.competitor_positions?.some(cp => cp.position <= 3);
-        return isUntapped && hasHighVolume && hasWeakCompetition;
+        return isUntapped && hasVolume && hasWeakCompetition;
       })
       .slice(0, 2);
 
@@ -103,9 +104,9 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
     const competitiveThreats = data.keywords
       .filter(k => {
         const competitorDominating = k.competitor_positions?.some(cp => cp.position <= 3);
-        const importantKeyword = k.search_volume && k.search_volume > 500;
+        const hasAnyVolume = !k.search_volume || k.search_volume > 10; // Very relaxed condition
         const targetLagging = !k.target_domain_position || k.target_domain_position > 20;
-        return competitorDominating && importantKeyword && targetLagging;
+        return competitorDominating && hasAnyVolume && targetLagging;
       })
       .slice(0, 3);
 
@@ -152,6 +153,15 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
 
   useEffect(() => {
     if (analysisData) {
+      console.log('IntelligentNotifications: Generating opportunities from data:', {
+        keywordsCount: analysisData.keywords?.length || 0,
+        keywords: analysisData.keywords?.map(k => ({
+          keyword: k.keyword,
+          target_position: k.target_domain_position,
+          search_volume: k.search_volume,
+          competitor_positions: k.competitor_positions?.length || 0
+        })).slice(0, 5) // Log first 5 for debugging
+      });
       generateOpportunities(analysisData);
     }
   }, [analysisData, generateOpportunities]);
