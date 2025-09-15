@@ -34,7 +34,7 @@ import { useSupabaseCache } from '@/hooks/useSupabaseCache';
 import { useOptimizedFilters } from './OptimizedFilterReducer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { HookErrorBoundary } from './HookErrorBoundary';
-import { KeywordRow, PositionBadge, DifficultyBadge } from './OptimizedComponents';
+import { ManualPositionCorrection } from './ManualPositionCorrection';
 // Removed useDeepMemo import to avoid hook instability
 
 interface CompetitiveResultsDisplayProps {
@@ -450,21 +450,37 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                              positions: positionsWithValues.map(k => ({keyword: k.keyword, position: k.target_domain_position}))
                            });
                            
-                           if (positionsWithValues.length === 0) {
-                             return (
-                               <span className="text-destructive flex items-center gap-1">
-                                 Não rankeando
-                                 <Tooltip>
-                                   <TooltipTrigger>
-                                     <Info className="h-3 w-3 text-muted-foreground" />
-                                   </TooltipTrigger>
-                                   <TooltipContent>
-                                     <p>Domínio não foi encontrado nas primeiras 100 posições para as palavras-chave analisadas</p>
-                                   </TooltipContent>
-                                 </Tooltip>
-                               </span>
-                             );
-                           }
+                            if (positionsWithValues.length === 0) {
+                              return (
+                                <div className="space-y-2">
+                                  <span className="text-destructive flex items-center gap-1">
+                                    Não rankeando
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <Info className="h-3 w-3 text-muted-foreground" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Domínio não foi encontrado nas primeiras 100 posições para as palavras-chave analisadas</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </span>
+                                  {/* Show manual position correction for keywords without position */}
+                                  {analysisData?.keywords?.filter(k => !k.target_domain_position).slice(0, 1).map(keyword => (
+                                    <ManualPositionCorrection
+                                      key={keyword.id}
+                                      analysisId={analysisId}
+                                      keyword={keyword.keyword}
+                                      targetDomain={analysisData?.analysis?.target_domain || ''}
+                                      currentPosition={keyword.target_domain_position}
+                                      onPositionUpdated={(newPosition) => {
+                                        // Trigger a refresh of the analysis data
+                                        refresh();
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              );
+                            }
                            
                            const sum = positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0);
                            const avg = Math.round(sum / positionsWithValues.length);

@@ -621,7 +621,7 @@ function normalizeDomain(domain: string): string {
     .split('#')[0];               // Remove fragments
 }
 
-// Enhanced domain matching function - improved for Brazilian domains (.com.br)
+// Enhanced domain matching function - improved for Brazilian domains (.com.br) with fuzzy matching
 function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
   const normalizedTarget = normalizeDomain(targetDomain);
   const normalizedResult = normalizeDomain(resultDomain);
@@ -652,12 +652,27 @@ function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
     return true;
   }
   
-  // IMPROVED: Partial matching for variations (with stricter conditions)
-  if (targetBaseName.length >= 6 && resultBaseName.length >= 6) {
+  // NEW: Enhanced fuzzy matching for similar domain names
+  if (targetBaseName.length >= 4 && resultBaseName.length >= 4) {
     // Check if one domain name is contained in the other (for branded variations)
     if (targetBaseName.includes(resultBaseName) || resultBaseName.includes(targetBaseName)) {
       console.log(`✅ DOMAIN_MATCH: Partial domain name match found`);
       return true;
+    }
+    
+    // NEW: Check for similar words (renoveinox vs novainox, etc.)
+    const targetWords = targetBaseName.split(/[-_]/);
+    const resultWords = resultBaseName.split(/[-_]/);
+    
+    for (const targetWord of targetWords) {
+      for (const resultWord of resultWords) {
+        if (targetWord.length >= 4 && resultWord.length >= 4) {
+          if (targetWord.includes(resultWord) || resultWord.includes(targetWord)) {
+            console.log(`✅ DOMAIN_MATCH: Word similarity match found: "${targetWord}" ~ "${resultWord}"`);
+            return true;
+          }
+        }
+      }
     }
   }
   
@@ -675,17 +690,20 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       throw new Error('SERPAPI_KEY not configured');
     }
 
-    // IMPROVEMENT: Increased results from 50 to 100 for better coverage and detection
-    const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=100&api_key=${serpApiKey}`;
+    // CRITICAL FIX: Use start=0 and num=100 to ensure we get maximum results
+    // Some SerpApi plans limit results, so we'll also try multiple approaches
+    const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=100&start=0&api_key=${serpApiKey}`;
     
-    console.log(`🌐 SERPAPI: Fetching 100 results for "${keyword}" (increased from 50 for better position detection)`);
+    console.log(`🌐 SERPAPI: Fetching 100 results for "${keyword}" with enhanced parameters`);
     console.log(`🎯 SERPAPI: Target domain (normalized): "${normalizeDomain(targetDomain)}"`);
+    console.log(`🔧 SERPAPI: URL parameters - num=100, start=0, location=Brazil`);
     
     const response = await fetch(serpApiUrl, {
       headers: {
         'User-Agent': 'Copex-SEO-Analysis/2.0',
         'Accept': 'application/json'
-      }
+      },
+      signal: AbortSignal.timeout(15000) // Increased timeout for more results
     });
     
     if (!response.ok) {
@@ -700,6 +718,16 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
 
     const organicResults = data.organic_results || [];
     console.log(`✅ SERPAPI: Retrieved ${organicResults.length} organic search results for "${keyword}"`);
+    
+    // DEBUGGING: Log SerpApi response structure to understand limitations
+    console.log(`📊 SERPAPI_DEBUG: Response structure - organic_results: ${organicResults.length}, search_metadata:`, data.search_metadata?.total_results || 'unknown');
+    console.log(`📊 SERPAPI_DEBUG: Search info - processed_at: ${data.search_metadata?.processed_at}, engine_used: ${data.search_metadata?.engine}`);
+    
+    // CRITICAL: If we got fewer than expected results, log warning
+    if (organicResults.length < 50) {
+      console.log(`⚠️ SERPAPI_WARNING: Only got ${organicResults.length} results instead of expected 100. This might affect position detection.`);
+      console.log(`🔧 SERPAPI_WARNING: SerpApi response keys:`, Object.keys(data));
+    }
 
     // Note: SerpApi organic results don't provide monthly search volume
     // We'll implement competitive-based estimation after competition analysis
@@ -716,14 +744,33 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
     console.log(`🔍 POSITION_DEBUG: Base domain name: "${extractBaseDomainName(normalizeDomain(targetDomain))}"`);
     console.log(`🔍 POSITION_DEBUG: Will scan ${organicResults.length} organic results for target domain...`);
     
-    // Log first 20 domains we'll be checking for comprehensive debugging
-    console.log(`🔍 FIRST_20_DOMAINS: The first 20 domains we'll check are:`);
-    organicResults.slice(0, 20).forEach((result: any, index: number) => {
+    // COMPREHENSIVE DEBUGGING: Log ALL domains we'll be checking
+    console.log(`🔍 ALL_DOMAINS_DEBUG: Complete list of ${organicResults.length} domains found:`);
+    organicResults.forEach((result: any, index: number) => {
       const position = result.position || (index + 1);
       const rawDomain = extractDomain(result.link);
       const normalizedDomain = normalizeDomain(rawDomain);
-      console.log(`  Position ${position}: ${normalizedDomain} (${result.title?.substring(0, 50) || 'No title'}...)`);  
+      const baseName = extractBaseDomainName(normalizedDomain);
+      console.log(`  Position ${position}: ${normalizedDomain} (base: ${baseName}) - ${result.title?.substring(0, 60) || 'No title'}...`);  
     });
+    
+    // SPECIFIC TARGET DOMAIN PRE-CHECK
+    const targetBaseName = extractBaseDomainName(normalizeDomain(targetDomain));
+    console.log(`🎯 TARGET_PRE_CHECK: Looking specifically for "${targetBaseName}" variations in results...`);
+    const potentialMatches = organicResults.filter((result: any) => {
+      const rawDomain = extractDomain(result.link);
+      const normalizedDomain = normalizeDomain(rawDomain);  
+      const resultBaseName = extractBaseDomainName(normalizedDomain);
+      return resultBaseName.includes(targetBaseName) || targetBaseName.includes(resultBaseName) || 
+             normalizedDomain.includes(targetBaseName) || resultBaseName.includes('renoveinox') ||
+             resultBaseName.includes('renove') || resultBaseName.includes('inox');
+    });
+    console.log(`🎯 TARGET_PRE_CHECK: Found ${potentialMatches.length} potential matches:`, 
+                potentialMatches.map((r: any) => ({
+                  position: r.position,
+                  domain: normalizeDomain(extractDomain(r.link)),
+                  base: extractBaseDomainName(normalizeDomain(extractDomain(r.link)))
+                })));
 
     organicResults.forEach((result: any, index: number) => {
       const rawDomain = extractDomain(result.link);
