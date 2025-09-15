@@ -32,131 +32,126 @@ const IntelligentNotifications = ({ analysisData, onActionClick }: IntelligentNo
 
     const newOpportunities: Opportunity[] = [];
 
-    // Content Gap Analysis - Keywords competitors rank for but target doesn't
-    const contentGaps = data.keywords
-      .filter(k => {
-        const notRanking = !k.target_domain_position;
-        const competitorRanking = k.competitor_positions?.length > 0;
-        const competitorInTop20 = k.competitor_positions?.some(p => p.position <= 20);
-        return notRanking && competitorRanking && competitorInTop20;
-      })
-      .slice(0, 8);
-
+    // Content Gaps - Keywords where competitors rank top 10 but target doesn't appear at all
+    const contentGaps = data.keywords.filter(keyword => 
+      !keyword.target_domain_position && 
+      keyword.competitor_positions?.some(pos => pos.position <= 10)
+    );
+    
     if (contentGaps.length > 0) {
+      // Get top competitor domains for these gaps
+      const topCompetitors = [...new Set(
+        contentGaps.flatMap(k => 
+          k.competitor_positions?.filter(p => p.position <= 3).map(p => 
+            p.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0]
+          ) || []
+        )
+      )].slice(0, 2);
+      
       newOpportunities.push({
         id: 'content-gaps',
         type: 'high-impact',
-        title: 'Lacunas de Conteúdo Identificadas',
-        description: `${contentGaps.length} tópicos importantes onde concorrentes estão dominando. Criar conteúdo focado pode gerar tráfego significativo.`,
+        title: `${contentGaps.length} Gap${contentGaps.length > 1 ? 's' : ''} de Conteúdo Crítico${contentGaps.length > 1 ? 's' : ''}`,
+        description: `${topCompetitors.join(' e ')} dominam "${contentGaps[0]?.keyword}"${contentGaps.length > 1 ? ` e outras ${contentGaps.length - 1} palavras-chave` : ''} onde você não aparece.`,
         impact: 'high',
         effort: 'medium',
-        keywords: contentGaps.map(k => k.keyword),
+        keywords: contentGaps.slice(0, 3).map(k => k.keyword),
         action: 'create-content',
         actionData: contentGaps
       });
     }
 
-    // Quick Position Wins - Keywords where competitors rank top 10 but we don't, or we don't rank at all
-    const quickWins = data.keywords
-      .filter(k => {
-        const hasCompetitorInTop10 = k.competitor_positions?.some(p => p.position <= 10);
-        const targetNotRanking = !k.target_domain_position;
-        const targetRankingPoor = k.target_domain_position && k.target_domain_position > 20;
-        return hasCompetitorInTop10 && (targetNotRanking || targetRankingPoor);
-      })
-      .slice(0, 5);
-
+    // Quick Wins - Target domain ranking 11-30 (pages 2-3)
+    const quickWins = data.keywords.filter(keyword => 
+      keyword.target_domain_position && 
+      keyword.target_domain_position >= 11 && 
+      keyword.target_domain_position <= 30
+    );
+    
     if (quickWins.length > 0) {
+      const avgPosition = Math.round(quickWins.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / quickWins.length);
       newOpportunities.push({
-        id: 'position-wins',
+        id: 'quick-wins',
         type: 'quick-win',
-        title: 'Oportunidades de Posicionamento',
-        description: `${quickWins.length} keywords na segunda página podem alcançar o top 10 com otimização técnica e de conteúdo.`,
+        title: `${quickWins.length} Oportunidade${quickWins.length > 1 ? 's' : ''} de Melhoria Rápida`,
+        description: `Você está na posição ${quickWins[0]?.target_domain_position}º para "${quickWins[0]?.keyword}" (média ${avgPosition}º) - otimizações simples podem levar à primeira página.`,
         impact: 'medium',
         effort: 'low',
-        keywords: quickWins.map(k => k.keyword),
+        keywords: quickWins.slice(0, 3).map(k => k.keyword),
         action: 'optimize-content',
         actionData: quickWins
       });
     }
 
-    // High-Volume Untapped Keywords
-    const highVolumeUntapped = data.keywords
-      .filter(k => {
-        const isUntapped = !k.target_domain_position || k.target_domain_position > 30;
-        const hasVolume = !k.search_volume || k.search_volume > 100; // Relaxed volume requirement
-        const hasWeakCompetition = !k.competitor_positions?.some(cp => cp.position <= 3);
-        return isUntapped && hasVolume && hasWeakCompetition;
-      })
-      .slice(0, 2);
-
-    if (highVolumeUntapped.length > 0) {
-      newOpportunities.push({
-        id: 'high-volume',
-        type: 'trending',
-        title: 'Keywords de Alto Volume Desexploradas',
-        description: `${highVolumeUntapped.length} keywords com alto volume de busca e baixa competição. Oportunidade para crescimento acelerado.`,
-        impact: 'high',
-        effort: 'high',
-        keywords: highVolumeUntapped.map(k => k.keyword),
-        action: 'create-pillar-content',
-        actionData: highVolumeUntapped
-      });
-    }
-
-    // Competitive Threats - Keywords where competitors significantly outrank us or we don't rank
-    const competitiveThreats = data.keywords
-      .filter(k => {
-        const ourPosition = k.target_domain_position;
-        const bestCompetitorPos = k.competitor_positions?.reduce((best, current) => 
-          current.position < best ? current.position : best, 999
-        );
-        
-        if (!ourPosition && bestCompetitorPos && bestCompetitorPos <= 10) return true; // We don't rank, they do
-        if (ourPosition && bestCompetitorPos && (ourPosition - bestCompetitorPos) > 15) return true; // Big gap
-        return false;
-      })
-      .slice(0, 4);
-
+    // Competitive Threats - High-volume keywords dominated by competitors
+    const competitiveThreats = data.keywords.filter(keyword => 
+      (!keyword.target_domain_position || keyword.target_domain_position > 20) &&
+      keyword.competitor_positions?.some(pos => pos.position <= 3) &&
+      (keyword.search_volume || 0) > 100
+    );
+    
     if (competitiveThreats.length > 0) {
+      const topThreat = competitiveThreats[0];
+      const dominantCompetitor = topThreat.competitor_positions
+        ?.find(p => p.position <= 3)?.domain
+        ?.replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0];
+      
       newOpportunities.push({
         id: 'competitive-threats',
         type: 'alert',
-        title: 'Ameaças Competitivas Críticas',
-        description: `Concorrentes dominam ${competitiveThreats.length} keywords estratégicas. Ação imediata necessária para não perder market share.`,
-        impact: 'high',
+        title: `${competitiveThreats.length} Ameaça${competitiveThreats.length > 1 ? 's' : ''} Competitiva${competitiveThreats.length > 1 ? 's' : ''}`,
+        description: `${dominantCompetitor} domina "${topThreat?.keyword}"${competitiveThreats.length > 1 ? ` e outras ${competitiveThreats.length - 1} palavras-chave` : ''} - analise sua estratégia.`,
+        impact: 'medium',
         effort: 'high',
-        keywords: competitiveThreats.map(k => k.keyword),
+        keywords: competitiveThreats.slice(0, 3).map(k => k.keyword),
         action: 'competitive-response',
         actionData: competitiveThreats
       });
     }
 
-    // Long-tail Opportunities - Easy wins with specific intent
-    const longTailOpportunities = data.keywords
-      .filter(k => {
-        const isLongTail = k.keyword.split(' ').length >= 3;
-        const hasIntent = /como|onde|quando|porque|melhor|preço|comprar|tutorial/.test(k.keyword.toLowerCase());
-        const lowCompetition = !k.competitor_positions?.some(cp => cp.position <= 10) || k.competitor_positions?.length <= 2;
-        return isLongTail && hasIntent && lowCompetition;
-      })
-      .slice(0, 5);
+    // SEO Technical Opportunities - Based on ranking patterns
+    const seoOpportunities = data.keywords.filter(keyword =>
+      keyword.target_domain_position && 
+      keyword.target_domain_position > 10 &&
+      keyword.competitor_positions?.some(pos => pos.position <= 10)
+    );
+    
+    if (seoOpportunities.length > 0) {
+      newOpportunities.push({
+        id: 'seo-technical',
+        type: 'trending',
+        title: `${seoOpportunities.length} Oportunidade${seoOpportunities.length > 1 ? 's' : ''} de SEO Técnico`,
+        description: `Melhore velocidade, estrutura de dados e otimização on-page para "${seoOpportunities[0]?.keyword}"${seoOpportunities.length > 1 ? ` e outras ${seoOpportunities.length - 1} keywords` : ''}.`,
+        impact: 'low',
+        effort: 'medium',
+        keywords: seoOpportunities.slice(0, 3).map(k => k.keyword),
+        action: 'technical-seo',
+        actionData: seoOpportunities
+      });
+    }
 
+    // Long-tail Opportunities - Less competitive, longer keywords
+    const longTailOpportunities = data.keywords.filter(keyword =>
+      keyword.keyword.split(' ').length >= 3 &&
+      (!keyword.target_domain_position || keyword.target_domain_position > 20) &&
+      keyword.competitor_positions?.every(pos => pos.position > 5)
+    );
+    
     if (longTailOpportunities.length > 0) {
       newOpportunities.push({
         id: 'long-tail',
         type: 'quick-win',
-        title: 'Oportunidades Long-Tail com Intenção Clara',
-        description: `${longTailOpportunities.length} keywords específicas com baixa competição e alta intenção de conversão.`,
-        impact: 'medium',
+        title: `${longTailOpportunities.length} Oportunidade${longTailOpportunities.length > 1 ? 's' : ''} Long-tail`,
+        description: `Palavras-chave específicas como "${longTailOpportunities[0]?.keyword}" com menor concorrência e alta intenção.`,
+        impact: 'low',
         effort: 'low',
-        keywords: longTailOpportunities.map(k => k.keyword),
+        keywords: longTailOpportunities.slice(0, 3).map(k => k.keyword),
         action: 'target-long-tail',
         actionData: longTailOpportunities
       });
     }
 
-    setOpportunities(newOpportunities);
+    setOpportunities(newOpportunities.slice(0, 4)); // Limit to 4 most relevant opportunities
   }, []);
 
   useEffect(() => {

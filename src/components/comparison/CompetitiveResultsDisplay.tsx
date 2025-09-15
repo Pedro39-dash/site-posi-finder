@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { 
   Eye, RotateCcw, ArrowLeft, Filter, Download, Bell, Target, TrendingUp, 
   Users, Trophy, Settings, AlertTriangle, RefreshCw, BarChart, 
-  ChevronLeft, ChevronRight, MapPin, Calendar
+  ChevronLeft, ChevronRight, MapPin, Calendar, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CompetitorAnalysisService, CompetitiveAnalysisData, CompetitorKeyword } from '@/services/competitorAnalysisService';
@@ -363,7 +363,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                          {(() => {
                            const keywords = analysisData?.keywords || [];
                            const positionsWithValues = keywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
-                           const notRankingCount = keywords.length - positionsWithValues.length;
                            
                            console.log('Average Position Debug:', {
                              totalKeywords: keywords.length,
@@ -373,8 +372,16 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                            
                            if (positionsWithValues.length === 0) {
                              return (
-                               <span className="text-destructive">
+                               <span className="text-destructive flex items-center gap-1">
                                  Não rankeando
+                                 <Tooltip>
+                                   <TooltipTrigger>
+                                     <Info className="h-3 w-3 text-muted-foreground" />
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Domínio não foi encontrado nas primeiras 100 posições para as palavras-chave analisadas</p>
+                                   </TooltipContent>
+                                 </Tooltip>
                                </span>
                              );
                            }
@@ -384,10 +391,22 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                            
                            console.log('Average Position Calculation:', {sum, count: positionsWithValues.length, avg});
                            
-                           return `${avg}º`;
+                           return (
+                             <span className="flex items-center gap-1">
+                               {avg}º
+                               <Tooltip>
+                                 <TooltipTrigger>
+                                   <Info className="h-3 w-3 text-muted-foreground" />
+                                 </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>Baseado em {positionsWithValues.length} palavras-chave onde o domínio rankeia</p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             </span>
+                           );
                          })()}
                        </p>
-                    </div>
+                     </div>
                     <div>
                       <p className="text-muted-foreground">Palavras-chave</p>
                       <p className="font-medium">{analysisData?.keywords?.length || 0}</p>

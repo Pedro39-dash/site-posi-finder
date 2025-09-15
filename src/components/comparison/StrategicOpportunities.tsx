@@ -14,53 +14,62 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
   keywords, 
   targetDomain 
 }) => {
-  // Calculate opportunities
+  // Calculate real opportunities based on competitor analysis
+  const contentGaps = keywords.filter(k => !k.target_domain_position && k.competitor_positions?.some(p => p.position <= 10));
+  const quickWins = keywords.filter(k => k.target_domain_position && k.target_domain_position >= 11 && k.target_domain_position <= 20);
+  const competitorAnalysis = keywords.filter(k => k.competitor_positions?.length > 0);
+  const topCompetitorDomains = [...new Set(keywords.flatMap(k => 
+    k.competitor_positions?.filter(p => p.position <= 3).map(p => p.domain) || []
+  ))].slice(0, 3);
+
   const opportunities = [
-    {
-      id: 'quick-wins',
-      title: 'Vitórias Rápidas',
-      description: 'Keywords na posição 11-20 com potencial de primeira página',
-      count: keywords.filter(k => k.target_domain_position && k.target_domain_position >= 11 && k.target_domain_position <= 20).length,
-      priority: 'high',
-      color: 'bg-green-500',
-      icon: Zap,
-      action: 'Otimizar Agora'
-    },
     {
       id: 'content-gaps',
       title: 'Gaps de Conteúdo',
-      description: 'Keywords onde concorrentes rankeiam mas você não',
-      count: keywords.filter(k => !k.target_domain_position && k.competitor_positions?.some(p => p.position <= 10)).length,
-      priority: 'medium',
-      color: 'bg-blue-500',
+      description: contentGaps.length > 0 
+        ? `${contentGaps.length} keywords onde concorrentes rankeiam top 10 mas você não aparece`
+        : 'Nenhum gap identificado - boa cobertura de conteúdo',
+      count: contentGaps.length,
+      priority: contentGaps.length > 0 ? 'high' : 'low',
+      color: contentGaps.length > 0 ? 'bg-red-500' : 'bg-gray-500',
       icon: Target,
-      action: 'Criar Conteúdo'
+      action: contentGaps.length > 0 ? 'Criar Conteúdo' : 'Monitorar'
     },
     {
-      id: 'competitor-weaknesses',
-      title: 'Pontos Fracos dos Concorrentes',
-      description: 'Keywords onde você está melhor posicionado',
-      count: keywords.filter(k => {
-        if (!k.target_domain_position || k.target_domain_position > 10) return false;
-        const bestCompetitor = k.competitor_positions?.reduce((best, current) => 
-          current.position < best ? current.position : best, 999
-        ) || 999;
-        return k.target_domain_position < bestCompetitor;
-      }).length,
+      id: 'quick-wins',
+      title: 'Vitórias Rápidas',
+      description: quickWins.length > 0 
+        ? `${quickWins.length} keywords na página 2 - potencial para primeira página`
+        : 'Foque em melhorar palavras-chave existentes',
+      count: quickWins.length,
+      priority: quickWins.length > 0 ? 'high' : 'medium',
+      color: quickWins.length > 0 ? 'bg-green-500' : 'bg-blue-500',
+      icon: Zap,
+      action: quickWins.length > 0 ? 'Otimizar Agora' : 'Analisar Posições'
+    },
+    {
+      id: 'competitor-leaders',
+      title: 'Líderes do Mercado',
+      description: topCompetitorDomains.length > 0 
+        ? `Analise estratégias de: ${topCompetitorDomains.slice(0, 2).map(d => d?.replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0]).join(', ')}`
+        : 'Identifique líderes do seu nicho',
+      count: topCompetitorDomains.length,
       priority: 'medium',
       color: 'bg-purple-500',
       icon: Trophy,
-      action: 'Fortalecer Posição'
+      action: 'Analisar Estratégias'
     },
     {
-      id: 'trending-keywords',
-      title: 'Keywords em Ascensão',
-      description: 'Oportunidades baseadas em tendências de busca',
-      count: Math.floor(keywords.length * 0.15), // Simulate 15% trending
+      id: 'seo-optimization',
+      title: 'Otimização SEO',
+      description: keywords.length > 0 
+        ? `Melhore títulos, meta descriptions e estrutura de ${Math.ceil(keywords.length / 2)} páginas`
+        : 'Configure análise de palavras-chave',
+      count: Math.ceil(keywords.length / 2),
       priority: 'low',
       color: 'bg-orange-500',
       icon: TrendingUp,
-      action: 'Monitorar'
+      action: 'Otimizar SEO'
     }
   ];
 

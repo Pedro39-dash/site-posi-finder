@@ -34,10 +34,14 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
       const dateStr = date.toLocaleDateString('pt-BR');
       const dataPoint: PositionData = { date: dateStr };
       
-      // Generate deterministic data for target domain (starting around position 15)
-      const targetBase = 15;
-      const targetVariation = Math.sin((i / 30) * Math.PI * 2) * 3 + Math.sin((i / 10) * Math.PI) * 1;
-      dataPoint[targetDomain] = Math.max(1, Math.min(100, Math.round(targetBase + targetVariation)));
+      // For target domain - show "Não rankeando" if no data, otherwise show trending around current average
+      if (targetDomain === "Não rankeando" || targetDomain.includes("Não rankeando")) {
+        // Don't add target domain data if it's not ranking
+      } else {
+        const targetBase = 15; // Default simulation - could be made dynamic based on real data
+        const targetVariation = Math.sin((i / 30) * Math.PI * 2) * 3 + Math.sin((i / 10) * Math.PI) * 1;
+        dataPoint[targetDomain] = Math.max(1, Math.min(100, Math.round(targetBase + targetVariation)));
+      }
       
       // Generate deterministic data for competitors
       domains.forEach((domain, index) => {
