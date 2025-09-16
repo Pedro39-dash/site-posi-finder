@@ -40,6 +40,7 @@ import { ManualPositionCorrection } from './ManualPositionCorrection';
 import { getTop10CompetitorsAroundTarget } from '@/utils/competitorFiltering';
 import { useStableKeywords } from '@/hooks/useStableKeywords';
 import { DataValidationIndicator } from '@/components/ui/data-validation-indicator';
+import { DataAccuracyCard } from './DataAccuracyCard';
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -54,6 +55,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
   const [reverifyLoading, setReverifyLoading] = useState(false);
+  const [reverifyingAll, setReverifyingAll] = useState(false);
   
   const [showProductivityPanel, setShowProductivityPanel] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -240,6 +242,62 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
   }, [analysisId, targetDomain, refresh, invalidate]);
 
+  // Handler para reverificar todas as palavras-chave
+  const handleReverifyAll = useCallback(async () => {
+    if (!analysisData?.keywords || reverifyingAll) return;
+    
+    setReverifyingAll(true);
+    const keywords = analysisData.keywords;
+    let successCount = 0;
+    let errorCount = 0;
+    
+    toast.info(`Iniciando re-verificação de ${keywords.length} palavras-chave...`);
+    
+    // Process keywords in batches to avoid overwhelming the API
+    const batchSize = 3;
+    for (let i = 0; i < keywords.length; i += batchSize) {
+      const batch = keywords.slice(i, i + batchSize);
+      
+      await Promise.all(
+        batch.map(async (keyword) => {
+          try {
+            const result = await CompetitorAnalysisService.reverifyKeyword(
+              analysisId,
+              keyword.keyword,
+              targetDomain
+            );
+            
+            if (result.success) {
+              successCount++;
+            } else {
+              errorCount++;
+            }
+          } catch (error) {
+            errorCount++;
+          }
+        })
+      );
+      
+      // Small delay between batches
+      if (i + batchSize < keywords.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    // Show results
+    if (successCount > 0) {
+      toast.success(`✅ ${successCount} posições atualizadas com sucesso!`);
+      invalidate();
+      setTimeout(() => refresh(), 500);
+    }
+    
+    if (errorCount > 0) {
+      toast.error(`❌ ${errorCount} palavras-chave falharam na re-verificação`);
+    }
+    
+    setReverifyingAll(false);
+  }, [analysisData?.keywords, analysisId, targetDomain, reverifyingAll, invalidate, refresh]);
+
   // Calcular métricas - null-safe
   const getMetrics = useMemo(() => {
     if (!analysisData?.keywords || !Array.isArray(analysisData.keywords) || analysisData.keywords.length === 0) {
@@ -404,11 +462,11 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={handleReverifyPositions}
-                    disabled={reverifyLoading}
+                    onClick={handleReverifyAll}
+                    disabled={reverifyingAll}
                     className="gap-2"
                   >
-                    {reverifyLoading ? (
+                    {reverifyingAll ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                         Reverificando...
@@ -416,7 +474,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                     ) : (
                       <>
                         <RefreshCw className="h-4 w-4" />
-                        Reverificar Posições
+                        Re-verificar Todas
                       </>
                     )}
                   </Button>
@@ -547,6 +605,13 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
               
             {/* Keyword Filter Section */}
             <KeywordSelector keywords={analysisData?.keywords || []} />
+
+            {/* Data Accuracy Card */}
+            <DataAccuracyCard 
+              analysisData={analysisData}
+              onReverifyAll={handleReverifyAll}
+              isReverifyingAll={reverifyingAll}
+            />
 
             {/* Domain Selection Panel */}
             {allDomains.length > 0 && (

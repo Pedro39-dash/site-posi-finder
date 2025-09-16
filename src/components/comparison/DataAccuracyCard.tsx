@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { RefreshCw, AlertTriangle, Clock, CheckCircle, Info } from "lucide-react";
+import { RefreshCw, AlertTriangle, Clock, CheckCircle, Info, Search, TrendingUp } from "lucide-react";
 import { CompetitiveAnalysisData } from "@/services/competitorAnalysisService";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -11,9 +11,11 @@ import { ptBR } from "date-fns/locale";
 interface DataAccuracyCardProps {
   analysisData: CompetitiveAnalysisData;
   onRefreshAnalysis?: () => void;
+  onReverifyAll?: () => void; // New prop for reverifying all keywords
+  isReverifyingAll?: boolean; // New prop to show loading state
 }
 
-export const DataAccuracyCard = ({ analysisData, onRefreshAnalysis }: DataAccuracyCardProps) => {
+export const DataAccuracyCard = ({ analysisData, onRefreshAnalysis, onReverifyAll, isReverifyingAll }: DataAccuracyCardProps) => {
   const { analysis, keywords } = analysisData;
   
   // Calculate data freshness
@@ -46,7 +48,7 @@ export const DataAccuracyCard = ({ analysisData, onRefreshAnalysis }: DataAccura
         text: "Dados Moderados",
         color: "text-yellow-600", 
         bgColor: "bg-yellow-50 border-yellow-200",
-        description: "Análise pode estar desatualizada"
+        description: "Dados podem estar desatualizados"
       };
     } else {
       return {
@@ -54,7 +56,7 @@ export const DataAccuracyCard = ({ analysisData, onRefreshAnalysis }: DataAccura
         text: "Dados Antigos",
         color: "text-orange-600",
         bgColor: "bg-orange-50 border-orange-200", 
-        description: "Recomendamos uma nova análise"
+        description: "Recomendamos verificação das posições"
       };
     }
   };
@@ -91,7 +93,7 @@ export const DataAccuracyCard = ({ analysisData, onRefreshAnalysis }: DataAccura
           <div>
             <p className="font-medium text-muted-foreground">Fonte dos Dados</p>
             <div className="flex items-center gap-1">
-              <p>SerpApi</p>
+              <p>SerpApi (Google)</p>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>
@@ -137,15 +139,74 @@ export const DataAccuracyCard = ({ analysisData, onRefreshAnalysis }: DataAccura
           </AlertDescription>
         </Alert>
 
-        {/* Action Button */}
-        {(isOld || successRate < 80) && onRefreshAnalysis && (
-          <div className="pt-2">
-            <Button onClick={onRefreshAnalysis} variant="outline" className="w-full">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar Análise Completa
-            </Button>
-          </div>
+        {/* Position Accuracy Warning for older data */}
+        {isOld && (
+          <Alert className="border-orange-200 bg-orange-50">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-medium text-orange-800">⚠️ Possível Discrepância de Posições</p>
+                <p className="text-sm text-orange-700">
+                  Os dados foram coletados há {daysSinceAnalysis} dia{daysSinceAnalysis > 1 ? 's' : ''}. 
+                  Rankings do Google mudam constantemente - sua posição atual pode ser diferente do mostrado no dashboard.
+                </p>
+                <ul className="text-xs space-y-1 text-orange-600">
+                  <li>• <strong>Rankings mudam constantemente:</strong> Posições podem alterar várias vezes por dia</li>
+                  <li>• <strong>Localização:</strong> Sua busca pode mostrar resultados diferentes por região</li>
+                  <li>• <strong>Personalização:</strong> Google personaliza resultados por histórico</li>
+                  <li>• <strong>Algoritmo:</strong> Atualizações do Google afetam posições regularmente</li>
+                </ul>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
+
+        {/* Moderate data alert */}
+        {isModerate && (
+          <Alert className="border-yellow-200 bg-yellow-50">
+            <Clock className="h-4 w-4 text-yellow-600" />
+            <AlertDescription>
+              <p className="text-sm text-yellow-700">
+                <strong>Dados coletados há {Math.floor(hoursOld / 24)} dia{Math.floor(hoursOld / 24) > 1 ? 's' : ''}.</strong> 
+                {' '}Use a "Re-verificação Rápida" para atualizar as posições sem fazer uma nova análise completa.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Action Buttons */}
+        <div className="space-y-2 pt-2">
+          {/* Quick reverify for recent data */}
+          {(isRecent || isModerate) && onReverifyAll && (
+            <Button 
+              onClick={onReverifyAll} 
+              variant="outline" 
+              className="w-full" 
+              size="sm"
+              disabled={isReverifyingAll}
+            >
+              {isReverifyingAll ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Re-verificando Posições...
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4 mr-2" />
+                  Re-verificar Todas as Posições
+                </>
+              )}
+            </Button>
+          )}
+          
+          {/* Full refresh for old data or low success rate */}
+          {(isOld || successRate < 80) && onRefreshAnalysis && (
+            <Button onClick={onRefreshAnalysis} variant="outline" className="w-full">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Nova Análise Completa
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
