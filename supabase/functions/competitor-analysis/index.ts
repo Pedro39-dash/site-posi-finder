@@ -154,14 +154,6 @@ async function performCompetitiveAnalysis(
     if (manualKeywords && manualKeywords.length > 0) {
       console.log(`✅ Using ${manualKeywords.length} manually provided keywords`);
       finalKeywords = manualKeywords.slice(0, 10); // Limit to 10 keywords for performance
-      
-      // 🚀 NEW: Auto-expand keywords if we have too few to ensure good competitor discovery
-      if (finalKeywords.length <= 2) {
-        console.log(`🔄 EXPANSION: Only ${finalKeywords.length} keywords provided - expanding automatically for better competitor discovery`);
-        const expandedKeywords = expandKeywordsAutomatically(finalKeywords, targetDomain);
-        finalKeywords = [...finalKeywords, ...expandedKeywords].slice(0, 10);
-        console.log(`🎯 EXPANSION: Expanded to ${finalKeywords.length} keywords: [${finalKeywords.join(', ')}]`);
-      }
     } else {
       console.log(`📋 No manual keywords provided, extracting from audit...`);
       // Extract keywords from audit report as fallback
@@ -176,14 +168,6 @@ async function performCompetitiveAnalysis(
       // Optimize keywords with filtering
       finalKeywords = optimizeKeywordsSmarter(rawKeywords);
       console.log(`🎯 Keywords after optimization: ${finalKeywords.length}`);
-      
-      // 🚀 NEW: Auto-expand audit keywords if still too few
-      if (finalKeywords.length <= 2) {
-        console.log(`🔄 EXPANSION: Only ${finalKeywords.length} audit keywords found - expanding for better competitor discovery`);
-        const expandedKeywords = expandKeywordsAutomatically(finalKeywords, targetDomain);
-        finalKeywords = [...finalKeywords, ...expandedKeywords].slice(0, 10);
-        console.log(`🎯 EXPANSION: Expanded to ${finalKeywords.length} keywords: [${finalKeywords.join(', ')}]`);
-      }
     }
 
     // If still no keywords, use simulation
@@ -470,109 +454,6 @@ async function performCompetitiveAnalysis(
       })
       .eq('id', analysisId);
   }
-}
-
-// 🚀 NEW: Auto-expand keywords for better competitor discovery
-function expandKeywordsAutomatically(baseKeywords: string[], targetDomain: string): string[] {
-  console.log(`🔄 EXPANSION: Auto-expanding ${baseKeywords.length} keywords for domain: ${targetDomain}`);
-  
-  const expandedKeywords: string[] = [];
-  const addedKeywords = new Set<string>();
-  
-  // Extract domain context for intelligent expansion
-  const domainName = targetDomain.replace(/\.(com|br|net|org)(\.(br|com))?$/i, '');
-  const domainParts = domainName.split('.')[0].toLowerCase();
-  
-  console.log(`🎯 EXPANSION: Domain analysis - name: "${domainName}", base: "${domainParts}"`);
-  
-  // Function to safely add keyword
-  const addKeyword = (keyword: string) => {
-    const normalized = keyword.toLowerCase().trim();
-    if (normalized.length > 2 && !addedKeywords.has(normalized)) {
-      expandedKeywords.push(normalized);
-      addedKeywords.add(normalized);
-    }
-  };
-  
-  baseKeywords.forEach(baseKeyword => {
-    const keyword = baseKeyword.toLowerCase();
-    
-    // Industry-specific expansions based on keyword content
-    if (keyword.includes('polimento') || keyword.includes('inox') || keyword.includes('aço')) {
-      // Metal/steel/polishing industry
-      addKeyword(`${keyword} profissional`);
-      addKeyword(`serviços ${keyword}`);
-      addKeyword(`empresa ${keyword}`);
-      addKeyword('polimento aço inox');
-      addKeyword('limpeza inox');
-      addKeyword('manutenção inox');
-      addKeyword('polimento metais');
-      addKeyword('restauração inox');
-      console.log(`🏭 EXPANSION: Metal/polishing industry expansion for "${keyword}"`);
-    } else if (keyword.includes('elevador') || keyword.includes('elevadores')) {
-      // Elevator industry
-      addKeyword(`manutenção ${keyword}`);
-      addKeyword(`${keyword} residencial`);
-      addKeyword(`${keyword} comercial`);
-      addKeyword('elevadores modernização');
-      addKeyword('elevadores instalação');
-      addKeyword('elevadores reparo');
-      console.log(`🏢 EXPANSION: Elevator industry expansion for "${keyword}"`);
-    } else if (keyword.includes('construção') || keyword.includes('obra')) {
-      // Construction industry
-      addKeyword(`${keyword} civil`);
-      addKeyword(`empresa ${keyword}`);
-      addKeyword(`${keyword} residencial`);
-      addKeyword('engenharia civil');
-      addKeyword('construção predial');
-      console.log(`🏗️ EXPANSION: Construction industry expansion for "${keyword}"`);
-    } else {
-      // Generic expansions for any keyword
-      addKeyword(`${keyword} brasil`);
-      addKeyword(`${keyword} serviços`);
-      addKeyword(`empresa ${keyword}`);
-      console.log(`🔧 EXPANSION: Generic expansion for "${keyword}"`);
-    }
-    
-    // Add domain-based variations if domain has meaningful parts
-    if (domainParts.length > 3) {
-      if (domainParts.includes('renove') || domainParts.includes('renovar')) {
-        addKeyword(`renovação ${keyword}`);
-        addKeyword(`reforma ${keyword}`);
-      }
-      if (domainParts.includes('inox')) {
-        addKeyword(`${keyword} inox`);
-        addKeyword(`inox ${keyword}`);
-      }
-    }
-  });
-  
-  // Industry fallbacks if no specific keywords matched
-  if (expandedKeywords.length < 3) {
-    console.log(`🔄 EXPANSION: Few expansions found, adding industry fallbacks`);
-    
-    if (domainParts.includes('inox') || domainParts.includes('metal')) {
-      addKeyword('polimento inox');
-      addKeyword('limpeza metais');
-      addKeyword('manutenção inox');
-      addKeyword('restauração metais');
-    } else if (domainParts.includes('elevador')) {
-      addKeyword('manutenção elevadores');
-      addKeyword('elevadores comerciais');
-      addKeyword('modernização elevadores');
-    } else {
-      // Generic business terms
-      addKeyword('serviços profissionais');
-      addKeyword('empresa especializada');
-      addKeyword('soluções empresariais');
-    }
-  }
-  
-  // Limit to 6 additional keywords to avoid overwhelming the analysis
-  const finalExpansion = expandedKeywords.slice(0, 6);
-  console.log(`✅ EXPANSION: Generated ${finalExpansion.length} additional keywords: [${finalExpansion.join(', ')}]`);
-  
-  return finalExpansion;
 }
 
 async function extractKeywordsFromAudit(supabase: any, auditReportId: string | null): Promise<{ success: boolean; keywords?: string[]; error?: string }> {

@@ -36,7 +36,6 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { HookErrorBoundary } from './HookErrorBoundary';
 import { KeywordFilterProvider } from '@/contexts/KeywordFilterContext';
 import KeywordSelector from './KeywordSelector';
-import KeywordComparisonChart from './KeywordComparisonChart';
 import { ManualPositionCorrection } from './ManualPositionCorrection';
 import { getTop10CompetitorsAroundTarget } from '@/utils/competitorFiltering';
 
@@ -550,13 +549,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
 
             {/* Unified Competitor Analysis Block */}
             <div className="space-y-6">
-              {/* Show KeywordComparisonChart when all keywords are selected */}
-              <KeywordComparisonChart
-                keywords={analysisData?.keywords || []}
-                targetDomain={analysisData?.analysis?.target_domain || ''}
-                period={selectedPeriod}
-              />
-              
               {/* Position Variation Chart - filtered by selected keyword */}
               <PositionVariationChart
                 competitors={analysisData?.competitors || []}
