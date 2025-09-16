@@ -112,7 +112,7 @@ const Index = () => {
         <link rel="canonical" href="/" />
       </Helmet>
 
-      <div className="min-h-screen bg-background lg:pl-80">
+      <div className="min-h-screen bg-background">
         <div className="pt-16 lg:pt-0">
           <HeroSection />
           <HowItWorks />
