@@ -154,6 +154,14 @@ async function performCompetitiveAnalysis(
     if (manualKeywords && manualKeywords.length > 0) {
       console.log(`✅ Using ${manualKeywords.length} manually provided keywords`);
       finalKeywords = manualKeywords.slice(0, 10); // Limit to 10 keywords for performance
+      
+      // 🚀 NEW: Auto-expand keywords if we have too few to ensure good competitor discovery
+      if (finalKeywords.length <= 2) {
+        console.log(`🔄 EXPANSION: Only ${finalKeywords.length} keywords provided - expanding automatically for better competitor discovery`);
+        const expandedKeywords = expandKeywordsAutomatically(finalKeywords, targetDomain);
+        finalKeywords = [...finalKeywords, ...expandedKeywords].slice(0, 10);
+        console.log(`🎯 EXPANSION: Expanded to ${finalKeywords.length} keywords: [${finalKeywords.join(', ')}]`);
+      }
     } else {
       console.log(`📋 No manual keywords provided, extracting from audit...`);
       // Extract keywords from audit report as fallback
@@ -168,6 +176,14 @@ async function performCompetitiveAnalysis(
       // Optimize keywords with filtering
       finalKeywords = optimizeKeywordsSmarter(rawKeywords);
       console.log(`🎯 Keywords after optimization: ${finalKeywords.length}`);
+      
+      // 🚀 NEW: Auto-expand audit keywords if still too few
+      if (finalKeywords.length <= 2) {
+        console.log(`🔄 EXPANSION: Only ${finalKeywords.length} audit keywords found - expanding for better competitor discovery`);
+        const expandedKeywords = expandKeywordsAutomatically(finalKeywords, targetDomain);
+        finalKeywords = [...finalKeywords, ...expandedKeywords].slice(0, 10);
+        console.log(`🎯 EXPANSION: Expanded to ${finalKeywords.length} keywords: [${finalKeywords.join(', ')}]`);
+      }
     }
 
     // If still no keywords, use simulation
@@ -456,6 +472,109 @@ async function performCompetitiveAnalysis(
   }
 }
 
+// 🚀 NEW: Auto-expand keywords for better competitor discovery
+function expandKeywordsAutomatically(baseKeywords: string[], targetDomain: string): string[] {
+  console.log(`🔄 EXPANSION: Auto-expanding ${baseKeywords.length} keywords for domain: ${targetDomain}`);
+  
+  const expandedKeywords: string[] = [];
+  const addedKeywords = new Set<string>();
+  
+  // Extract domain context for intelligent expansion
+  const domainName = targetDomain.replace(/\.(com|br|net|org)(\.(br|com))?$/i, '');
+  const domainParts = domainName.split('.')[0].toLowerCase();
+  
+  console.log(`🎯 EXPANSION: Domain analysis - name: "${domainName}", base: "${domainParts}"`);
+  
+  // Function to safely add keyword
+  const addKeyword = (keyword: string) => {
+    const normalized = keyword.toLowerCase().trim();
+    if (normalized.length > 2 && !addedKeywords.has(normalized)) {
+      expandedKeywords.push(normalized);
+      addedKeywords.add(normalized);
+    }
+  };
+  
+  baseKeywords.forEach(baseKeyword => {
+    const keyword = baseKeyword.toLowerCase();
+    
+    // Industry-specific expansions based on keyword content
+    if (keyword.includes('polimento') || keyword.includes('inox') || keyword.includes('aço')) {
+      // Metal/steel/polishing industry
+      addKeyword(`${keyword} profissional`);
+      addKeyword(`serviços ${keyword}`);
+      addKeyword(`empresa ${keyword}`);
+      addKeyword('polimento aço inox');
+      addKeyword('limpeza inox');
+      addKeyword('manutenção inox');
+      addKeyword('polimento metais');
+      addKeyword('restauração inox');
+      console.log(`🏭 EXPANSION: Metal/polishing industry expansion for "${keyword}"`);
+    } else if (keyword.includes('elevador') || keyword.includes('elevadores')) {
+      // Elevator industry
+      addKeyword(`manutenção ${keyword}`);
+      addKeyword(`${keyword} residencial`);
+      addKeyword(`${keyword} comercial`);
+      addKeyword('elevadores modernização');
+      addKeyword('elevadores instalação');
+      addKeyword('elevadores reparo');
+      console.log(`🏢 EXPANSION: Elevator industry expansion for "${keyword}"`);
+    } else if (keyword.includes('construção') || keyword.includes('obra')) {
+      // Construction industry
+      addKeyword(`${keyword} civil`);
+      addKeyword(`empresa ${keyword}`);
+      addKeyword(`${keyword} residencial`);
+      addKeyword('engenharia civil');
+      addKeyword('construção predial');
+      console.log(`🏗️ EXPANSION: Construction industry expansion for "${keyword}"`);
+    } else {
+      // Generic expansions for any keyword
+      addKeyword(`${keyword} brasil`);
+      addKeyword(`${keyword} serviços`);
+      addKeyword(`empresa ${keyword}`);
+      console.log(`🔧 EXPANSION: Generic expansion for "${keyword}"`);
+    }
+    
+    // Add domain-based variations if domain has meaningful parts
+    if (domainParts.length > 3) {
+      if (domainParts.includes('renove') || domainParts.includes('renovar')) {
+        addKeyword(`renovação ${keyword}`);
+        addKeyword(`reforma ${keyword}`);
+      }
+      if (domainParts.includes('inox')) {
+        addKeyword(`${keyword} inox`);
+        addKeyword(`inox ${keyword}`);
+      }
+    }
+  });
+  
+  // Industry fallbacks if no specific keywords matched
+  if (expandedKeywords.length < 3) {
+    console.log(`🔄 EXPANSION: Few expansions found, adding industry fallbacks`);
+    
+    if (domainParts.includes('inox') || domainParts.includes('metal')) {
+      addKeyword('polimento inox');
+      addKeyword('limpeza metais');
+      addKeyword('manutenção inox');
+      addKeyword('restauração metais');
+    } else if (domainParts.includes('elevador')) {
+      addKeyword('manutenção elevadores');
+      addKeyword('elevadores comerciais');
+      addKeyword('modernização elevadores');
+    } else {
+      // Generic business terms
+      addKeyword('serviços profissionais');
+      addKeyword('empresa especializada');
+      addKeyword('soluções empresariais');
+    }
+  }
+  
+  // Limit to 6 additional keywords to avoid overwhelming the analysis
+  const finalExpansion = expandedKeywords.slice(0, 6);
+  console.log(`✅ EXPANSION: Generated ${finalExpansion.length} additional keywords: [${finalExpansion.join(', ')}]`);
+  
+  return finalExpansion;
+}
+
 async function extractKeywordsFromAudit(supabase: any, auditReportId: string | null): Promise<{ success: boolean; keywords?: string[]; error?: string }> {
   try {
     // If no audit report provided, return empty keywords (will trigger fallback)
@@ -716,7 +835,7 @@ function doesDomainMatch(targetDomain: string, resultDomain: string): boolean {
 
 
 async function analyzeKeywordPositions(keyword: string, targetDomain: string): Promise<KeywordAnalysis> {
-  console.log(`🔍 SERPAPI: Starting enhanced analysis for "${keyword}" targeting ${targetDomain}`);
+  console.log(`🔍 SERPAPI: Starting enhanced multi-page analysis for "${keyword}" targeting ${targetDomain}`);
   
   try {
     const serpApiKey = Deno.env.get('SERPAPI_KEY');
@@ -724,44 +843,71 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
       throw new Error('SERPAPI_KEY not configured');
     }
 
-    // CRITICAL FIX: Use start=0 and num=100 with increased timeout for renoveinox.com.br detection
-    const serpApiUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=100&start=0&api_key=${serpApiKey}`;
+    // 🚀 NEW: Multi-page search for more comprehensive competitor discovery
+    console.log(`🌐 SERPAPI_ENHANCED: Fetching results from TWO PAGES (100 results total) for "${keyword}"`);
+    console.log(`🎯 SERPAPI_ENHANCED: Target domain (normalized): "${normalizeDomain(targetDomain)}"`);
+    console.log(`🎯 SERPAPI_ENHANCED: Target base name: "${extractBaseDomainName(normalizeDomain(targetDomain))}"`);
     
-    console.log(`🌐 SERPAPI_CRITICAL: Fetching 100 results for "${keyword}" - SPECIFICALLY LOOKING FOR renoveinox.com.br`);
-    console.log(`🎯 SERPAPI_CRITICAL: Target domain (normalized): "${normalizeDomain(targetDomain)}"`);
-    console.log(`🎯 SERPAPI_CRITICAL: Target base name: "${extractBaseDomainName(normalizeDomain(targetDomain))}"`);
-    console.log(`🔧 SERPAPI_CRITICAL: URL parameters - num=100, start=0, location=Brazil`);
-    console.log(`⏰ SERPAPI_CRITICAL: Using extended timeout for comprehensive search`);
+    // Execute both page requests in parallel for faster results
+    const page1Url = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=50&start=0&api_key=${serpApiKey}`;
+    const page2Url = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&location=Brazil&hl=pt&gl=br&num=50&start=10&api_key=${serpApiKey}`;
     
-    const response = await fetch(serpApiUrl, {
-      headers: {
-        'User-Agent': 'Copex-SEO-Analysis/2.0',
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout(15000) // Increased timeout for more results
-    });
+    console.log(`🔧 SERPAPI_ENHANCED: Page 1 - num=50, start=0`);
+    console.log(`🔧 SERPAPI_ENHANCED: Page 2 - num=50, start=10`);
+    console.log(`⏰ SERPAPI_ENHANCED: Parallel fetch for maximum speed and coverage`);
     
-    if (!response.ok) {
-      throw new Error(`SerpApi request failed: ${response.status} ${response.statusText}`);
+    const [response1, response2] = await Promise.all([
+      fetch(page1Url, {
+        headers: {
+          'User-Agent': 'Copex-SEO-Analysis/2.0',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(15000)
+      }),
+      fetch(page2Url, {
+        headers: {
+          'User-Agent': 'Copex-SEO-Analysis/2.0',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(15000)
+      })
+    ]);
+
+    // Process both responses
+    const [data1, data2] = await Promise.all([
+      response1.json(),
+      response2.json()
+    ]);
+    
+    if (!response1.ok) {
+      console.error(`❌ SERPAPI: Page 1 request failed with status ${response1.status}`);
+      console.error(`❌ SERPAPI: Error response:`, data1);
+      throw new Error(`SerpApi page 1 request failed: ${response1.status} - ${data1.error || 'Unknown error'}`);
+    }
+    
+    // Page 2 failure is not critical - we can work with page 1 results
+    if (!response2.ok) {
+      console.log(`⚠️ SERPAPI: Page 2 request failed (${response2.status}) - using page 1 results only`);
     }
 
-    const data = await response.json();
+    // Combine organic results from both pages
+    const organicResults1 = data1.organic_results || [];
+    const organicResults2 = response2.ok ? (data2.organic_results || []) : [];
+    const organicResults = [...organicResults1, ...organicResults2];
     
-    if (data.error) {
-      throw new Error(`SerpApi error: ${data.error}`);
+    console.log(`📊 SERPAPI_ENHANCED: Retrieved ${organicResults1.length} results from page 1, ${organicResults2.length} from page 2`);
+    console.log(`📊 SERPAPI_ENHANCED: Total combined results: ${organicResults.length} for "${keyword}"`);
+    
+    // DEBUGGING: Log SerpApi response structure to understand coverage
+    console.log(`📊 SERPAPI_DEBUG: Page 1 - organic_results: ${organicResults1.length}, search_metadata:`, data1.search_metadata?.total_results || 'unknown');
+    if (response2.ok) {
+      console.log(`📊 SERPAPI_DEBUG: Page 2 - organic_results: ${organicResults2.length}, search_metadata:`, data2.search_metadata?.total_results || 'unknown');
     }
-
-    const organicResults = data.organic_results || [];
-    console.log(`✅ SERPAPI: Retrieved ${organicResults.length} organic search results for "${keyword}"`);
     
-    // DEBUGGING: Log SerpApi response structure to understand limitations
-    console.log(`📊 SERPAPI_DEBUG: Response structure - organic_results: ${organicResults.length}, search_metadata:`, data.search_metadata?.total_results || 'unknown');
-    console.log(`📊 SERPAPI_DEBUG: Search info - processed_at: ${data.search_metadata?.processed_at}, engine_used: ${data.search_metadata?.engine}`);
-    
-    // CRITICAL: If we got fewer than expected results, log warning
-    if (organicResults.length < 50) {
-      console.log(`⚠️ SERPAPI_WARNING: Only got ${organicResults.length} results instead of expected 100. This might affect position detection.`);
-      console.log(`🔧 SERPAPI_WARNING: SerpApi response keys:`, Object.keys(data));
+    // Enhanced coverage logging
+    console.log(`🚀 SERPAPI_ENHANCED: Multi-page search completed - total coverage: ${organicResults.length} results`);
+    if (organicResults.length < 15) {
+      console.log(`⚠️ SERPAPI_WARNING: Limited results (${organicResults.length}) - this keyword may have low search volume`);
     }
 
     // Note: SerpApi organic results don't provide monthly search volume
