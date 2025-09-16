@@ -34,10 +34,11 @@ import { useSupabaseCache } from '@/hooks/useSupabaseCache';
 import { useOptimizedFilters } from './OptimizedFilterReducer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { HookErrorBoundary } from './HookErrorBoundary';
-import { KeywordFilterProvider } from '@/contexts/KeywordFilterContext';
+import { KeywordFilterProvider, useKeywordFilter } from '@/contexts/KeywordFilterContext';
 import KeywordSelector from './KeywordSelector';
 import { ManualPositionCorrection } from './ManualPositionCorrection';
 import { getTop10CompetitorsAroundTarget } from '@/utils/competitorFiltering';
+import { useStableKeywords } from '@/hooks/useStableKeywords';
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -45,12 +46,10 @@ interface CompetitiveResultsDisplayProps {
 }
 
 const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo(({ analysisId, onBackToForm }) => {
-  // ALL hooks must be called first - no early returns before this point
-  // State for domain selection in chart
+  const { selectedKeyword } = useKeywordFilter();
+  
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<number>(30);
-  
-  const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [reverifyingKeywords, setReverifyingKeywords] = useState<string[]>([]);
   const [reverifyLoading, setReverifyLoading] = useState(false);
@@ -99,21 +98,8 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     }
   }, [filterActions]);
 
-  // Keywords estáveis para evitar re-renders - usando apenas valores primitivos
-  const keywords = analysisData?.keywords || [];
-  const keywordsLength = keywords.length;
-  const keywordsHash = useMemo(() => {
-    return keywords.map(k => `${k.id}-${k.keyword}-${k.target_domain_position}`).join('|');
-  }, [keywords]);
-  
-  const stableKeywords = useMemo(() => {
-    return keywords.map(keyword => ({
-      ...keyword,
-      search_volume: keyword.search_volume || 0,
-      target_domain_position: keyword.target_domain_position || null,
-      competitor_positions: keyword.competitor_positions || []
-    }));
-  }, [keywordsHash]);
+  // Keywords estáveis para evitar re-renders usando o hook customizado
+  const stableKeywords = useStableKeywords(analysisData?.keywords);
 
   // Destructure filters for stable dependencies - use primitives only
   const searchTerm = filters.search;
@@ -209,7 +195,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
       }
     });
   }, [
-    keywordsHash, // Use hash instead of stableKeywords array
+    stableKeywords.length, // Use length instead of hash for simplicity
     searchTerm,
     competitionLevels.join(','), // Stringify array to primitive
     sortByField,
@@ -454,75 +440,79 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                       <p className="font-medium break-all">{analysisData?.analysis?.target_domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Posição Média</p>
-                       <p className="font-medium">
-                         {(() => {
-                           const keywords = analysisData?.keywords || [];
-                           const positionsWithValues = keywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
-                           
-                           console.log('Average Position Debug:', {
-                             totalKeywords: keywords.length,
-                             keywordsWithPositions: positionsWithValues.length,
-                             positions: positionsWithValues.map(k => ({keyword: k.keyword, position: k.target_domain_position}))
-                           });
-                           
-                            if (positionsWithValues.length === 0) {
-                              return (
-                                <div className="space-y-2">
-                                  <span className="text-destructive flex items-center gap-1">
-                                    Não rankeando
-                                    <Tooltip>
-                                      <TooltipTrigger>
-                                        <Info className="h-3 w-3 text-muted-foreground" />
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Domínio não foi encontrado nas primeiras 100 posições para as palavras-chave analisadas</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </span>
-                                  {/* Show manual position correction for keywords without position */}
-                                  {analysisData?.keywords?.filter(k => !k.target_domain_position).slice(0, 1).map(keyword => (
-                                    <ManualPositionCorrection
-                                      key={keyword.id}
-                                      analysisId={analysisId}
-                                      keyword={keyword.keyword}
-                                      targetDomain={analysisData?.analysis?.target_domain || ''}
-                                      currentPosition={keyword.target_domain_position}
-                                      onPositionUpdated={(newPosition) => {
-                                        // Trigger a refresh of the analysis data
-                                        refresh();
-                                      }}
-                                    />
-                                  ))}
-                                </div>
-                              );
-                            }
-                           
-                           const sum = positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0);
-                           const avg = Math.round(sum / positionsWithValues.length);
-                           
-                           console.log('Average Position Calculation:', {sum, count: positionsWithValues.length, avg});
-                           
-                           return (
-                             <span className="flex items-center gap-1">
-                               {avg}º
-                               <Tooltip>
-                                 <TooltipTrigger>
-                                   <Info className="h-3 w-3 text-muted-foreground" />
-                                 </TooltipTrigger>
-                                 <TooltipContent>
-                                   <p>Baseado em {positionsWithValues.length} palavras-chave onde o domínio rankeia</p>
-                                 </TooltipContent>
-                               </Tooltip>
-                             </span>
-                           );
-                         })()}
-                       </p>
+                       <p className="text-muted-foreground">Posição Média</p>
+                        <p className="font-medium">
+                          {(() => {
+                            // Use filtered keywords based on selected keyword
+                            const keywords = selectedKeyword 
+                              ? stableKeywords.filter(k => k.id === selectedKeyword.id)
+                              : stableKeywords;
+                            const positionsWithValues = keywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
+                            
+                            console.log('Average Position Debug:', {
+                              selectedKeyword: selectedKeyword?.keyword,
+                              totalKeywords: keywords.length,
+                              keywordsWithPositions: positionsWithValues.length,
+                              positions: positionsWithValues.map(k => ({keyword: k.keyword, position: k.target_domain_position}))
+                            });
+                            
+                             if (positionsWithValues.length === 0) {
+                               return (
+                                 <div className="space-y-2">
+                                   <span className="text-destructive flex items-center gap-1">
+                                     Não rankeando
+                                     <Tooltip>
+                                       <TooltipTrigger>
+                                         <Info className="h-3 w-3 text-muted-foreground" />
+                                       </TooltipTrigger>
+                                       <TooltipContent>
+                                         <p>Domínio não foi encontrado nas primeiras 100 posições para {selectedKeyword ? `a palavra-chave "${selectedKeyword.keyword}"` : 'as palavras-chave analisadas'}</p>
+                                       </TooltipContent>
+                                     </Tooltip>
+                                   </span>
+                                   {/* Show manual position correction for keywords without position */}
+                                   {keywords.filter(k => !k.target_domain_position).slice(0, 1).map(keyword => (
+                                     <ManualPositionCorrection
+                                       key={keyword.id}
+                                       analysisId={analysisId}
+                                       keyword={keyword.keyword}
+                                       targetDomain={analysisData?.analysis?.target_domain || ''}
+                                       currentPosition={keyword.target_domain_position}
+                                       onPositionUpdated={(newPosition) => {
+                                         // Trigger a refresh of the analysis data
+                                         refresh();
+                                       }}
+                                     />
+                                   ))}
+                                 </div>
+                               );
+                             }
+                            
+                            const sum = positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0);
+                            const avg = Math.round(sum / positionsWithValues.length);
+                            
+                            console.log('Average Position Calculation:', {sum, count: positionsWithValues.length, avg});
+                            
+                            return (
+                              <span className="flex items-center gap-1">
+                                {avg}º
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Info className="h-3 w-3 text-muted-foreground" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Baseado em {positionsWithValues.length} palavra{positionsWithValues.length > 1 ? 's' : ''}-chave onde o domínio rankeia {selectedKeyword ? `para "${selectedKeyword.keyword}"` : ''}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </span>
+                            );
+                          })()}
+                        </p>
                      </div>
-                    <div>
-                      <p className="text-muted-foreground">Palavras-chave</p>
-                      <p className="font-medium">{analysisData?.keywords?.length || 0}</p>
-                    </div>
+                     <div>
+                       <p className="text-muted-foreground">Palavra-chave Analisada</p>
+                       <p className="font-medium">{selectedKeyword ? selectedKeyword.keyword : stableKeywords.length > 0 ? stableKeywords[0]?.keyword : 'N/A'}</p>
+                     </div>
                     <div>
                       <p className="text-muted-foreground">Concorrentes Encontrados</p>
                       <p className="font-medium">{analysisData?.competitors?.length || 0}</p>

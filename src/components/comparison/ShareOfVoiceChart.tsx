@@ -4,6 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Cell, PieChart, Pie, ResponsiveContainer, LineChart, Line, XAxis, YAxis } from 'recharts';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
+import { useKeywordFilter } from '@/contexts/KeywordFilterContext';
 
 interface ShareOfVoiceData {
   domain: string;
@@ -20,9 +21,17 @@ interface ShareOfVoiceChartProps {
 
 
 const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors, keywords, targetDomain }) => {
-  // Filter data to show only top 10 competitors ahead
+  const { selectedKeyword } = useKeywordFilter();
+
+  // Filter keywords to only the selected one
+  const filteredKeywords = useMemo(() => {
+    if (!selectedKeyword) return keywords;
+    return keywords.filter(k => k.id === selectedKeyword.id);
+  }, [keywords, selectedKeyword]);
+
+  // Filter data to show only competitors for the selected keyword
   const filteredData = useMemo(() => {
-    const filteredCompetitors = getTop10CompetitorsAhead(competitors, keywords, targetDomain);
+    const filteredCompetitors = getTop10CompetitorsAhead(competitors, filteredKeywords, targetDomain);
     const filteredDomains = filteredCompetitors.map(c => c.domain);
     
     // Filter original data to only include these domains
@@ -37,7 +46,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
       ...item,
       percentage: totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0
     }));
-  }, [data, competitors, keywords, targetDomain]);
+  }, [data, competitors, filteredKeywords, targetDomain]);
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set());
 
   // Update selected domains when filteredData changes

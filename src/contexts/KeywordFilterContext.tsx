@@ -3,9 +3,7 @@ import { CompetitorKeyword } from '@/services/competitorAnalysisService';
 
 interface KeywordFilterContextType {
   selectedKeyword: CompetitorKeyword | null;
-  isAllKeywords: boolean;
-  setSelectedKeyword: (keyword: CompetitorKeyword | null) => void;
-  setAllKeywords: () => void;
+  setSelectedKeyword: (keyword: CompetitorKeyword) => void;
 }
 
 const KeywordFilterContext = createContext<KeywordFilterContextType | undefined>(undefined);
@@ -15,25 +13,12 @@ interface KeywordFilterProviderProps {
 }
 
 export const KeywordFilterProvider: React.FC<KeywordFilterProviderProps> = ({ children }) => {
-  const [selectedKeyword, setSelectedKeywordState] = useState<CompetitorKeyword | null>(null);
-  const [isAllKeywords, setIsAllKeywords] = useState(true);
-
-  const setSelectedKeyword = (keyword: CompetitorKeyword | null) => {
-    setSelectedKeywordState(keyword);
-    setIsAllKeywords(keyword === null);
-  };
-
-  const setAllKeywords = () => {
-    setSelectedKeywordState(null);
-    setIsAllKeywords(true);
-  };
+  const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
 
   return (
     <KeywordFilterContext.Provider value={{
       selectedKeyword,
-      isAllKeywords,
-      setSelectedKeyword,
-      setAllKeywords
+      setSelectedKeyword: (keyword: CompetitorKeyword) => setSelectedKeyword(keyword)
     }}>
       {children}
     </KeywordFilterContext.Provider>

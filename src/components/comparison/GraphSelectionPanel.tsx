@@ -19,7 +19,7 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
   selectedDomains,
   onSelectionChange,
   targetDomain,
-  maxSelection = 21, // Increased to allow target + 10 ahead + 10 behind
+  maxSelection = 50, // Allow selection of all found competitors
   competitors = []
 }) => {
   const handleDomainToggle = (domain: string, checked: boolean) => {

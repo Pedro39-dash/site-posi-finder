@@ -9,6 +9,7 @@ import { Plus, Download, ExternalLink, ChevronLeft, ChevronRight, Info } from 'l
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { generateBacklinkEstimate, calculateTrafficEstimate, formatDomainDisplay } from '@/utils/domainEstimation';
 import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
+import { useKeywordFilter } from '@/contexts/KeywordFilterContext';
 
 interface CompetitorTableProps {
   competitors: CompetitorDomain[];
@@ -23,19 +24,26 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const { selectedKeyword } = useKeywordFilter();
 
-  // Filter to show only top 10 competitors ahead of target domain
+  // Filter keywords to only the selected one
+  const filteredKeywords = useMemo(() => {
+    if (!selectedKeyword) return keywords;
+    return keywords.filter(k => k.id === selectedKeyword.id);
+  }, [keywords, selectedKeyword]);
+
+  // Filter to show only top 10 competitors ahead of target domain for the selected keyword
   const filteredCompetitors = useMemo(() => {
-    return getTop10CompetitorsAhead(competitors, keywords, targetDomain);
-  }, [competitors, keywords, targetDomain]);
+    return getTop10CompetitorsAhead(competitors, filteredKeywords, targetDomain);
+  }, [competitors, filteredKeywords, targetDomain]);
 
   // Calculate metrics for filtered competitors - memoized for stability
   const competitorMetrics = useMemo(() => {
     return filteredCompetitors.map(filtered => {
       const cleanDomain = filtered.domain;
       
-      // Find keywords where this competitor appears
-      const competitorKeywords = keywords.filter(keyword => 
+      // Find keywords where this competitor appears (filtered by selected keyword)
+      const competitorKeywords = filteredKeywords.filter(keyword => 
         keyword.competitor_positions?.some(pos => 
           pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
         )
@@ -71,20 +79,20 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
     return {
       domain: cleanTargetDomain,
       originalDomain: targetDomain,
-      commonKeywords: keywords.length, // All analyzed keywords are "common" to target domain
+      commonKeywords: filteredKeywords.length, // Only selected keyword
       differentKeywords: 0, // Target domain doesn't have "different" keywords from itself
-      estimatedTraffic: Math.round(calculateTrafficEstimate(keywords, cleanTargetDomain, true)),
+      estimatedTraffic: Math.round(calculateTrafficEstimate(filteredKeywords, cleanTargetDomain, true)),
       estimatedBacklinks: generateBacklinkEstimate(cleanTargetDomain, true),
       detectedAutomatically: false // Target domain is never detected automatically
     };
   }, [targetDomain, keywords]);
 
-  // Calculate average position for summary
+  // Calculate average position for summary (for selected keyword only)
   const averagePosition = useMemo(() => {
-    const positionsWithValues = keywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
+    const positionsWithValues = filteredKeywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
     if (positionsWithValues.length === 0) return 0;
     return Math.round(positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length);
-  }, [keywords]);
+  }, [filteredKeywords]);
 
   const allMetrics = competitorMetrics; // Only show competitors, not target domain
 

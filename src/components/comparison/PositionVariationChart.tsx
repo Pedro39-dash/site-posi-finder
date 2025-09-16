@@ -28,15 +28,15 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
   targetDomain,
   period = 30
 }) => {
-  const { selectedKeyword, isAllKeywords } = useKeywordFilter();
+  const { selectedKeyword } = useKeywordFilter();
   
   // Filter keywords based on context selection
   const filteredKeywords = useMemo(() => {
-    if (isAllKeywords || !selectedKeyword) {
+    if (!selectedKeyword) {
       return keywords;
     }
     return keywords.filter(k => k.id === selectedKeyword.id);
-  }, [keywords, selectedKeyword, isAllKeywords]);
+  }, [keywords, selectedKeyword]);
   // Filter to show competitors around target (10 ahead + 10 behind)
   const filteredCompetitors = useMemo(() => {
     return getTop10CompetitorsAroundTarget(competitors, filteredKeywords, targetDomain);
@@ -221,7 +221,7 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
         </div>
         
         <div className="text-xs text-muted-foreground">
-          {selectedKeyword && !isAllKeywords ? (
+          {selectedKeyword ? (
             <p>💡 <strong>Filtro ativo:</strong> Mostrando dados específicos para "{selectedKeyword.keyword}". Posições menores são melhores.</p>
           ) : isTargetRanking ? (
             <p>💡 <strong>Dica:</strong> Posições menores são melhores. Agora você pode ver até 21 domínios (10 à frente + 10 atrás) para análise comparativa completa.</p>
