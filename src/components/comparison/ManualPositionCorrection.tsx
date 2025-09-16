@@ -76,85 +76,89 @@ export const ManualPositionCorrection = ({
 
   if (!isEditing) {
     return (
-      <Card className="border-orange-200 bg-orange-50/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-              <CardTitle className="text-sm">Posição não detectada</CardTitle>
+      <Card className="border-amber-200 bg-amber-50 border">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2 flex-1">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-foreground">Posição não detectada</span>
+                  <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-100">
+                    {currentPosition ? `${currentPosition}ª` : "Não encontrado"}
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  <strong>{targetDomain}</strong> não foi encontrado para "<strong>{keyword}</strong>"
+                </p>
+                <Button 
+                  onClick={() => setIsEditing(true)}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs border-amber-300 text-amber-700 hover:bg-amber-100 h-8"
+                >
+                  <Edit3 className="h-3 w-3 mr-1" />
+                  Definir Posição
+                </Button>
+              </div>
             </div>
-            <Badge variant="outline" className="text-orange-700 border-orange-300">
-              {currentPosition ? `${currentPosition}ª posição` : "Não encontrado"}
-            </Badge>
           </div>
-          <CardDescription className="text-sm">
-            O domínio <strong>{targetDomain}</strong> não foi encontrado automaticamente 
-            para a palavra-chave "<strong>{keyword}</strong>". Você pode definir a posição manualmente se souber onde está ranqueando.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button 
-            onClick={() => setIsEditing(true)}
-            variant="outline"
-            size="sm"
-            className="w-full border-orange-300 text-orange-700 hover:bg-orange-100"
-          >
-            <Edit3 className="h-4 w-4 mr-2" />
-            Definir Posição Manualmente
-          </Button>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-blue-200 bg-blue-50/50">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Edit3 className="h-4 w-4 text-blue-600" />
-          Definir Posição Manual
-        </CardTitle>
-        <CardDescription className="text-sm">
-          Em qual posição você encontrou o domínio <strong>{targetDomain}</strong> para "{keyword}"?
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <Input
-            type="number"
-            placeholder="Digite a posição (ex: 15)"
-            value={newPosition}
-            onChange={(e) => setNewPosition(e.target.value)}
-            min="1"
-            max="100"
-            className="w-full"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Posição entre 1 (primeiro resultado) e 100
+    <Card className="border-blue-200 bg-blue-50 border">
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Edit3 className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium text-foreground">Definir Posição Manual</span>
+          </div>
+          
+          <p className="text-xs text-slate-700">
+            Posição de <strong>{targetDomain}</strong> para "<strong>{keyword}</strong>"
           </p>
-        </div>
-        
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleSavePosition}
-            disabled={isLoading || !newPosition}
-            size="sm"
-            className="flex-1"
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            {isLoading ? "Salvando..." : "Salvar Posição"}
-          </Button>
-          <Button 
-            onClick={() => {
-              setIsEditing(false);
-              setNewPosition("");
-            }}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-          >
-            Cancelar
-          </Button>
+          
+          <div className="space-y-2">
+            <Input
+              type="number"
+              placeholder="Ex: 15"
+              value={newPosition}
+              onChange={(e) => setNewPosition(e.target.value)}
+              min="1"
+              max="100"
+              className="w-full h-8 text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              Entre 1 (primeiro) e 100
+            </p>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleSavePosition}
+              disabled={isLoading || !newPosition}
+              size="sm"
+              className="flex-1 h-8 text-xs"
+            >
+              <CheckCircle className="h-3 w-3 mr-1" />
+              {isLoading ? "Salvando..." : "Salvar"}
+            </Button>
+            <Button 
+              onClick={() => {
+                setIsEditing(false);
+                setNewPosition("");
+              }}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="h-8 text-xs"
+            >
+              Cancelar
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
