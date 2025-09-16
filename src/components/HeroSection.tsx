@@ -4,7 +4,7 @@ import heroImage from "@/assets/seo-hero.jpg";
 
 const HeroSection = () => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-hero">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-red-50">
       <div className="absolute inset-0 bg-black/10"></div>
       
       <div className="container mx-auto px-4 z-10">
