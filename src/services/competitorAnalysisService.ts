@@ -295,7 +295,7 @@ export class CompetitorAnalysisService {
       const currentPosition = currentKeyword?.target_domain_position;
       console.log(`📊 REVERIFY: Current position in database: ${currentPosition}`);
 
-      // Call edge function with single keyword for re-verification
+      // Call SerpAPI directly for real-time position check
       const { data, error } = await supabase.functions.invoke('competitor-analysis', {
         body: {
           auditReportId: null,
@@ -303,7 +303,8 @@ export class CompetitorAnalysisService {
           userId: user.id,
           additionalCompetitors: [],
           keywords: [keyword], // Single keyword re-check
-          isReverification: true // Flag to indicate this is a re-verification
+          isReverification: true, // Flag to indicate this is a re-verification
+          updateExistingAnalysis: analysisId // NEW: Update current analysis instead of creating new one
         }
       });
 
@@ -317,59 +318,44 @@ export class CompetitorAnalysisService {
         return { success: false, error: data.error };
       }
 
-      console.log(`✅ REVERIFY: Edge function completed with analysis ID: ${data.analysisId}`);
+      console.log(`✅ REVERIFY: Position updated in current analysis ${analysisId}`);
 
-      // Fetch updated data from the new analysis
-      const result = await this.getAnalysisData(data.analysisId);
-      
-      if (!result.success || !result.data) {
-        console.error('❌ REVERIFY: Failed to get updated analysis data');
-        return { success: false, error: 'Failed to get updated analysis data' };
+      // Get the updated keyword directly from current analysis
+      const { data: updatedKeyword, error: keywordError } = await supabase
+        .from('competitor_keywords')
+        .select('target_domain_position, metadata')
+        .eq('analysis_id', analysisId)
+        .eq('keyword', keyword)
+        .single();
+
+      if (keywordError) {
+        console.error('❌ REVERIFY: Failed to get updated keyword:', keywordError);
+        return { success: false, error: 'Failed to get updated keyword position' };
       }
 
-      const updatedKeyword = result.data.keywords.find(k => k.keyword === keyword);
       const newPosition = updatedKeyword?.target_domain_position || null;
       
       console.log(`🎯 REVERIFY: New position detected: ${newPosition} (was: ${currentPosition})`);
       
       // Enhanced logging of debug information
-      if (updatedKeyword?.metadata?.detection_debug) {
-        const debugInfo = updatedKeyword.metadata.detection_debug;
-        console.log(`🔍 REVERIFY DEBUG INFO:`, {
-          total_matches: debugInfo.total_matches_found,
-          all_positions: debugInfo.all_positions,
-          best_position: debugInfo.best_position,
-          saved_position: debugInfo.saved_position
-        });
+      if (updatedKeyword?.metadata && typeof updatedKeyword.metadata === 'object') {
+        const metadata = updatedKeyword.metadata as any;
+        if (metadata.detection_debug) {
+          const debugInfo = metadata.detection_debug;
+          console.log(`🔍 REVERIFY DEBUG INFO:`, {
+            total_matches: debugInfo.total_matches_found,
+            all_positions: debugInfo.all_positions,
+            best_position: debugInfo.best_position,
+            saved_position: debugInfo.saved_position
+          });
 
-        // Validate position consistency
-        if (debugInfo.best_position !== null && newPosition !== debugInfo.best_position) {
-          console.warn(`⚠️ REVERIFY WARNING: Position inconsistency detected!`);
-          console.warn(`   - Saved position: ${newPosition}`);
-          console.warn(`   - Best detected: ${debugInfo.best_position}`);
+          // Validate position consistency
+          if (debugInfo.best_position !== null && newPosition !== debugInfo.best_position) {
+            console.warn(`⚠️ REVERIFY WARNING: Position inconsistency detected!`);
+            console.warn(`   - Saved position: ${newPosition}`);
+            console.warn(`   - Best detected: ${debugInfo.best_position}`);
+          }
         }
-      }
-
-      // Update the original analysis with the new position and enhanced metadata
-      const updateMetadata = {
-        reverified_at: new Date().toISOString(),
-        previous_position: currentPosition,
-        reverification_debug: updatedKeyword?.metadata?.detection_debug || null,
-        position_change: currentPosition !== null && newPosition !== null ? newPosition - currentPosition : null
-      };
-
-      const { error: updateError } = await supabase
-        .from('competitor_keywords')
-        .update({ 
-          target_domain_position: newPosition,
-          metadata: updateMetadata
-        })
-        .eq('analysis_id', analysisId)
-        .eq('keyword', keyword);
-
-      if (updateError) {
-        console.error('❌ REVERIFY: Failed to update keyword position:', updateError);
-        return { success: false, error: 'Failed to update keyword position' };
       }
 
       // Log position change summary

@@ -155,8 +155,15 @@ export class CacheService {
   }
 
   // Invalidate analysis cache when updated
-  static async invalidateAnalysis(analysisId: string): Promise<void> {
-    const key = this.analysisCacheKey(analysisId);
+  // Clear cache entries for a specific analysis and all keyword variations
+  static async invalidateAnalysisCache(analysisId: string): Promise<void> {
+    const pattern = `competitive-analysis-${analysisId}`;
+    await this.deletePattern(pattern);
+  }
+
+  // Clear cache for specific keyword filter  
+  static async invalidateKeywordFilterCache(analysisId: string, keyword: string | null): Promise<void> {
+    const key = `competitive-analysis-${analysisId}-keyword-${keyword || 'all'}`;
     await this.delete(key);
   }
 

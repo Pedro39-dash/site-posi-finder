@@ -39,6 +39,7 @@ import KeywordSelector from './KeywordSelector';
 import { ManualPositionCorrection } from './ManualPositionCorrection';
 import { getTop10CompetitorsAroundTarget } from '@/utils/competitorFiltering';
 import { useStableKeywords } from '@/hooks/useStableKeywords';
+import { DataValidationIndicator } from '@/components/ui/data-validation-indicator';
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -62,22 +63,31 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
 
   const { filters, filterActions } = useOptimizedFilters();
 
-  // Cache da análise com TTL de 5 minutos e sem auto-refresh
+  // Cache da análise com invalidação automática por palavra-chave
   const {
     data: analysisData,
     loading,
     error,
-    refresh
+    refresh,
+    invalidate,
+    lastUpdated,
+    isStale
   } = useSupabaseCache<CompetitiveAnalysisData>(
-    `competitive-analysis-${analysisId}`,
+    `competitive-analysis-${analysisId}-keyword-${selectedKeyword || 'all'}`,
     () => CompetitorAnalysisService.getAnalysisData(analysisId).then(result => {
       if (!result.success || !result.data) {
         throw new Error(result.error || 'Failed to load analysis data');
       }
       return result.data;
     }),
-    { ttl: 5 * 60 * 1000, enableAutoRefresh: false }
+    { ttl: 3 * 60 * 1000, enableAutoRefresh: false } // 3 minutes for keyword-specific data
   );
+
+  // Invalidate cache when keyword changes
+  useEffect(() => {
+    console.log(`🔄 Keyword changed to: ${selectedKeyword}, invalidating cache`);
+    invalidate();
+  }, [selectedKeyword, invalidate]);
 
   // ALL remaining hooks and memoized values (must be called consistently)
 
@@ -149,7 +159,9 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
       
       if (successCount > 0) {
         toast.success(`Reverificação concluída: ${successCount} palavras-chave atualizadas`);
-        refresh();
+        // Invalidate all cache entries for this analysis
+        invalidate();
+        setTimeout(() => refresh(), 100);
       }
       
     } catch (error) {
@@ -218,13 +230,15 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     
     if (result.success) {
       toast.success(`Posição atualizada: ${keyword.keyword} - ${result.newPosition ? `${result.newPosition}º` : 'Não encontrada'}`);
-      refresh(); // Atualizar os dados da análise
+      // Invalidate all cache for this analysis to force fresh data
+      invalidate();
+      setTimeout(() => refresh(), 100); // Refresh after cache invalidation
     } else {
       toast.error(`Erro ao reverificar ${keyword.keyword}: ${result.error}`);
     }
     
     setReverifyingKeywords(prev => prev.filter(k => k !== keyword.keyword));
-  }, [analysisId, targetDomain, refresh]);
+  }, [analysisId, targetDomain, refresh, invalidate]);
 
   // Calcular métricas - null-safe
   const getMetrics = useMemo(() => {
@@ -408,7 +422,17 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                   </Button>
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">Rastreamento dos concorrentes</h1>
-                    <p className="text-sm text-muted-foreground">Análise competitiva em tempo real</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">Análise competitiva em tempo real</p>
+                      <DataValidationIndicator
+                        lastUpdated={lastUpdated}
+                        isStale={isStale}
+                        onRefresh={refresh}
+                        loading={loading}
+                        error={error}
+                        validationStatus={error ? 'error' : isStale ? 'warning' : 'valid'}
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

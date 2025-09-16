@@ -180,9 +180,22 @@ export const useAnalysisCache = <T>(
 ) => {
   const key = CacheService.analysisCacheKey(analysisId);
   return useSupabaseCache(key, fetcher, {
-    ttl: CacheService.ANALYSIS_TTL,
-    enableAutoRefresh: true,
-    refreshInterval: 3 * 60 * 1000 // 3 minutes for active analyses
+    ttl: 5 * 60 * 1000, // Reduced to 5 minutes for better data freshness
+    enableAutoRefresh: false, // Disabled for better control
+    refreshInterval: 3 * 60 * 1000
+  });
+};
+
+// New hook for keyword-specific analysis data
+export const useKeywordSpecificCache = <T>(
+  analysisId: string,
+  selectedKeyword: string | null,
+  fetcher: () => Promise<T>
+) => {
+  const key = `${CacheService.analysisCacheKey(analysisId)}-keyword-${selectedKeyword || 'all'}`;
+  return useSupabaseCache(key, fetcher, {
+    ttl: 2 * 60 * 1000, // 2 minutes for filtered data
+    enableAutoRefresh: false
   });
 };
 

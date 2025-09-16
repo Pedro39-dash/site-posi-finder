@@ -46,51 +46,91 @@ serve(async (req) => {
   }
 
   try {
-    const { auditReportId, targetDomain, userId, additionalCompetitors = [], keywords = [] } = await req.json();
+    const { 
+      auditReportId, 
+      targetDomain, 
+      userId, 
+      additionalCompetitors = [], 
+      keywords = [],
+      isReverification = false,
+      updateExistingAnalysis = null 
+    } = await req.json();
 
-    console.log(`🚀 Starting competitive analysis for: ${targetDomain}, Audit: ${auditReportId}`);
+    console.log(`🚀 Starting competitive analysis for domain: ${targetDomain}`);
+    console.log(`📊 Keywords provided: ${keywords.length}`);
+    console.log(`🎯 Additional competitors: ${additionalCompetitors.length}`);
+    console.log(`🔄 Is reverification: ${isReverification}`);
+    console.log(`📋 Update existing analysis: ${updateExistingAnalysis}`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Create initial competitive analysis entry
-    const analysisInsert = {
-      user_id: userId,
-      target_domain: targetDomain,
-      status: 'analyzing'
-    };
-    
-    // Only add audit_report_id if it's provided
-    if (auditReportId) {
-      analysisInsert.audit_report_id = auditReportId;
-    }
+    let analysisData: any;
 
-    const { data: analysisData, error: analysisError } = await supabase
-      .from('competitor_analyses')
-      .insert(analysisInsert)
-      .select()
-      .single();
+    if (updateExistingAnalysis && isReverification) {
+      // Use existing analysis for reverification
+      console.log(`🔄 Using existing analysis: ${updateExistingAnalysis} for reverification`);
+      
+      const { data: existingAnalysis, error: getError } = await supabase
+        .from('competitor_analyses')
+        .select('*')
+        .eq('id', updateExistingAnalysis)
+        .single();
+        
+      if (getError || !existingAnalysis) {
+        console.error('❌ Failed to get existing analysis:', getError);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Failed to get existing analysis' 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        });
+      }
+      
+      analysisData = existingAnalysis;
+    } else {
+      // Create new analysis entry
+      const analysisInsert = {
+        user_id: userId,
+        target_domain: targetDomain,
+        status: 'analyzing'
+      };
+      
+      // Only add audit_report_id if it's provided
+      if (auditReportId) {
+        analysisInsert.audit_report_id = auditReportId;
+      }
 
-    if (analysisError) {
-      console.error('❌ Error creating analysis:', analysisError);
-      return new Response(JSON.stringify({ error: 'Failed to create analysis' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const { data: newAnalysis, error: analysisError } = await supabase
+        .from('competitor_analyses')
+        .insert(analysisInsert)
+        .select()
+        .single();
+
+      if (analysisError) {
+        console.error('❌ Error creating analysis:', analysisError);
+        return new Response(JSON.stringify({ error: 'Failed to create analysis' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      analysisData = newAnalysis;
     }
 
     console.log(`✅ Created analysis with ID: ${analysisData.id}`);
 
     // FASE 3: Execute analysis synchronously instead of background
     try {
-      await performCompetitiveAnalysis(supabase, analysisData.id, auditReportId, targetDomain, additionalCompetitors, keywords);
+      await performCompetitiveAnalysis(supabase, analysisData.id, auditReportId, targetDomain, additionalCompetitors, keywords, isReverification);
       
       return new Response(JSON.stringify({ 
         success: true, 
         analysisId: analysisData.id,
-        message: 'Competitive analysis completed successfully'
+        message: isReverification ? 'Keyword reverification completed successfully' : 'Competitive analysis completed successfully'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -98,22 +138,24 @@ serve(async (req) => {
     } catch (analysisError) {
       console.error('❌ Analysis execution failed:', analysisError);
       
-      // Update status to failed
-      await supabase
-        .from('competitor_analyses')
-        .update({
-          status: 'failed',
-          metadata: { 
-            error: analysisError.message,
-            failed_at: new Date().toISOString()
-          }
-        })
-        .eq('id', analysisData.id);
+      // Update status to failed only for new analyses
+      if (!isReverification) {
+        await supabase
+          .from('competitor_analyses')
+          .update({
+            status: 'failed',
+            metadata: { 
+              error: analysisError.message,
+              failed_at: new Date().toISOString()
+            }
+          })
+          .eq('id', analysisData.id);
+      }
       
       return new Response(JSON.stringify({ 
         success: false,
         analysisId: analysisData.id,
-        error: 'Analysis failed: ' + analysisError.message
+        error: (isReverification ? 'Reverification failed: ' : 'Analysis failed: ') + analysisError.message
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -135,7 +177,8 @@ async function performCompetitiveAnalysis(
   auditReportId: string | null,
   targetDomain: string,
   additionalCompetitors: string[],
-  manualKeywords: string[] = []
+  manualKeywords: string[] = [],
+  isReverification: boolean = false
 ) {
   const analysisStartTime = Date.now();
   // FASE 2: Increase timeouts significantly
