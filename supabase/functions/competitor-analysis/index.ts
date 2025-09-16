@@ -557,6 +557,7 @@ function estimateSearchVolume(keyword: string, competitionLevel: 'low' | 'medium
 // Função para identificar domínios não comerciais que devem ser filtrados
 function shouldExcludeDomain(domain: string): boolean {
   const nonCommercialDomains = [
+    // Redes Sociais
     'youtube.com',
     'youtu.be',
     'facebook.com', 
@@ -568,8 +569,25 @@ function shouldExcludeDomain(domain: string): boolean {
     'twitter.com',
     'x.com',
     'reddit.com',
+    
+    // Serviços Google
+    'translate.google.com',
+    'maps.google.com',
+    'images.google.com',
+    'scholar.google.com',
+    'books.google.com',
+    'news.google.com',
+    'shopping.google.com',
+    'play.google.com',
+    'support.google.com',
+    'developers.google.com',
+    
+    // Enciclopédias e Referência
     'wikipedia.org',
     'wikimedia.org',
+    'britannica.com',
+    
+    // Plataformas de Conteúdo
     'quora.com',
     'medium.com',
     'blogger.com',
@@ -577,15 +595,55 @@ function shouldExcludeDomain(domain: string): boolean {
     'tumblr.com',
     'vimeo.com',
     'dailymotion.com',
-    'spotify.com'
+    'spotify.com',
+    
+    // Agregadores e Diretórios
+    'yelp.com',
+    'tripadvisor.com',
+    'foursquare.com',
+    'yellowpages.com',
+    
+    // Governamentais (.gov é tratado separadamente)
+    'gov.br',
+    'governo.br',
+    'planalto.gov.br',
+    
+    // Educacionais
+    'edu.br',
+    'usp.br',
+    'unicamp.br',
+    'ufrj.br',
+    
+    // Outros Utilitários
+    'archive.org',
+    'web.archive.org'
   ];
   
   // Normaliza o domínio removendo www e convertendo para minúsculo
   const normalizedDomain = domain.toLowerCase().replace(/^www\./, '');
   
-  return nonCommercialDomains.some(excludedDomain => 
+  // Verifica domínios governamentais (.gov)
+  if (normalizedDomain.includes('.gov')) {
+    console.log(`[shouldExcludeDomain] Excluded government domain: ${domain}`);
+    return true;
+  }
+  
+  // Verifica domínios educacionais (.edu)
+  if (normalizedDomain.includes('.edu')) {
+    console.log(`[shouldExcludeDomain] Excluded educational domain: ${domain}`);
+    return true;
+  }
+  
+  // Verifica lista de domínios não comerciais
+  const isExcluded = nonCommercialDomains.some(excludedDomain => 
     normalizedDomain === excludedDomain || normalizedDomain.endsWith('.' + excludedDomain)
   );
+  
+  if (isExcluded) {
+    console.log(`[shouldExcludeDomain] Excluded non-commercial domain: ${domain}`);
+  }
+  
+  return isExcluded;
 }
 
 // Helper function for Brazilian domain extraction  
