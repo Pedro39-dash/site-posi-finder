@@ -70,7 +70,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         detectedAutomatically: filtered.detectedAutomatically
       };
     });
-  }, [filteredCompetitors, keywords]);
+  }, [filteredCompetitors, filteredKeywords]);
 
   // Add target domain to the table - memoized for stability
   const targetMetrics = useMemo(() => {
@@ -85,7 +85,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
       estimatedBacklinks: generateBacklinkEstimate(cleanTargetDomain, true),
       detectedAutomatically: false // Target domain is never detected automatically
     };
-  }, [targetDomain, keywords]);
+  }, [targetDomain, filteredKeywords]);
 
   // Calculate average position for summary (for selected keyword only)
   const averagePosition = useMemo(() => {
@@ -125,16 +125,18 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CardTitle>Top 10 Concorrentes à Frente</CardTitle>
+              <Badge variant="outline" className="text-xs">
+                {allMetrics.length} encontrados
+              </Badge>
               <Tooltip>
                 <TooltipTrigger>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="max-w-xs">
-                    <p className="font-medium mb-1">Filtro Inteligente</p>
+                    <p className="font-medium mb-1">Filtro por Palavra-chave</p>
                     <p className="text-xs">
-                      Mostrando os 10 domínios que estão à frente da sua posição: 
-                      sempre incluindo os 3 primeiros + competidores imediatamente à sua frente.
+                      Mostrando concorrentes posicionados à frente do seu domínio para a palavra-chave selecionada.
                     </p>
                   </div>
                 </TooltipContent>
@@ -166,71 +168,79 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginationData.currentPageItems.map((metrics, pageIndex) => {
-                const globalIndex = paginationData.startIndex + pageIndex;
-                return (
-                  <TableRow key={metrics.domain}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: getDomainColor(globalIndex) }}
-                        />
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="font-medium cursor-help hover:text-primary">
-                              {formatDomainDisplay(metrics.domain).display}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <div className="text-xs">
-                              <p className="font-medium">URL Analisada:</p>
-                              <p className="text-muted-foreground break-all">
-                                {formatDomainDisplay(metrics.originalDomain || metrics.domain).fullUrl}
-                              </p>
-                              {formatDomainDisplay(metrics.domain).isPage && (
-                                <p className="text-orange-500 mt-1">
-                                  ⚠️ Página específica analisada
+              {paginationData.currentPageItems.length > 0 ? (
+                paginationData.currentPageItems.map((metrics, pageIndex) => {
+                  const globalIndex = paginationData.startIndex + pageIndex;
+                  return (
+                    <TableRow key={metrics.domain}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: getDomainColor(globalIndex) }}
+                          />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="font-medium cursor-help hover:text-primary">
+                                {formatDomainDisplay(metrics.domain).display}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="text-xs">
+                                <p className="font-medium">URL Analisada:</p>
+                                <p className="text-muted-foreground break-all">
+                                  {formatDomainDisplay(metrics.originalDomain || metrics.domain).fullUrl}
                                 </p>
-                              )}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                        {!metrics.detectedAutomatically && (
-                          <Badge variant="outline" className="ml-2 text-xs border-primary text-primary whitespace-nowrap">
-                            Concorrente Mencionado
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="font-mono">
-                        {metrics.commonKeywords}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="font-mono">
-                        {metrics.differentKeywords}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className="font-mono text-sm">
-                        {metrics.estimatedTraffic.toLocaleString()}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className="font-mono text-sm">
-                        {metrics.averagePosition ? `${metrics.averagePosition}º` : 'N/A'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button variant="ghost" size="sm">
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                                {formatDomainDisplay(metrics.domain).isPage && (
+                                  <p className="text-orange-500 mt-1">
+                                    ⚠️ Página específica analisada
+                                  </p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                          {!metrics.detectedAutomatically && (
+                            <Badge variant="outline" className="ml-2 text-xs border-primary text-primary whitespace-nowrap">
+                              Concorrente Mencionado
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono">
+                          {metrics.commonKeywords}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono">
+                          {metrics.differentKeywords}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="font-mono text-sm">
+                          {metrics.estimatedTraffic.toLocaleString()}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="font-mono text-sm">
+                          {metrics.averagePosition ? `${metrics.averagePosition}º` : 'N/A'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button variant="ghost" size="sm">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Nenhum concorrente encontrado à frente para esta palavra-chave.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

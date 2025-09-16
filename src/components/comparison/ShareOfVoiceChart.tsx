@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { Cell, PieChart, Pie, ResponsiveContainer, LineChart, Line, XAxis, YAxis } from 'recharts';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
@@ -34,10 +35,20 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
     const filteredCompetitors = getTop10CompetitorsAhead(competitors, filteredKeywords, targetDomain);
     const filteredDomains = filteredCompetitors.map(c => c.domain);
     
+    // Debug log to understand filtering
+    console.log('ShareOfVoice filtering:', {
+      selectedKeywordId: selectedKeyword?.id,
+      selectedKeywordText: selectedKeyword?.keyword,
+      originalDataLength: data.length,
+      filteredCompetitorsCount: filteredCompetitors.length,
+      filteredDomains: filteredDomains.slice(0, 5) // Show first 5 for debugging
+    });
+    
     // Filter original data to only include these domains
-    const filtered = data.filter(item => 
-      filteredDomains.includes(item.domain.replace(/^https?:\/\//, '').replace(/^www\./, ''))
-    );
+    const filtered = data.filter(item => {
+      const cleanItemDomain = item.domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      return filteredDomains.includes(cleanItemDomain);
+    });
     
     // Recalculate percentages based on filtered data only
     const totalCount = filtered.reduce((sum, item) => sum + item.count, 0);
@@ -46,7 +57,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
       ...item,
       percentage: totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0
     }));
-  }, [data, competitors, filteredKeywords, targetDomain]);
+  }, [data, competitors, filteredKeywords, targetDomain, selectedKeyword]);
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set());
 
   // Update selected domains when filteredData changes
@@ -95,7 +106,12 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Share of Voice</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          Share of Voice
+          <Badge variant="outline" className="text-xs">
+            {filteredData.length} domínios
+          </Badge>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid lg:grid-cols-2 gap-6">

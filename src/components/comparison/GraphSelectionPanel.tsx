@@ -58,10 +58,10 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Domínios Selecionados</span>
               <Badge variant={isAtMaxLimit ? 'destructive' : 'secondary'}>
-                {selectedDomains.length}/{maxSelection}
+                {selectedDomains.length}/{Math.min(domains.length, maxSelection)}
               </Badge>
               <div className="text-xs text-muted-foreground">
-                10 à frente + target + 10 atrás
+                Total: {domains.length} encontrados
               </div>
               {isAtMaxLimit && (
                 <div className="flex items-center gap-1 text-xs text-destructive">
