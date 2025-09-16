@@ -99,12 +99,12 @@ export function getTop10CompetitorsAroundTarget(
 }
 
 /**
- * Filters competitors to show only the top 10 domains that are ahead of the target domain
- * Logic: Always include top 3 positions + domains immediately ahead of target position
+ * Filters competitors to show domains around target position (positions 1-4 and 6-16 if target is 5th)
+ * Logic: Shows competitors ahead AND behind target domain for comprehensive analysis
  * @param competitors - Array of competitor domains
  * @param keywords - Array of keywords with position data
  * @param targetDomain - The domain being analyzed
- * @returns Filtered array of up to 10 competitors ahead of target domain
+ * @returns Filtered array of competitors excluding target domain position
  */
 export function getTop10CompetitorsAhead(
   competitors: CompetitorDomain[],
@@ -148,35 +148,31 @@ export function getTop10CompetitorsAhead(
     };
   });
 
-  // Filter and sort competitors
+  // Filter and sort competitors - exclude target domain position but show around it
   let filteredCompetitors: FilteredCompetitor[] = [];
 
   if (targetAvgPosition === null) {
-    // If target doesn't rank, show top 10 competitors by position
+    // If target doesn't rank, show top 15 competitors by position
     filteredCompetitors = competitorData
       .filter(comp => comp.averagePosition !== null)
-      .sort((a, b) => (a.averagePosition || 999) - (b.averagePosition || 999))
-      .slice(0, 10);
-  } else if (targetAvgPosition === 1) {
-    // If target is #1, show the next best 10 competitors (positions 2+)
-    filteredCompetitors = competitorData
-      .filter(comp => comp.averagePosition !== null && comp.averagePosition > targetAvgPosition)
-      .sort((a, b) => (a.averagePosition || 999) - (b.averagePosition || 999))
-      .slice(0, 10);
+      .sort((a, b) => {
+        // Sort by position, then by domain name for tie-breaking
+        const positionDiff = (a.averagePosition || 999) - (b.averagePosition || 999);
+        return positionDiff !== 0 ? positionDiff : a.domain.localeCompare(b.domain);
+      })
+      .slice(0, 15);
   } else {
-    // Get competitors ahead of target position
-    const competitorsAhead = competitorData
-      .filter(comp => comp.averagePosition !== null && comp.averagePosition < targetAvgPosition)
-      .sort((a, b) => (a.averagePosition || 999) - (b.averagePosition || 999));
+    // Get competitors at different positions than target (positions 1-4 and 6-16 if target is 5th)
+    const competitorsNotAtTargetPosition = competitorData
+      .filter(comp => comp.averagePosition !== null && comp.averagePosition !== targetAvgPosition)
+      .sort((a, b) => {
+        // Sort by position, then by domain name for tie-breaking
+        const positionDiff = (a.averagePosition || 999) - (b.averagePosition || 999);
+        return positionDiff !== 0 ? positionDiff : a.domain.localeCompare(b.domain);
+      });
 
-    // Always include top 3 positions
-    const top3 = competitorsAhead.slice(0, 3);
-    
-    // Fill remaining spots with competitors immediately ahead of target
-    const remainingSlots = 10 - top3.length;
-    const additionalCompetitors = competitorsAhead.slice(3, 3 + remainingSlots);
-    
-    filteredCompetitors = [...top3, ...additionalCompetitors];
+    // Show competitors ahead (better positions) and behind (worse positions) up to top 15
+    filteredCompetitors = competitorsNotAtTargetPosition.slice(0, 15);
   }
 
   console.log('Competitor Filtering Debug:', {

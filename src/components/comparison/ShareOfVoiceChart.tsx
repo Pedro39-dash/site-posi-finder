@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Cell, PieChart, Pie, ResponsiveContainer, LineChart, Line, XAxis, YAxis } from 'recharts';
+import { RefreshCw } from 'lucide-react';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
 import { useKeywordFilter } from '@/contexts/KeywordFilterContext';
+import { useAnalysisCache } from '@/hooks/useAnalysisCache';
 
 interface ShareOfVoiceData {
   domain: string;
@@ -23,6 +26,7 @@ interface ShareOfVoiceChartProps {
 
 const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors, keywords, targetDomain }) => {
   const { selectedKeyword } = useKeywordFilter();
+  const { invalidatePattern } = useAnalysisCache();
 
   // Filter keywords to only the selected one
   const filteredKeywords = useMemo(() => {
@@ -30,7 +34,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
     return keywords.filter(k => k.id === selectedKeyword.id);
   }, [keywords, selectedKeyword]);
 
-  // Filter data to show only competitors for the selected keyword
+  // Filter data to show only competitors for the selected keyword (excluding target domain position)
   const filteredData = useMemo(() => {
     const filteredCompetitors = getTop10CompetitorsAhead(competitors, filteredKeywords, targetDomain);
     const filteredDomains = filteredCompetitors.map(c => c.domain);
@@ -50,10 +54,23 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
       return filteredDomains.includes(cleanItemDomain);
     });
     
-    // Recalculate percentages based on filtered data only
-    const totalCount = filtered.reduce((sum, item) => sum + item.count, 0);
+    // Sort by the same logic as competitor filtering (position + domain name)
+    const sortedFiltered = filtered.sort((a, b) => {
+      const competitorA = filteredCompetitors.find(c => c.domain === a.domain.replace(/^https?:\/\//, '').replace(/^www\./, ''));
+      const competitorB = filteredCompetitors.find(c => c.domain === b.domain.replace(/^https?:\/\//, '').replace(/^www\./, ''));
+      
+      const positionA = competitorA?.averagePosition || 999;
+      const positionB = competitorB?.averagePosition || 999;
+      
+      // Sort by position, then by domain name for tie-breaking
+      const positionDiff = positionA - positionB;
+      return positionDiff !== 0 ? positionDiff : a.domain.localeCompare(b.domain);
+    });
     
-    return filtered.map(item => ({
+    // Recalculate percentages based on filtered data only
+    const totalCount = sortedFiltered.reduce((sum, item) => sum + item.count, 0);
+    
+    return sortedFiltered.map(item => ({
       ...item,
       percentage: totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0
     }));
@@ -89,6 +106,13 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
     });
   }, [displayData]);
 
+  const handleRefreshData = () => {
+    // Clear cache to ensure fresh data
+    invalidatePattern('competitive-analysis');
+    // Force component refresh
+    window.location.reload();
+  };
+
   const handleDomainToggle = (domain: string, checked: boolean) => {
     const newSelected = new Set(selectedDomains);
     if (checked) {
@@ -111,6 +135,14 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
           <Badge variant="outline" className="text-xs">
             {filteredData.length} domínios
           </Badge>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleRefreshData}
+            className="ml-auto"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>

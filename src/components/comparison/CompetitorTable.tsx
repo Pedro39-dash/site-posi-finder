@@ -40,7 +40,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
     targetDomain
   });
 
-  // Filter to show only top 10 competitors ahead of target domain for the selected keyword
+  // Filter to show competitors around target domain position (excluding target position)
   const filteredCompetitors = useMemo(() => {
     return getTop10CompetitorsAhead(competitors, filteredKeywords, targetDomain);
   }, [competitors, filteredKeywords, targetDomain]);
@@ -133,7 +133,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CardTitle>
-                {averagePosition === 1 ? 'Top 10 Concorrentes' : 'Top 10 Concorrentes à Frente'}
+                {averagePosition === 1 ? 'Top 15 Concorrentes' : 'Concorrentes (Posições 1-4 e 6-16)'}
               </CardTitle>
               <Badge variant="outline" className="text-xs">
                 {allMetrics.length} encontrados
@@ -148,7 +148,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                     <p className="text-xs">
                       {averagePosition === 1 
                         ? 'Seu domínio está em 1º lugar. Mostrando os melhores concorrentes posicionados.' 
-                        : 'Mostrando concorrentes posicionados à frente do seu domínio para a palavra-chave selecionada.'
+                        : `Seu domínio está na ${averagePosition}ª posição. Mostrando concorrentes nas demais posições para análise comparativa.`
                       }
                     </p>
                   </div>
@@ -253,7 +253,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                     {averagePosition === 1 
                       ? 'Parabéns! Você está em 1º lugar para esta palavra-chave.' 
                       : selectedKeyword 
-                        ? `Nenhum concorrente encontrado à frente para "${selectedKeyword.keyword}".`
+                        ? `Nenhum concorrente encontrado para "${selectedKeyword.keyword}".`
                         : 'Nenhum concorrente encontrado. Selecione uma palavra-chave para filtrar.'
                     }
                   </TableCell>
