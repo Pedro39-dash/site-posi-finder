@@ -28,9 +28,17 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
 
   // Filter keywords to only the selected one
   const filteredKeywords = useMemo(() => {
+    // If no keyword is selected, use all keywords
     if (!selectedKeyword) return keywords;
     return keywords.filter(k => k.id === selectedKeyword.id);
   }, [keywords, selectedKeyword]);
+
+  console.log('CompetitorTable Debug:', {
+    selectedKeyword: selectedKeyword?.keyword || 'none',
+    totalKeywords: keywords.length,
+    filteredKeywords: filteredKeywords.length,
+    targetDomain
+  });
 
   // Filter to show only top 10 competitors ahead of target domain for the selected keyword
   const filteredCompetitors = useMemo(() => {
@@ -124,7 +132,9 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle>Top 10 Concorrentes à Frente</CardTitle>
+              <CardTitle>
+                {averagePosition === 1 ? 'Top 10 Concorrentes' : 'Top 10 Concorrentes à Frente'}
+              </CardTitle>
               <Badge variant="outline" className="text-xs">
                 {allMetrics.length} encontrados
               </Badge>
@@ -136,7 +146,10 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                   <div className="max-w-xs">
                     <p className="font-medium mb-1">Filtro por Palavra-chave</p>
                     <p className="text-xs">
-                      Mostrando concorrentes posicionados à frente do seu domínio para a palavra-chave selecionada.
+                      {averagePosition === 1 
+                        ? 'Seu domínio está em 1º lugar. Mostrando os melhores concorrentes posicionados.' 
+                        : 'Mostrando concorrentes posicionados à frente do seu domínio para a palavra-chave selecionada.'
+                      }
                     </p>
                   </div>
                 </TooltipContent>
@@ -237,7 +250,12 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Nenhum concorrente encontrado à frente para esta palavra-chave.
+                    {averagePosition === 1 
+                      ? 'Parabéns! Você está em 1º lugar para esta palavra-chave.' 
+                      : selectedKeyword 
+                        ? `Nenhum concorrente encontrado à frente para "${selectedKeyword.keyword}".`
+                        : 'Nenhum concorrente encontrado. Selecione uma palavra-chave para filtrar.'
+                    }
                   </TableCell>
                 </TableRow>
               )}

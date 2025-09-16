@@ -157,6 +157,12 @@ export function getTop10CompetitorsAhead(
       .filter(comp => comp.averagePosition !== null)
       .sort((a, b) => (a.averagePosition || 999) - (b.averagePosition || 999))
       .slice(0, 10);
+  } else if (targetAvgPosition === 1) {
+    // If target is #1, show the next best 10 competitors (positions 2+)
+    filteredCompetitors = competitorData
+      .filter(comp => comp.averagePosition !== null && comp.averagePosition > targetAvgPosition)
+      .sort((a, b) => (a.averagePosition || 999) - (b.averagePosition || 999))
+      .slice(0, 10);
   } else {
     // Get competitors ahead of target position
     const competitorsAhead = competitorData
