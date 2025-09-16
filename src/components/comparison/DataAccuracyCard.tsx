@@ -123,21 +123,6 @@ export const DataAccuracyCard = ({ analysisData, onRefreshAnalysis, onReverifyAl
           </div>
         </div>
 
-        {/* Data Quality Indicators */}
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <div className="space-y-2">
-              <p className="font-medium">Como interpretamos os dados:</p>
-              <ul className="text-xs space-y-1 text-muted-foreground">
-                <li>• <strong>Normalização de domínios:</strong> Removemos www, https e comparamos variações</li>
-                <li>• <strong>Cobertura expandida:</strong> Analisamos 50 posições (antes eram 20)</li>
-                <li>• <strong>Filtragem inteligente:</strong> Excluímos YouTube, redes sociais e sites não-comerciais</li>
-                <li>• <strong>Re-verificação:</strong> Use o botão de atualização para verificar posições específicas</li>
-              </ul>
-            </div>
-          </AlertDescription>
-        </Alert>
 
         {/* Position Accuracy Warning for older data */}
         {isOld && (
