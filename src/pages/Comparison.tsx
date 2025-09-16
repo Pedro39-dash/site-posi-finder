@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import DirectCompetitiveForm from "@/components/comparison/DirectCompetitiveForm";
 import CompetitiveResultsDisplay from "@/components/comparison/CompetitiveResultsDisplay";
 import { HookErrorBoundary } from "@/components/comparison/HookErrorBoundary";
-import { useKeywordFilter } from "@/contexts/KeywordFilterContext";
+import { KeywordFilterProvider } from "@/contexts/KeywordFilterContext";
 
 type AnalysisState = 'form' | 'results';
 
@@ -58,12 +58,14 @@ const Comparison = () => {
 
         {/* Analysis Results */}
         {state === 'results' && analysisId && (
-          <HookErrorBoundary>
-            <CompetitiveResultsDisplay 
-              analysisId={analysisId} 
-              onBackToForm={handleBackToForm}
-            />
-          </HookErrorBoundary>
+          <KeywordFilterProvider>
+            <HookErrorBoundary>
+              <CompetitiveResultsDisplay 
+                analysisId={analysisId} 
+                onBackToForm={handleBackToForm}
+              />
+            </HookErrorBoundary>
+          </KeywordFilterProvider>
         )}
       </div>
     </>

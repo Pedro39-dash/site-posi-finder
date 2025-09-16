@@ -301,7 +301,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   }, [allDomains, selectedDomains.length]);
 
   return (
-    <KeywordFilterProvider>
+    <div>
       <HookErrorBoundary>
       <TooltipProvider>
         {/* Loading State */}
@@ -586,7 +586,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
         )}
        </TooltipProvider>
       </HookErrorBoundary>
-    </KeywordFilterProvider>
+    </div>
   );
 });
 
