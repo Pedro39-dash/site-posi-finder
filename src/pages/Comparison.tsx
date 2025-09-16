@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import DirectCompetitiveForm from "@/components/comparison/DirectCompetitiveForm";
 import CompetitiveResultsDisplay from "@/components/comparison/CompetitiveResultsDisplay";
 import { HookErrorBoundary } from "@/components/comparison/HookErrorBoundary";
+import { useKeywordFilter } from "@/contexts/KeywordFilterContext";
 
 type AnalysisState = 'form' | 'results';
 

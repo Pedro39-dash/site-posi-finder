@@ -34,9 +34,11 @@ import { useSupabaseCache } from '@/hooks/useSupabaseCache';
 import { useOptimizedFilters } from './OptimizedFilterReducer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { HookErrorBoundary } from './HookErrorBoundary';
+import { KeywordFilterProvider } from '@/contexts/KeywordFilterContext';
+import KeywordSelector from './KeywordSelector';
+import KeywordComparisonChart from './KeywordComparisonChart';
 import { ManualPositionCorrection } from './ManualPositionCorrection';
 import { getTop10CompetitorsAroundTarget } from '@/utils/competitorFiltering';
-// Removed useDeepMemo import to avoid hook instability
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -314,7 +316,8 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   }, [allDomains, selectedDomains.length]);
 
   return (
-    <HookErrorBoundary>
+    <KeywordFilterProvider>
+      <HookErrorBoundary>
       <TooltipProvider>
         {/* Loading State */}
         {loading && (
@@ -529,29 +532,39 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 </CardContent>
               </Card>
               
-              {/* Domain Selection Panel */}
-              {allDomains.length > 0 && (
-                <GraphSelectionPanel
-                  domains={allDomains}
-                  selectedDomains={selectedDomains}
-                  onSelectionChange={setSelectedDomains}
-                  targetDomain={analysisData?.analysis?.target_domain || ''}
-                  maxSelection={10}
-                  competitors={analysisData?.competitors || []}
-                />
-              )}
+            {/* Keyword Filter Section */}
+            <KeywordSelector keywords={analysisData?.keywords || []} />
+
+            {/* Domain Selection Panel */}
+            {allDomains.length > 0 && (
+              <GraphSelectionPanel
+                domains={allDomains}
+                selectedDomains={selectedDomains}
+                onSelectionChange={setSelectedDomains}
+                targetDomain={analysisData?.analysis?.target_domain || ''}
+                maxSelection={10}
+                competitors={analysisData?.competitors || []}
+              />
+            )}
             </div>
 
             {/* Unified Competitor Analysis Block */}
             <div className="space-y-6">
-              {/* Position Variation Chart - moved before table */}
-            <PositionVariationChart
-              competitors={analysisData?.competitors || []}
-              keywords={analysisData?.keywords || []}
-              selectedDomains={selectedDomains}
-              targetDomain={analysisData?.analysis?.target_domain || ''}
-              period={selectedPeriod}
-            />
+              {/* Show KeywordComparisonChart when all keywords are selected */}
+              <KeywordComparisonChart
+                keywords={analysisData?.keywords || []}
+                targetDomain={analysisData?.analysis?.target_domain || ''}
+                period={selectedPeriod}
+              />
+              
+              {/* Position Variation Chart - filtered by selected keyword */}
+              <PositionVariationChart
+                competitors={analysisData?.competitors || []}
+                keywords={analysisData?.keywords || []}
+                selectedDomains={selectedDomains}
+                targetDomain={analysisData?.analysis?.target_domain || ''}
+                period={selectedPeriod}
+              />
 
               {/* Competitor Table */}
               <CompetitorTable 
@@ -589,8 +602,9 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
             )}
           </div>
         )}
-      </TooltipProvider>
-    </HookErrorBoundary>
+       </TooltipProvider>
+      </HookErrorBoundary>
+    </KeywordFilterProvider>
   );
 });
 

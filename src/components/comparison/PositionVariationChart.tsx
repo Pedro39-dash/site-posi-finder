@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { getTop10CompetitorsAroundTarget, getDomainColor } from '@/utils/competitorFiltering';
+import { useKeywordFilter } from '@/contexts/KeywordFilterContext';
 
 
 interface PositionData {
@@ -27,15 +28,24 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
   targetDomain,
   period = 30
 }) => {
+  const { selectedKeyword, isAllKeywords } = useKeywordFilter();
+  
+  // Filter keywords based on context selection
+  const filteredKeywords = useMemo(() => {
+    if (isAllKeywords || !selectedKeyword) {
+      return keywords;
+    }
+    return keywords.filter(k => k.id === selectedKeyword.id);
+  }, [keywords, selectedKeyword, isAllKeywords]);
   // Filter to show competitors around target (10 ahead + 10 behind)
   const filteredCompetitors = useMemo(() => {
-    return getTop10CompetitorsAroundTarget(competitors, keywords, targetDomain);
-  }, [competitors, keywords, targetDomain]);
+    return getTop10CompetitorsAroundTarget(competitors, filteredKeywords, targetDomain);
+  }, [competitors, filteredKeywords, targetDomain]);
 
   // Check if target domain is ranking  
   const isTargetRanking = useMemo(() => {
-    return keywords.some(k => k.target_domain_position && k.target_domain_position > 0);
-  }, [keywords]);
+    return filteredKeywords.some(k => k.target_domain_position && k.target_domain_position > 0);
+  }, [filteredKeywords]);
 
   // Get all domain names for the chart (filtered competitors + target if ranking)
   const domains = useMemo(() => {
@@ -211,7 +221,9 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
         </div>
         
         <div className="text-xs text-muted-foreground">
-          {isTargetRanking ? (
+          {selectedKeyword && !isAllKeywords ? (
+            <p>💡 <strong>Filtro ativo:</strong> Mostrando dados específicos para "{selectedKeyword.keyword}". Posições menores são melhores.</p>
+          ) : isTargetRanking ? (
             <p>💡 <strong>Dica:</strong> Posições menores são melhores. Agora você pode ver até 21 domínios (10 à frente + 10 atrás) para análise comparativa completa.</p>
           ) : (
             <p>⚠️ <strong>Seu domínio não rankeia</strong> nas primeiras 100 posições. O gráfico mostra competidores ao redor da posição esperada para comparação.</p>
