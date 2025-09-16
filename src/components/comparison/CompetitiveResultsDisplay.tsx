@@ -47,6 +47,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   // ALL hooks must be called first - no early returns before this point
   // State for domain selection in chart
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<number>(30);
   
   const [selectedKeyword, setSelectedKeyword] = useState<CompetitorKeyword | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -427,10 +428,17 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                     <MapPin className="h-4 w-4 mr-2" />
                     Brasil
                   </Button>
-                  <Button variant="outline" size="sm">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Últimos 30 dias
-                  </Button>
+                  <Select value={selectedPeriod.toString()} onValueChange={(value) => setSelectedPeriod(Number(value))}>
+                    <SelectTrigger className="w-auto">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">Últimos 30 dias</SelectItem>
+                      <SelectItem value="60">Últimos 60 dias</SelectItem>
+                      <SelectItem value="90">Últimos 90 dias</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               
@@ -537,12 +545,13 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
             {/* Unified Competitor Analysis Block */}
             <div className="space-y-6">
               {/* Position Variation Chart - moved before table */}
-              <PositionVariationChart 
-                competitors={analysisData?.competitors || []}
-                keywords={analysisData?.keywords || []}
-                selectedDomains={selectedDomains}
-                targetDomain={analysisData?.analysis?.target_domain || ''}
-              />
+            <PositionVariationChart
+              competitors={analysisData?.competitors || []}
+              keywords={analysisData?.keywords || []}
+              selectedDomains={selectedDomains}
+              targetDomain={analysisData?.analysis?.target_domain || ''}
+              period={selectedPeriod}
+            />
 
               {/* Competitor Table */}
               <CompetitorTable 

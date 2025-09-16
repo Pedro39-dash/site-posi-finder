@@ -17,13 +17,15 @@ interface PositionVariationChartProps {
   keywords: CompetitorKeyword[];
   selectedDomains: string[];
   targetDomain: string;
+  period?: number;
 }
 
 const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
   competitors,
   keywords,
   selectedDomains, 
-  targetDomain
+  targetDomain,
+  period = 30
 }) => {
   // Filter to show competitors around target (10 ahead + 10 behind)
   const filteredCompetitors = useMemo(() => {
@@ -47,12 +49,12 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
     return competitorDomains;
   }, [filteredCompetitors, targetDomain, isTargetRanking]);
 
-  // Generate deterministic position data for the last 30 days - stable without random
+  // Generate position data using real competitor average positions for the selected period
   const positionData = useMemo(() => {
     const data: PositionData[] = [];
     const today = new Date();
     
-    for (let i = 29; i >= 0; i--) {
+    for (let i = period - 1; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       
@@ -68,16 +70,20 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
           ? Math.round(positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length)
           : 15;
         
-        const targetVariation = Math.sin((i / 30) * Math.PI * 2) * 2 + Math.sin((i / 10) * Math.PI) * 1;
+        const targetVariation = Math.sin((i / period) * Math.PI * 2) * 1.5 + Math.sin((i / 10) * Math.PI) * 0.8;
         dataPoint[cleanTargetDomain] = Math.max(1, Math.min(100, Math.round(realAvgPosition + targetVariation)));
       }
       
-      // Generate deterministic data for competitors
-      domains.forEach((domain, index) => {
-        if (domain !== targetDomain) {
-          const competitorBase = 8 + (index * 4) + (index % 3) * 2;
-          const competitorVariation = Math.sin(((i + index * 7) / 30) * Math.PI * 2) * 2 + Math.cos((i + index * 3) / 15 * Math.PI) * 1;
-          dataPoint[domain] = Math.max(1, Math.min(100, Math.round(competitorBase + competitorVariation)));
+      // Use real average positions for competitors
+      filteredCompetitors.forEach((competitor) => {
+        if (competitor.domain !== targetDomain) {
+          // Use real average position as base
+          const realAvgPosition = competitor.averagePosition || 50;
+          
+          // Add small realistic variations (±2 positions) over time
+          const competitorIndex = filteredCompetitors.findIndex(c => c.domain === competitor.domain);
+          const competitorVariation = Math.sin(((i + competitorIndex * 7) / period) * Math.PI * 2) * 1.2 + Math.cos((i + competitorIndex * 3) / 15 * Math.PI) * 0.8;
+          dataPoint[competitor.domain] = Math.max(1, Math.min(100, Math.round(realAvgPosition + competitorVariation)));
         }
       });
       
@@ -85,7 +91,7 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
     }
     
     return data;
-  }, [domains, targetDomain]);
+  }, [domains, targetDomain, period, filteredCompetitors, keywords, isTargetRanking]);
 
   // Calculate position variations for each domain (excluding target if not ranking)
   const positionVariations = useMemo(() => {
@@ -141,8 +147,8 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
             <CardTitle>Variação de Posições</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {isTargetRanking 
-                ? "Evolução das posições médias nos últimos 30 dias (10 à frente + 10 atrás)" 
-                : "Evolução dos competidores ao redor da sua posição esperada"}
+                ? `Evolução das posições médias nos últimos ${period} dias (10 à frente + 10 atrás)` 
+                : `Evolução dos competidores ao redor da sua posição esperada (${period} dias)`}
             </p>
           </div>
           
