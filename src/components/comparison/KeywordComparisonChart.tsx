@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Eye, EyeOff } from 'lucide-react';
 import { CompetitorKeyword } from '@/services/competitorAnalysisService';
+import { useDeepMemo } from '@/hooks/useDeepMemo';
 
 interface KeywordData {
   date: string;
@@ -24,8 +25,8 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
 }) => {
   const [hiddenKeywords, setHiddenKeywords] = useState<Set<string>>(new Set());
 
-  // Generate data for multiple keywords over time
-  const chartData = useMemo(() => {
+  // Generate deterministic data for multiple keywords over time
+  const chartData = useDeepMemo(() => {
     const data: KeywordData[] = [];
     
     for (let i = period; i >= 0; i--) {
@@ -36,12 +37,19 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
         date: date.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' })
       };
 
-      keywords.forEach(keyword => {
+      keywords.forEach((keyword, keywordIndex) => {
         const basePosition = keyword.target_domain_position || 50;
-        // Add some realistic variation to simulate daily changes
-        const variation = (Math.random() - 0.5) * 6; // ±3 positions
-        const position = Math.max(1, Math.min(100, basePosition + variation));
-        dataPoint[keyword.keyword] = Math.round(position);
+        
+        // Create deterministic variation using sine wave based on keyword and day
+        const keywordSeed = keyword.keyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const dayFactor = (period - i) / period;
+        const sineWave = Math.sin((dayFactor * Math.PI * 4) + (keywordSeed / 100));
+        
+        // Add realistic SEO fluctuation (±3 positions)
+        const variation = sineWave * 3;
+        const position = Math.max(1, Math.min(100, Math.round(basePosition + variation)));
+        
+        dataPoint[keyword.keyword] = position;
       });
 
       data.push(dataPoint);
@@ -50,15 +58,30 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
     return data;
   }, [keywords, period]);
 
-  // Get colors for each keyword
+  // Fixed color palette for Recharts compatibility
+  const colorPalette = [
+    '#3B82F6', // Blue
+    '#8B5CF6', // Purple  
+    '#F59E0B', // Amber
+    '#EF4444', // Red
+    '#10B981', // Emerald
+    '#06B6D4', // Cyan
+    '#EC4899', // Pink
+    '#84CC16', // Lime
+    '#F97316', // Orange
+    '#6366F1'  // Indigo
+  ];
+
   const getKeywordColor = (index: number) => {
-    const colors = [
-      'hsl(var(--primary))',
-      'hsl(var(--secondary))',
-      'hsl(var(--accent))',
-      '#8B5CF6', '#F59E0B', '#EF4444', '#10B981', '#06B6D4', '#EC4899', '#84CC16'
-    ];
-    return colors[index % colors.length];
+    return colorPalette[index % colorPalette.length];
+  };
+
+  // Convert hex to rgba for transparency
+  const hexToRgba = (hex: string, alpha: number = 0.1) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
   const toggleKeywordVisibility = (keyword: string) => {
@@ -93,7 +116,7 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
                 onClick={() => toggleKeywordVisibility(keyword.keyword)}
                 className="h-8 text-xs gap-1"
                 style={!isHidden ? { 
-                  backgroundColor: getKeywordColor(index) + '20',
+                  backgroundColor: hexToRgba(getKeywordColor(index), 0.2),
                   borderColor: getKeywordColor(index),
                   color: getKeywordColor(index)
                 } : {}}
