@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
-import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
+import { getTop10CompetitorsAroundTarget, getDomainColor } from '@/utils/competitorFiltering';
 
 
 interface PositionData {
@@ -25,9 +25,9 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
   selectedDomains, 
   targetDomain
 }) => {
-  // Filter to show only top 10 competitors ahead
+  // Filter to show competitors around target (10 ahead + 10 behind)
   const filteredCompetitors = useMemo(() => {
-    return getTop10CompetitorsAhead(competitors, keywords, targetDomain);
+    return getTop10CompetitorsAroundTarget(competitors, keywords, targetDomain);
   }, [competitors, keywords, targetDomain]);
 
   // Check if target domain is ranking  
@@ -141,8 +141,8 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
             <CardTitle>Variação de Posições</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {isTargetRanking 
-                ? "Evolução das posições médias nos últimos 30 dias" 
-                : "Evolução dos 10 competidores à frente (seu domínio não rankeia)"}
+                ? "Evolução das posições médias nos últimos 30 dias (10 à frente + 10 atrás)" 
+                : "Evolução dos competidores ao redor da sua posição esperada"}
             </p>
           </div>
           
@@ -206,9 +206,9 @@ const PositionVariationChart: React.FC<PositionVariationChartProps> = ({
         
         <div className="text-xs text-muted-foreground">
           {isTargetRanking ? (
-            <p>💡 <strong>Dica:</strong> Posições menores são melhores. Selecione até 10 domínios para comparar suas variações.</p>
+            <p>💡 <strong>Dica:</strong> Posições menores são melhores. Agora você pode ver até 21 domínios (10 à frente + 10 atrás) para análise comparativa completa.</p>
           ) : (
-            <p>⚠️ <strong>Seu domínio não rankeia</strong> nas primeiras 100 posições para as palavras-chave analisadas. O gráfico mostra apenas os competidores à frente.</p>
+            <p>⚠️ <strong>Seu domínio não rankeia</strong> nas primeiras 100 posições. O gráfico mostra competidores ao redor da posição esperada para comparação.</p>
           )}
         </div>
       </CardContent>

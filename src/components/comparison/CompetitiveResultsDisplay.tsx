@@ -282,20 +282,28 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   // Determine what to render - NO EARLY RETURNS, only JSX conditionals
   console.log('CompetitiveResultsDisplay render state:', { loading, error, hasData: !!analysisData, status: analysisData?.analysis?.status });
 
-  // Get all domains for the header - null-safe
+  // Get all domains for the header - null-safe (showing 10 ahead + 10 behind)
   const allDomains = useMemo(() => {
-    if (!analysisData?.analysis?.target_domain || !analysisData?.competitors) {
+    if (!analysisData?.analysis?.target_domain || !analysisData?.competitors || !analysisData?.keywords) {
       return [];
     }
     
-    const domains = [analysisData.analysis.target_domain];
-    analysisData.competitors.forEach(comp => {
-      if (comp?.domain && !domains.includes(comp.domain)) {
-        domains.push(comp.domain);
-      }
-    });
-    return domains;
-  }, [analysisData?.analysis?.target_domain, analysisData?.competitors]);
+    // Import the new filtering function
+    const { getTop10CompetitorsAroundTarget } = require('@/utils/competitorFiltering');
+    
+    // Get filtered competitors (10 ahead + 10 behind)
+    const filteredCompetitors = getTop10CompetitorsAroundTarget(
+      analysisData.competitors, 
+      analysisData.keywords, 
+      analysisData.analysis.target_domain
+    );
+    
+    // Always include target domain + filtered competitors
+    const targetDomain = analysisData.analysis.target_domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    const competitorDomains = filteredCompetitors.map(c => c.domain);
+    
+    return [targetDomain, ...competitorDomains];
+  }, [analysisData?.analysis?.target_domain, analysisData?.competitors, analysisData?.keywords]);
 
   // Initialize selected domains when analysis data changes
   useEffect(() => {

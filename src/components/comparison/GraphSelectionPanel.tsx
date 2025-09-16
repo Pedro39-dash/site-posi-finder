@@ -19,7 +19,7 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
   selectedDomains,
   onSelectionChange,
   targetDomain,
-  maxSelection = 10,
+  maxSelection = 21, // Increased to allow target + 10 ahead + 10 behind
   competitors = []
 }) => {
   const handleDomainToggle = (domain: string, checked: boolean) => {
@@ -60,6 +60,9 @@ const GraphSelectionPanel: React.FC<GraphSelectionPanelProps> = ({
               <Badge variant={isAtMaxLimit ? 'destructive' : 'secondary'}>
                 {selectedDomains.length}/{maxSelection}
               </Badge>
+              <div className="text-xs text-muted-foreground">
+                10 à frente + target + 10 atrás
+              </div>
               {isAtMaxLimit && (
                 <div className="flex items-center gap-1 text-xs text-destructive">
                   <AlertCircle className="h-3 w-3" />

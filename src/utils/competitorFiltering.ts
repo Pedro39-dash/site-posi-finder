@@ -8,6 +8,97 @@ export interface FilteredCompetitor {
 }
 
 /**
+ * Filters competitors to show domains around the target domain for comparative analysis
+ * Logic: Shows up to 10 competitors ahead + up to 10 competitors behind the target domain
+ * @param competitors - Array of competitor domains
+ * @param keywords - Array of keywords with position data
+ * @param targetDomain - The domain being analyzed
+ * @returns Filtered array of up to 21 competitors (10 ahead + target + 10 behind)
+ */
+export function getTop10CompetitorsAroundTarget(
+  competitors: CompetitorDomain[],
+  keywords: CompetitorKeyword[],
+  targetDomain: string
+): FilteredCompetitor[] {
+  if (!competitors.length || !keywords.length) return [];
+
+  // Calculate average position for target domain
+  const targetPositions = keywords
+    .filter(k => k.target_domain_position && k.target_domain_position > 0)
+    .map(k => k.target_domain_position!);
+  
+  const targetAvgPosition = targetPositions.length > 0
+    ? Math.round(targetPositions.reduce((sum, pos) => sum + pos, 0) / targetPositions.length)
+    : null;
+
+  // Process competitors and calculate their average positions
+  const competitorData: FilteredCompetitor[] = competitors.map(competitor => {
+    const cleanDomain = competitor.domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    
+    // Calculate average position for this competitor
+    const competitorPositions = keywords
+      .map(keyword => {
+        const position = keyword.competitor_positions?.find(pos => 
+          pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
+        );
+        return position?.position;
+      })
+      .filter((pos): pos is number => pos !== undefined && pos > 0);
+    
+    const averagePosition = competitorPositions.length > 0 
+      ? Math.round(competitorPositions.reduce((sum, pos) => sum + pos, 0) / competitorPositions.length)
+      : null;
+
+    return {
+      domain: cleanDomain,
+      originalDomain: competitor.domain,
+      averagePosition,
+      detectedAutomatically: competitor.detected_automatically
+    };
+  });
+
+  // Filter and sort competitors
+  let filteredCompetitors: FilteredCompetitor[] = [];
+
+  if (targetAvgPosition === null) {
+    // If target doesn't rank, show top 20 competitors by position
+    filteredCompetitors = competitorData
+      .filter(comp => comp.averagePosition !== null)
+      .sort((a, b) => (a.averagePosition || 999) - (b.averagePosition || 999))
+      .slice(0, 20);
+  } else {
+    // Get competitors ahead of target position (better positions - lower numbers)
+    const competitorsAhead = competitorData
+      .filter(comp => comp.averagePosition !== null && comp.averagePosition < targetAvgPosition)
+      .sort((a, b) => (a.averagePosition || 999) - (b.averagePosition || 999))
+      .slice(0, 10); // Top 10 ahead
+
+    // Get competitors behind target position (worse positions - higher numbers)
+    const competitorsBehind = competitorData
+      .filter(comp => comp.averagePosition !== null && comp.averagePosition > targetAvgPosition)
+      .sort((a, b) => (a.averagePosition || 999) - (b.averagePosition || 999))
+      .slice(0, 10); // Top 10 behind (closest to target)
+
+    filteredCompetitors = [...competitorsAhead, ...competitorsBehind];
+  }
+
+  console.log('Competitor Filtering Debug (Around Target):', {
+    targetDomain,
+    targetAvgPosition,
+    totalCompetitors: competitors.length,
+    filteredCount: filteredCompetitors.length,
+    competitorsAhead: filteredCompetitors.filter(c => c.averagePosition && targetAvgPosition && c.averagePosition < targetAvgPosition).length,
+    competitorsBehind: filteredCompetitors.filter(c => c.averagePosition && targetAvgPosition && c.averagePosition > targetAvgPosition).length,
+    filteredCompetitors: filteredCompetitors.map(c => ({ 
+      domain: c.domain, 
+      position: c.averagePosition 
+    }))
+  });
+
+  return filteredCompetitors;
+}
+
+/**
  * Filters competitors to show only the top 10 domains that are ahead of the target domain
  * Logic: Always include top 3 positions + domains immediately ahead of target position
  * @param competitors - Array of competitor domains
