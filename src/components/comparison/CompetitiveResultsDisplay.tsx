@@ -35,6 +35,7 @@ import { useOptimizedFilters } from './OptimizedFilterReducer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { HookErrorBoundary } from './HookErrorBoundary';
 import { ManualPositionCorrection } from './ManualPositionCorrection';
+import { getTop10CompetitorsAroundTarget } from '@/utils/competitorFiltering';
 // Removed useDeepMemo import to avoid hook instability
 
 interface CompetitiveResultsDisplayProps {
@@ -287,9 +288,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     if (!analysisData?.analysis?.target_domain || !analysisData?.competitors || !analysisData?.keywords) {
       return [];
     }
-    
-    // Import the new filtering function
-    const { getTop10CompetitorsAroundTarget } = require('@/utils/competitorFiltering');
     
     // Get filtered competitors (10 ahead + 10 behind)
     const filteredCompetitors = getTop10CompetitorsAroundTarget(
