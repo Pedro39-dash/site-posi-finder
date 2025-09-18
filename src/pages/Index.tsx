@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, flame } from "lucide-react";
 import WelcomeOnboarding from "@/components/WelcomeOnboarding";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
@@ -114,15 +114,12 @@ const Index = () => {
       <section className="py-16">
             <div className="container mx-auto px-4">
               <div className="flex justify-between">
-                <h1 className="text-3xl font-medium max-w-[464px]">
+                <h1 className="text-3xl font-medium text-foreground mb-4">
                   Painel exclusivo ITX Company de <span className="font-bold">monitoramento SEO/AIO</span>
                 </h1>
                 <p className="text-zinc-500">
                   Obtenha um prognóstico assertivo do seu site com relação a busca orgânica do Google.
                 </p>
-              </div>
-              <div>
-                <Flame /><h2>Sugestões de SEO/AIO</h2>
               </div>
               
               <SearchForm onSearch={handleSearch} />
