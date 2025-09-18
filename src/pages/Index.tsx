@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { Flame } from 'lucide-react';
+import { Flame } from "lucide-react";
 import WelcomeOnboarding from "@/components/WelcomeOnboarding";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
