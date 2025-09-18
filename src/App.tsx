@@ -66,7 +66,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
         {/* Content area with fixed sidebar - remaining height */}
         <div className="flex w-full" style={{ height: 'calc(100vh - var(--topbar-height))' }}>
           <AppSidebar />
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto bg-zinc-950">
             {children}
           </main>
         </div>
