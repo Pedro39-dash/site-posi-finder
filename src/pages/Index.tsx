@@ -7,11 +7,11 @@ import { useRole } from "@/hooks/useRole";
 import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { ClientDashboard } from "@/components/dashboard/ClientDashboard";
 import { DisplayDashboard } from "@/components/dashboard/DisplayDashboard";
-import HeroSection from "@/components/HeroSection";
+// import HeroSection from "@/components/HeroSection";
 import SearchForm from "@/components/SearchForm";
 import ResultsDisplay from "@/components/ResultsDisplay";
 import SimulationNotice from "@/components/SimulationNotice";
-import HowItWorks from "@/components/HowItWorks";
+// import HowItWorks from "@/components/HowItWorks";
 
 interface SearchResult {
   keyword: string;
@@ -114,8 +114,8 @@ const Index = () => {
 
       <div className="min-h-screen bg-background">
         <div className="pt-16 lg:pt-0 bg-red-500">
-          <HeroSection />
-          <HowItWorks />
+          {/* <HeroSection />
+          <HowItWorks /> */}
           
           <section className="py-16 bg-secondary/50">
             <div className="container mx-auto px-4">
