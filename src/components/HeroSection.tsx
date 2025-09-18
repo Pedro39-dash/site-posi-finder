@@ -17,8 +17,7 @@ const HeroSection = () => {
             </div>
             
             <h1 className="text-5xl lg:text-6xl font-bold text-primary-foreground mb-6">
-              Painel Exclusivo para
-              <span className="block text-accent-foreground">Nossos Clientes de SEO</span>
+              Painel Exclusivo ITX Company de <span className="font-bold"> monitoramento de SEO / AIO</span>
             </h1>
             
             <p className="text-xl text-primary-foreground/90 mb-8 max-w-2xl">
