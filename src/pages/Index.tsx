@@ -114,9 +114,9 @@ const Index = () => {
       <section className="py-16">
             <div className="container mx-auto px-4">
               <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold text-foreground mb-4">
-                  Verificar Posições Atuais
-                </h2>
+                <h1 className="text-3xl font-medium text-foreground mb-4">
+                  Painel exclusivo ITX Company de <span className="font-bold">monitoramento SEO/AIO</span>
+                </h1>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
                   Digite o URL do seu site e as palavras-chave que deseja consultar. 
                   Nossa ferramenta irá verificar sua posição atual nos resultados do Google.
