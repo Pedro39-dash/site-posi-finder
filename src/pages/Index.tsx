@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { ArrowLeft, Flame } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import WelcomeOnboarding from "@/components/WelcomeOnboarding";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
@@ -120,6 +120,10 @@ const Index = () => {
                 <p className="text-zinc-500">
                   Obtenha um prognóstico assertivo do seu site com relação a busca orgânica do Google.
                 </p>
+              </div>
+              <div>
+                <h2>Sugestões de SEO/AIO </h2>
+                <p>Analisamos seu site e elencamos as principais oportunidades de SEO encontradas. Trabalhe nestas otimizações para melhorar seus posicionamentos e aumentar seu tráfego.</p>
               </div>
               
               <SearchForm onSearch={handleSearch} />
