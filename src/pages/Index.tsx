@@ -111,12 +111,26 @@ const Index = () => {
         <meta name="keywords" content="seo, posições google, ranking, palavras-chave, otimização, busca" />
         <link rel="canonical" href="/" />
       </Helmet>
+      <section className="py-16 bg-secondary/50">
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold text-foreground mb-4">
+                  Verificar Posições Atuais
+                </h2>
+                <p className="text-muted-foreground max-w-2xl mx-auto">
+                  Digite o URL do seu site e as palavras-chave que deseja consultar. 
+                  Nossa ferramenta irá verificar sua posição atual nos resultados do Google.
+                </p>
+              </div>
+              
+              <SearchForm onSearch={handleSearch} />
+            </div>
+          </section>
 
-      <div className="bg-background">
-        <div className="pt-16 lg:pt-0 bg-red-500">
-          {/* <HeroSection />
-          <HowItWorks /> */}
-          
+      {/* <div className="bg-background">
+        <div className="pt-16 lg:pt-0">
+          <HeroSection />
+          <HowItWorks />
           <section className="py-16 bg-secondary/50">
             <div className="container mx-auto px-4">
               <div className="text-center mb-12">
@@ -133,7 +147,7 @@ const Index = () => {
             </div>
           </section>
         </div>
-      </div>
+      </div> */}
     </>
   );
 };
