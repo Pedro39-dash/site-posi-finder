@@ -28,7 +28,7 @@ export function TopBar({ onCreateProject }: TopBarProps) {
   const pageTitle = getPageTitle(location.pathname);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" style={{ height: 'var(--topbar-height)' }}>
+    <header className="sticky top-0 z-50 w-full border-b bg-zinc-950" style={{ height: 'var(--topbar-height)' }}>
       <div className="flex items-center justify-between px-6" style={{ height: 'var(--topbar-height)' }}>
         {/* Left Section */}
         <div className="flex items-center gap-4">
@@ -46,7 +46,7 @@ export function TopBar({ onCreateProject }: TopBarProps) {
                   size="sm"
                   className="flex items-center gap-2 px-3"
                 >
-                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center">
                     <span className="text-xs font-medium text-primary">
                       {user.email?.charAt(0).toUpperCase()}
                     </span>
