@@ -75,7 +75,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar 
-      className="w-72 border-r h-full"
+      className="w-72 border-r h-full bg-zinc-950"
       collapsible="none"
     >
       <SidebarHeader className="border-b px-4 py-6">
