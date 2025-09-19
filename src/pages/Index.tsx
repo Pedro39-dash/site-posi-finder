@@ -144,7 +144,7 @@ const Index = () => {
                   <p>Sugestão 3</p>
                 </div>
               </div>
-              <div className="">
+              <div className="mt-8">
                 <div className="flex gap-2 items-center">
                 <span className="text-blue-950 bg-blue-500 p-2"><ChartPie /></span>
                 <h2>
