@@ -135,7 +135,7 @@ const Index = () => {
               </div>
               <div className="flex justify-between">
                 <div className="max-width-[326px] max-height-[211px] bg-zinc-900">
-                  <span className="width-[326px] height-[211px]"><p>Sugestão 1</p></span>
+                  <p className="text-red-500">Sugestão 1</p>
                 </div>
                 <div className="max-width-[326px] max-height-[211px] bg-zinc-900">
                   <p>Sugestão 2</p>
