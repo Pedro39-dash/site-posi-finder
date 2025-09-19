@@ -122,7 +122,7 @@ const Index = () => {
                 </p>
               </div>
               <div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <span className="text-yellow-950 bg-yellow-500 p-2"><Flame /></span>
                   <h2>
                     Sugestões de SEO/AIO
@@ -133,6 +133,19 @@ const Index = () => {
                   para melhorar seus posicionamentos e aumentar seu tráfego.
                 </p>
               </div>
+              <div className="flex justify-between">
+                <div className="max-width-[326px] max-height-[211px] bg-zinc-900">
+                  <p>Sugestão 1</p>
+                </div>
+                <div className="max-width-[326px] max-height-[211px] bg-zinc-900">
+                  <p>Sugestão 2</p>
+                </div>
+                <div className="max-width-[326px] max-height-[211px] bg-zinc-900">
+                  <p>Sugestão 3</p>
+                </div>
+              </div>
+
+              
             </div>
           </section>
 
