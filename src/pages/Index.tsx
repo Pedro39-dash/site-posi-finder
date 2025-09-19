@@ -121,6 +121,17 @@ const Index = () => {
                   Obtenha um prognóstico assertivo do seu site com relação a busca orgânica do Google.
                 </p>
               </div>
+              <div>
+                <div> 
+                  <h2>
+                    Sugestões de SEO/AIO
+                  </h2>
+                </div>
+                <p> 
+                  Analisamos seu site e elencamos as principais oportunidades de SEO encontradas. Trabalhe nessas otimizações
+                  para melhorar seus posicionamentos e aumentar seu tráfego.
+                </p>
+              </div>
               
               <SearchForm onSearch={handleSearch} />
             </div>
