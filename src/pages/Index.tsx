@@ -122,7 +122,8 @@ const Index = () => {
                 </p>
               </div>
               <div>
-                <div> 
+                <div>
+                  <Flame />
                   <h2>
                     Sugestões de SEO/AIO
                   </h2>
