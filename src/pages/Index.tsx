@@ -123,18 +123,16 @@ const Index = () => {
               </div>
               <div>
                 <div className="flex gap-2">
-                  <span><Flame /></span>
+                  <span className="text-yellow-950 bg-yellow-500 p-2"><Flame /></span>
                   <h2>
                     Sugestões de SEO/AIO
                   </h2>
                 </div>
-                <p className="max-width-[1026px]"> 
+                <p className="max-width-[1026px] text-zinc-500"> 
                   Analisamos seu site e elencamos as principais oportunidades de SEO encontradas. Trabalhe nessas otimizações
                   para melhorar seus posicionamentos e aumentar seu tráfego.
                 </p>
               </div>
-              
-              <SearchForm onSearch={handleSearch} />
             </div>
           </section>
 
