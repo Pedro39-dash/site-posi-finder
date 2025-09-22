@@ -37,14 +37,14 @@ export function TopBar({ onCreateProject }: TopBarProps) {
 
         {/* Right Section - User Profile */}
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  className="flex items-center gap-2 px-3"
+                  className="flex items-center gap-2 px-3 border-l border-zinc-500"
                 >
                   <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center">
                     <span className="text-xs font-medium text-primary">

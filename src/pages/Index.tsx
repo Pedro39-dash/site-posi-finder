@@ -133,7 +133,7 @@ const Index = () => {
                   para melhorar seus posicionamentos e aumentar seu tráfego.
                 </p>
               </div>
-              <div className="flex justify-between mt-6">
+              <div className="flex justify-between mt-6 gap-6">
                 <div className="w-[326px] h-[211px] bg-zinc-900 p-2">
                   <p>Sugestão 1</p>
                 </div>
