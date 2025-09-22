@@ -44,8 +44,7 @@ export function TopBar({ onCreateProject }: TopBarProps) {
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  className="flex items-center gap-2 px-3 border-l border-zinc-500"
-                >
+                  className="flex items-center gap-2 px-3 border-l border-zinc-500">
                   <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center">
                     <span className="text-xs font-medium text-primary">
                       {user.email?.charAt(0).toUpperCase()}

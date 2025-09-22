@@ -81,8 +81,8 @@ export function AppSidebar() {
       <SidebarHeader className="border-b px-4 py-6">
         {activeProject ? (
           <div className="flex flex-col space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight">{activeProject.name}</h2>
-            <p className="text-sm text-muted-foreground">{activeProject.domain}</p>
+            <h2 className="text-lg font-semibold tracking-tight">Projeto Selecionado</h2>
+            <p className="text-sm bg-zinc-900 p-2 rounded-sm">{activeProject.domain}</p>
           </div>
         ) : (
           <div className="flex flex-col space-y-1">
@@ -95,7 +95,7 @@ export function AppSidebar() {
       <SidebarContent className="px-3 py-4">
         {/* Navegação Section */}
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <SidebarGroupLabel className="px-3 text-xs font-medium uppercase text-zinc-500">
             Navegação
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -127,8 +127,8 @@ export function AppSidebar() {
 
         {/* Ferramentas Section */}
         <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className="px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Ferramentas SEO
+          <SidebarGroupLabel className="px-3 text-xs font-medium uppercase text-zinc-500">
+            Ferramentas
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
@@ -160,7 +160,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t p-4">
         <div className="text-center text-xs text-muted-foreground">
-          SEO Dashboard v1.0
+          Alterar Plano
         </div>
       </SidebarFooter>
     </Sidebar>
