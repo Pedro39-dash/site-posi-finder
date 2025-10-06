@@ -90,6 +90,46 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
     }
   };
 
+  // Extrair insights relevantes por tipo de oportunidade
+  const getDeepInsights = (opportunityId: string) => {
+    if (!deepAnalysisData) return null;
+    
+    const target = deepAnalysisData.target;
+    const avgCompetitors = deepAnalysisData.competitorAverages;
+    
+    switch(opportunityId) {
+      case 'content-gaps':
+        return {
+          wordCount: target.onPage.wordCount,
+          avgCompetitors: avgCompetitors.wordCount,
+          gap: avgCompetitors.wordCount - target.onPage.wordCount,
+          headings: target.onPage.h1Count + target.onPage.h2Count
+        };
+      case 'quick-wins':
+        return {
+          performanceScore: target.performanceScore,
+          lcpStatus: target.coreWebVitals.lcp.status,
+          seoScore: target.seoScore,
+          fidStatus: target.coreWebVitals.fid.status
+        };
+      case 'competitor-leaders':
+        return {
+          targetDA: target.estimatedDA,
+          avgDA: avgCompetitors.estimatedDA,
+          gap: avgCompetitors.estimatedDA - target.estimatedDA
+        };
+      case 'seo-optimization':
+        return {
+          hasSchema: target.onPage.hasSchema,
+          hasOpenGraph: target.onPage.hasOpenGraph,
+          isMobile: target.onPage.isMobileFriendly,
+          checksOk: [target.onPage.hasSchema, target.onPage.hasOpenGraph, target.onPage.isMobileFriendly].filter(Boolean).length
+        };
+      default:
+        return null;
+    }
+  };
+
   // Handler para análise profunda
   const handleDeepAnalysis = async () => {
     if (!analysisId) {
@@ -163,6 +203,8 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         {opportunities.map((opportunity) => {
           const Icon = opportunity.icon;
+          const insights = getDeepInsights(opportunity.id);
+          
           return (
             <Card 
               key={opportunity.id} 
@@ -194,11 +236,104 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
                 <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                   {opportunity.description}
                 </p>
+
+                {/* Micro-insights da análise profunda */}
+                {insights && (
+                  <div className="mt-3 pt-3 border-t space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Search className="h-3 w-3" />
+                      Análise Profunda:
+                    </p>
+                    
+                    {/* Content Gaps Insights */}
+                    {opportunity.id === 'content-gaps' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Seu conteúdo:</span>
+                          <span className="font-medium">{insights.wordCount} palavras</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Concorrentes:</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">{insights.avgCompetitors} palavras</span>
+                            <Badge variant={insights.gap > 0 ? "destructive" : "default"} className="text-xs">
+                              {insights.gap > 0 ? `+${insights.gap}` : '✓'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick Wins Insights */}
+                    {opportunity.id === 'quick-wins' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Performance:</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">{insights.performanceScore}/100</span>
+                            <Badge variant={insights.performanceScore >= 90 ? "default" : "secondary"} className="text-xs">
+                              {insights.performanceScore >= 90 ? '✓' : '⚠️'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Core Web Vitals:</span>
+                          <div className="flex items-center gap-1 text-xs">
+                            <span>LCP {insights.lcpStatus === 'good' ? '✅' : insights.lcpStatus === 'needs-improvement' ? '⚠️' : '❌'}</span>
+                            <span>FID {insights.fidStatus === 'good' ? '✅' : insights.fidStatus === 'needs-improvement' ? '⚠️' : '❌'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Competitor Leaders Insights */}
+                    {opportunity.id === 'competitor-leaders' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Seu DA:</span>
+                          <span className="font-medium">{insights.targetDA}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Média concorrentes:</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">{insights.avgDA}</span>
+                            <Badge variant={insights.gap > 0 ? "destructive" : "default"} className="text-xs">
+                              {insights.gap > 0 ? `+${insights.gap}` : '✓'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SEO Optimization Insights */}
+                    {opportunity.id === 'seo-optimization' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Checklist Técnico:</span>
+                          <Badge variant={insights.checksOk === 3 ? "default" : "secondary"} className="text-xs">
+                            {insights.checksOk}/3 OK
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 text-xs">
+                          <Badge variant="outline" className="text-xs">
+                            {insights.hasSchema ? '✅' : '❌'} Schema
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {insights.hasOpenGraph ? '✅' : '❌'} Open Graph
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {insights.isMobile ? '✅' : '❌'} Mobile
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="w-full justify-between text-xs"
+                  className="w-full justify-between text-xs mt-3"
                   disabled={opportunity.count === 0}
                 >
                   {opportunity.action}
