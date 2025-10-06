@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { Flame, ChartPie } from "lucide-react";
+import { Flame, ChartPie, FileText, Zap, Link as LinkIcon, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import WelcomeOnboarding from "@/components/WelcomeOnboarding";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
 import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
@@ -23,6 +27,7 @@ const Index = () => {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { isAdmin, isClient, isDisplay, isLoading: roleLoading } = useRole();
   const [viewMode, setViewMode] = useState<'search' | 'onboarding'>('search');
+  const navigate = useNavigate();
 
   if (isLoading || roleLoading) {
     return (
@@ -133,16 +138,99 @@ const Index = () => {
                   para melhorar seus posicionamentos e aumentar seu tráfego.
                 </p>
               </div>
-              <div className="flex justify-between mt-6 gap-6">
-                <div className="w-[326px] h-[211px] bg-zinc-900 p-2">
-                  <p>Sugestão 1</p>
-                </div>
-                <div className="w-[326px] h-[211px] bg-zinc-900 p-2">
-                  <p>Sugestão 2</p>
-                </div>
-                <div className="w-[326px] h-[211px] bg-zinc-900 p-2">
-                  <p>Sugestão 3</p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                {/* Card 1 - Otimização de Títulos */}
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-red-500">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <FileText className="h-8 w-8 text-red-500 mb-2" />
+                      <Badge variant="destructive" className="text-xs">Alta</Badge>
+                    </div>
+                    <CardTitle className="text-lg">Títulos e Meta Descrições</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-sm mb-3">
+                      5 páginas com títulos duplicados ou muito curtos detectadas
+                    </CardDescription>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => navigate('/audit')}
+                    >
+                      Corrigir Agora
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Card 2 - Velocidade */}
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <Zap className="h-8 w-8 text-orange-500 mb-2" />
+                      <Badge variant="destructive" className="text-xs">Alta</Badge>
+                    </div>
+                    <CardTitle className="text-lg">Velocidade de Carregamento</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-sm mb-3">
+                      Tempo atual: 4.2s (recomendado: &lt;2s). Comprima imagens e ative cache
+                    </CardDescription>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => navigate('/audit')}
+                    >
+                      Ver Detalhes
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Card 3 - Link Building */}
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-yellow-500">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <LinkIcon className="h-8 w-8 text-yellow-500 mb-2" />
+                      <Badge variant="secondary" className="text-xs">Média</Badge>
+                    </div>
+                    <CardTitle className="text-lg">Link Building Interno</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-sm mb-3">
+                      12 páginas importantes com poucos links internos encontradas
+                    </CardDescription>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => navigate('/audit')}
+                    >
+                      Otimizar Links
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Card 4 - Ver Todas */}
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-dashed border-primary/50 bg-secondary/30">
+                  <CardHeader className="pb-3">
+                    <ArrowRight className="h-8 w-8 text-primary mb-2" />
+                    <CardTitle className="text-lg">Ver Todas as Sugestões</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-sm mb-3">
+                      Acesse a auditoria completa com todas as oportunidades de melhoria
+                    </CardDescription>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => navigate('/audit')}
+                    >
+                      Abrir Auditoria <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
               <div className="mt-8">
                 <div className="flex gap-2 items-center">
