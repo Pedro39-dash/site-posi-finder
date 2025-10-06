@@ -233,12 +233,37 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                       {/* Posição Exata */}
                       <TableCell className="text-center">
                         {metrics.position ? (
-                          <Badge 
-                            variant={metrics.position <= 3 ? 'default' : 'outline'}
-                            className="font-mono"
-                          >
-                            {metrics.position}º
-                          </Badge>
+                          <div className="flex items-center justify-center gap-1">
+                            <Badge 
+                              variant={metrics.position <= 3 ? 'default' : 'outline'}
+                              className="font-mono"
+                            >
+                              {metrics.position}º
+                            </Badge>
+                            {/* Check if there are multiple domains with the same position */}
+                            {(() => {
+                              const samePositionCount = paginationData.currentPageItems.filter(
+                                m => m.position === metrics.position
+                              ).length;
+                              
+                              if (samePositionCount > 1) {
+                                return (
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      <p className="text-xs font-medium mb-1">Múltiplos domínios na posição {metrics.position}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        Isso ocorre quando o Google exibe featured snippets, carrosséis ou outros formatos especiais de resultado.
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
                         ) : (
                           <span className="text-muted-foreground text-sm">N/A</span>
                         )}
