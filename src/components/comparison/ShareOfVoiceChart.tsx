@@ -175,18 +175,76 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Donut Chart */}
           <div className="flex flex-col items-center">
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
+            <ResponsiveContainer width="100%" height={320}>
+              <PieChart margin={{ top: 20, right: 80, bottom: 20, left: 80 }}>
                 <Pie
                   data={displayData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
-                  outerRadius={100}
+                  outerRadius={90}
                   dataKey="percentage"
                   strokeWidth={2}
                   stroke="hsl(var(--background))"
-                  label={(entry) => `${entry.percentage}%`}
+                  label={(props) => {
+                    const { cx, cy, midAngle, outerRadius, index, domain, percentage } = props;
+                    const isTop3 = index < 3;
+                    
+                    if (!isTop3) {
+                      // Labels internos para não TOP 3
+                      const RADIAN = Math.PI / 180;
+                      const radius = 60 + (90 - 60) * 0.5;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      
+                      return (
+                        <text 
+                          x={x} 
+                          y={y} 
+                          fill="hsl(var(--background))" 
+                          textAnchor="middle" 
+                          dominantBaseline="central"
+                          className="text-xs font-semibold"
+                        >
+                          {percentage}%
+                        </text>
+                      );
+                    }
+                    
+                    // TOP 3: label externo com linha
+                    const RADIAN = Math.PI / 180;
+                    const radius = outerRadius + 30;
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    const lineX = cx + outerRadius * Math.cos(-midAngle * RADIAN);
+                    const lineY = cy + outerRadius * Math.sin(-midAngle * RADIAN);
+                    
+                    const truncatedDomain = domain.length > 15 
+                      ? `${domain.substring(0, 15)}...` 
+                      : domain;
+                    
+                    return (
+                      <g>
+                        <line
+                          x1={lineX}
+                          y1={lineY}
+                          x2={x}
+                          y2={y}
+                          stroke={getDomainColor(index)}
+                          strokeWidth={1.5}
+                        />
+                        <text 
+                          x={x + (x > cx ? 5 : -5)} 
+                          y={y} 
+                          textAnchor={x > cx ? "start" : "end"}
+                          dominantBaseline="central"
+                          className="text-xs font-semibold fill-foreground"
+                        >
+                          {percentage}% {truncatedDomain}
+                        </text>
+                      </g>
+                    );
+                  }}
                   labelLine={false}
                 >
                   {displayData.map((_, index) => (
