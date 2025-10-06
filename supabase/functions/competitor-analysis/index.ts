@@ -402,6 +402,7 @@ async function performCompetitiveAnalysis(
     }
 
     // Save keyword analyses with enhanced validation logging
+    // HISTÓRICO ORGÂNICO: Also save to keyword_rankings for historical tracking
     for (const keywordAnalysis of keywordAnalyses) {
       const positionToSave = keywordAnalysis.target_domain_position;
       
@@ -420,6 +421,7 @@ async function performCompetitiveAnalysis(
         }
       }
       
+      // Save to competitor_keywords (existing)
       await supabase
         .from('competitor_keywords')
         .insert({
@@ -437,6 +439,62 @@ async function performCompetitiveAnalysis(
         });
         
       console.log(`✅ SAVED: Position ${positionToSave} for keyword "${keywordAnalysis.keyword}"`);
+
+      // HISTÓRICO ORGÂNICO: Save to keyword_rankings to build historical data
+      // First, check if this keyword already exists for this analysis's project
+      const { data: analysisProject } = await supabase
+        .from('competitor_analyses')
+        .select('project_id')
+        .eq('id', analysisId)
+        .single();
+
+      if (analysisProject?.project_id) {
+        console.log(`📊 HISTÓRICO: Saving to keyword_rankings for project ${analysisProject.project_id}`);
+        
+        // Check if ranking already exists
+        const { data: existingRanking } = await supabase
+          .from('keyword_rankings')
+          .select('id, current_position')
+          .eq('project_id', analysisProject.project_id)
+          .eq('keyword', keywordAnalysis.keyword)
+          .maybeSingle();
+
+        if (existingRanking) {
+          // Update existing ranking - this will trigger the history recording
+          console.log(`🔄 Updating existing ranking for keyword "${keywordAnalysis.keyword}"`);
+          await supabase
+            .from('keyword_rankings')
+            .update({
+              current_position: positionToSave,
+              previous_position: existingRanking.current_position,
+              updated_at: new Date().toISOString(),
+              metadata: {
+                last_analysis_id: analysisId,
+                updated_from_competitive_analysis: true
+              }
+            })
+            .eq('id', existingRanking.id);
+        } else {
+          // Create new ranking entry
+          console.log(`✨ Creating new ranking for keyword "${keywordAnalysis.keyword}"`);
+          await supabase
+            .from('keyword_rankings')
+            .insert({
+              project_id: analysisProject.project_id,
+              keyword: keywordAnalysis.keyword,
+              current_position: positionToSave,
+              previous_position: null,
+              metadata: {
+                first_analysis_id: analysisId,
+                created_from_competitive_analysis: true
+              }
+            });
+        }
+        
+        console.log(`✅ HISTÓRICO: Ranking data saved for "${keywordAnalysis.keyword}"`);
+      } else {
+        console.warn(`⚠️ No project_id found for analysis ${analysisId} - skipping ranking history`);
+      }
     }
 
     // Identify opportunities

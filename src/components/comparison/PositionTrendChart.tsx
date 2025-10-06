@@ -2,7 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { CompetitorKeyword } from '@/services/competitorAnalysisService';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { fetchRankingHistory, getHistoryMaturity, mergeRealAndProjectedData, calculateDaysSpan } from '@/services/rankingHistoryService';
+import { useProject } from '@/hooks/useProject';
+import HistoryMaturityBadge from './HistoryMaturityBadge';
 
 interface PositionTrendChartProps {
   targetDomain: string;
@@ -11,6 +14,31 @@ interface PositionTrendChartProps {
 }
 
 const PositionTrendChart = ({ targetDomain, keywords = [], period = 30 }: PositionTrendChartProps) => {
+  const { activeProject } = useProject();
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Fetch historical data
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!activeProject?.id) {
+        setIsLoadingHistory(false);
+        return;
+      }
+
+      setIsLoadingHistory(true);
+      const keywordList = keywords.map(k => k.keyword);
+      const result = await fetchRankingHistory(activeProject.id, keywordList, period);
+      
+      if (result.success && result.data) {
+        setHistoricalData(result.data);
+      }
+      setIsLoadingHistory(false);
+    };
+
+    loadHistory();
+  }, [activeProject?.id, keywords, period]);
+
   // Calculate real average position from keywords data
   const realData = useMemo(() => {
     const positionsWithValues = keywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
@@ -18,29 +46,77 @@ const PositionTrendChart = ({ targetDomain, keywords = [], period = 30 }: Positi
       ? Math.round(positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length)
       : 15;
 
-    // Generate trend data based on real average position for the selected period
-    const trendData = Array.from({ length: period }, (_, i) => {
-      const day = i + 1;
-      // Use real position as base with small realistic variations
-      const yourPosition = Math.max(1, Math.min(100, Math.round(realAvgPosition + Math.sin(i * 0.2) * 1.5)));
-      
-      // Competitor positions - use estimated positions around target
-      const competitor1 = Math.max(1, Math.min(100, Math.round(realAvgPosition - 5 + Math.sin(i * 0.15) * 1.2)));
-      const competitor2 = Math.max(1, Math.min(100, Math.round(realAvgPosition + 3 + Math.cos(i * 0.18) * 1.8)));
-      
-      return {
-        day: period <= 30 ? `Dia ${day}` : period <= 60 ? `${Math.ceil(day/2)*2}` : `${Math.ceil(day/3)*3}`,
-        dayNumber: day,
-        yourPosition,
-        competitor1,
-        competitor2,
-      };
-    });
+    // Check if we have historical data
+    const hasHistoricalData = historicalData.length > 0;
+    const totalDataPoints = historicalData.reduce((sum, h) => sum + h.dataPoints.length, 0);
 
-    return { trendData, realAvgPosition };
-  }, [keywords, period]);
+    let trendData: any[] = [];
 
-  const { trendData, realAvgPosition } = realData;
+    if (hasHistoricalData && totalDataPoints > 0) {
+      // Use real historical data
+      console.log('📊 Using real historical data for trend chart');
+      
+      // Calculate average position across all keywords for each date
+      const datePositionMap = new Map<string, { sum: number; count: number }>();
+      
+      historicalData.forEach(keywordHistory => {
+        keywordHistory.dataPoints.forEach((point: any) => {
+          const existing = datePositionMap.get(point.date) || { sum: 0, count: 0 };
+          datePositionMap.set(point.date, {
+            sum: existing.sum + point.position,
+            count: existing.count + 1
+          });
+        });
+      });
+
+      // Convert to array and sort by date
+      const realDataPoints = Array.from(datePositionMap.entries())
+        .map(([date, { sum, count }]) => ({
+          date,
+          position: Math.round(sum / count)
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // Merge with projected data for smooth visualization
+      const mergedData = mergeRealAndProjectedData(realDataPoints, realAvgPosition, period);
+
+      trendData = mergedData.map((point, i) => ({
+        day: period <= 30 ? `Dia ${i + 1}` : period <= 60 ? `${Math.ceil((i + 1)/2)*2}` : `${Math.ceil((i + 1)/3)*3}`,
+        dayNumber: i + 1,
+        yourPosition: point.position,
+        isReal: point.isReal,
+        // Competitor positions - use estimated positions around target
+        competitor1: Math.max(1, Math.min(100, Math.round(point.position - 5 + Math.sin(i * 0.15) * 1.2))),
+        competitor2: Math.max(1, Math.min(100, Math.round(point.position + 3 + Math.cos(i * 0.18) * 1.8))),
+      }));
+    } else {
+      // No historical data yet - use projection
+      console.log('📊 No historical data - using projection');
+      trendData = Array.from({ length: period }, (_, i) => {
+        const day = i + 1;
+        const yourPosition = Math.max(1, Math.min(100, Math.round(realAvgPosition + Math.sin(i * 0.2) * 1.5)));
+        
+        return {
+          day: period <= 30 ? `Dia ${day}` : period <= 60 ? `${Math.ceil(day/2)*2}` : `${Math.ceil(day/3)*3}`,
+          dayNumber: day,
+          yourPosition,
+          competitor1: Math.max(1, Math.min(100, Math.round(realAvgPosition - 5 + Math.sin(i * 0.15) * 1.2))),
+          competitor2: Math.max(1, Math.min(100, Math.round(realAvgPosition + 3 + Math.cos(i * 0.18) * 1.8))),
+          isReal: false,
+        };
+      });
+    }
+
+    // Calculate maturity
+    const daysSpan = hasHistoricalData && totalDataPoints > 0
+      ? calculateDaysSpan(historicalData[0]?.dataPoints || [])
+      : 0;
+    const maturity = getHistoryMaturity(totalDataPoints, daysSpan);
+
+    return { trendData, realAvgPosition, maturity, hasHistoricalData };
+  }, [keywords, period, historicalData]);
+
+  const { trendData, realAvgPosition, maturity, hasHistoricalData } = realData;
 
   const currentPosition = trendData[trendData.length - 1]?.yourPosition || realAvgPosition;
   const initialPosition = trendData[0]?.yourPosition || realAvgPosition;
@@ -75,9 +151,12 @@ const PositionTrendChart = ({ targetDomain, keywords = [], period = 30 }: Positi
                 <TrendingDown className="h-5 w-5 text-red-600" />
               )}
               Gráfico de Posição Média ({period} dias)
+              <HistoryMaturityBadge maturity={maturity} />
             </CardTitle>
             <CardDescription>
-              Evolução das posições médias para todas as palavras-chave monitoradas
+              {hasHistoricalData 
+                ? 'Evolução real das posições médias com base em análises anteriores'
+                : 'Evolução estimada das posições médias (faça mais análises para construir histórico real)'}
             </CardDescription>
           </div>
           <div className="text-right">
@@ -113,7 +192,22 @@ const PositionTrendChart = ({ targetDomain, keywords = [], period = 30 }: Positi
                 dataKey="yourPosition"
                 stroke="hsl(var(--primary))"
                 strokeWidth={3}
-                dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
+                dot={(props: any) => {
+                  const { cx, cy, payload } = props;
+                  if (!payload) return null;
+                  
+                  // Real data = solid dot, projected = hollow dot
+                  return (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={payload.isReal ? 4 : 3}
+                      fill={payload.isReal ? 'hsl(var(--primary))' : 'transparent'}
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                    />
+                  );
+                }}
                 name="Sua Posição Média"
                 connectNulls={false}
               />
@@ -139,7 +233,11 @@ const PositionTrendChart = ({ targetDomain, keywords = [], period = 30 }: Positi
           </ResponsiveContainer>
         </div>
         <div className="mt-4 text-xs text-muted-foreground">
-          <p>💡 <strong>Dica:</strong> Posições menores são melhores. O gráfico mostra a evolução da sua posição média baseada em dados reais de {keywords.length} palavra(s)-chave.</p>
+          {hasHistoricalData ? (
+            <p>💡 <strong>Dados reais:</strong> Pontos sólidos = dados reais coletados. Pontos vazios = projeção. Continue fazendo análises para enriquecer o histórico!</p>
+          ) : (
+            <p>⚠️ <strong>Primeira análise:</strong> Este gráfico mostra uma projeção inicial. Faça novas análises nos próximos dias para construir seu histórico real de posições!</p>
+          )}
         </div>
       </CardContent>
     </Card>

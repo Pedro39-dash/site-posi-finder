@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Eye, EyeOff } from 'lucide-react';
 import { CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { useDeepMemo } from '@/hooks/useDeepMemo';
+import { fetchRankingHistory, getHistoryMaturity, calculateDaysSpan } from '@/services/rankingHistoryService';
+import { useProject } from '@/hooks/useProject';
+import HistoryMaturityBadge from './HistoryMaturityBadge';
 
 interface KeywordData {
   date: string;
@@ -23,40 +26,82 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
   targetDomain,
   period = 30
 }) => {
+  const { activeProject } = useProject();
   const [hiddenKeywords, setHiddenKeywords] = useState<Set<string>>(new Set());
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-  // Generate deterministic data for multiple keywords over time
+  // Fetch historical data
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!activeProject?.id) {
+        setIsLoadingHistory(false);
+        return;
+      }
+
+      setIsLoadingHistory(true);
+      const keywordList = keywords.map(k => k.keyword);
+      const result = await fetchRankingHistory(activeProject.id, keywordList, period);
+      
+      if (result.success && result.data) {
+        setHistoricalData(result.data);
+      }
+      setIsLoadingHistory(false);
+    };
+
+    loadHistory();
+  }, [activeProject?.id, keywords, period]);
+
+  // Generate data for multiple keywords over time
   const chartData = useDeepMemo(() => {
     const data: KeywordData[] = [];
-    
+    const hasHistoricalData = historicalData.length > 0;
+
+    // Create date range
+    const dates: string[] = [];
     for (let i = period; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      
-      const dataPoint: KeywordData = {
-        date: date.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' })
-      };
+      dates.push(date.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }));
+    }
 
-      keywords.forEach((keyword, keywordIndex) => {
-        const basePosition = keyword.target_domain_position || 50;
+    // Build historical data map
+    const historicalMap = new Map<string, Map<string, number>>();
+    historicalData.forEach(keywordHistory => {
+      keywordHistory.dataPoints.forEach((point: any) => {
+        if (!historicalMap.has(point.date)) {
+          historicalMap.set(point.date, new Map());
+        }
+        historicalMap.get(point.date)!.set(keywordHistory.keyword, point.position);
+      });
+    });
+
+    // Generate chart data
+    dates.forEach((date, i) => {
+      const dataPoint: KeywordData = { date };
+
+      keywords.forEach((keyword) => {
+        const historicalPosition = historicalMap.get(date)?.get(keyword.keyword);
         
-        // Create deterministic variation using sine wave based on keyword and day
-        const keywordSeed = keyword.keyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        const dayFactor = (period - i) / period;
-        const sineWave = Math.sin((dayFactor * Math.PI * 4) + (keywordSeed / 100));
-        
-        // Add realistic SEO fluctuation (±3 positions)
-        const variation = sineWave * 3;
-        const position = Math.max(1, Math.min(100, Math.round(basePosition + variation)));
-        
-        dataPoint[keyword.keyword] = position;
+        if (historicalPosition !== undefined) {
+          // Use real historical data
+          dataPoint[keyword.keyword] = historicalPosition;
+        } else {
+          // Use projection based on current position
+          const basePosition = keyword.target_domain_position || 50;
+          const keywordSeed = keyword.keyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+          const dayFactor = i / period;
+          const sineWave = Math.sin((dayFactor * Math.PI * 4) + (keywordSeed / 100));
+          const variation = sineWave * 3;
+          dataPoint[keyword.keyword] = Math.max(1, Math.min(100, Math.round(basePosition + variation)));
+        }
       });
 
       data.push(dataPoint);
-    }
+    });
 
-    return data;
-  }, [keywords, period]);
+    return { data, hasHistoricalData };
+  }, [keywords, period, historicalData]);
 
   // Fixed color palette for Recharts compatibility
   const colorPalette = [
@@ -96,12 +141,20 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
 
   const visibleKeywords = keywords.filter(k => !hiddenKeywords.has(k.keyword));
 
+  // Calculate maturity
+  const totalDataPoints = historicalData.reduce((sum, h) => sum + h.dataPoints.length, 0);
+  const daysSpan = historicalData.length > 0 && totalDataPoints > 0
+    ? calculateDaysSpan(historicalData[0]?.dataPoints || [])
+    : 0;
+  const maturity = getHistoryMaturity(totalDataPoints, daysSpan);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           Comparação de Posições por Palavra-chave
           <Badge variant="outline">{visibleKeywords.length} de {keywords.length} visíveis</Badge>
+          <HistoryMaturityBadge maturity={maturity} />
         </CardTitle>
         
         {/* Keyword Legend with Toggle */}
@@ -135,7 +188,7 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
       <CardContent>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
+            <LineChart data={chartData.data}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis 
                 dataKey="date" 
@@ -178,7 +231,11 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
         </div>
         
         <div className="mt-4 text-sm text-muted-foreground">
-          <p>💡 Posições menores são melhores. Clique nas palavras-chave acima para ocultar/mostrar no gráfico.</p>
+          {chartData.hasHistoricalData ? (
+            <p>💡 <strong>Dados reais:</strong> O gráfico combina posições reais coletadas com projeções. Continue fazendo análises para enriquecer o histórico!</p>
+          ) : (
+            <p>💡 Posições menores são melhores. Clique nas palavras-chave acima para ocultar/mostrar. Faça mais análises para construir histórico real!</p>
+          )}
         </div>
       </CardContent>
     </Card>
