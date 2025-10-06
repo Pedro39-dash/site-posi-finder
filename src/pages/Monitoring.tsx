@@ -11,9 +11,11 @@ import { useProject } from "@/hooks/useProject";
 import { useToast } from "@/hooks/use-toast";
 import { MonitoringSummaryCards } from "@/components/monitoring/analytics/MonitoringSummaryCards";
 import { KeywordPositionChart } from "@/components/monitoring/analytics/KeywordPositionChart";
+import { PositionTrendsSection } from "@/components/monitoring/analytics/PositionTrendsSection";
+import { DetailedSummaryCards } from "@/components/monitoring/analytics/DetailedSummaryCards";
 import { PeriodSelector, PeriodOption } from "@/components/monitoring/filters/PeriodSelector";
 import { PositionFilters, PositionRange } from "@/components/monitoring/filters/PositionFilters";
-import { MonitoringAnalyticsService, KeywordMetrics, PositionDistribution, DailyMetrics } from "@/services/monitoringAnalyticsService";
+import { MonitoringAnalyticsService, KeywordMetrics, PositionDistribution, DailyMetrics, TrendData, SummaryStats } from "@/services/monitoringAnalyticsService";
 
 const Monitoring = () => {
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
@@ -34,6 +36,15 @@ const Monitoring = () => {
   });
   const [positionDistribution, setPositionDistribution] = useState<PositionDistribution[]>([]);
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics[]>([]);
+  const [trendData, setTrendData] = useState<TrendData[]>([]);
+  const [summaryStats, setSummaryStats] = useState<SummaryStats>({
+    totalChanges: 0,
+    improvements: 0,
+    declines: 0,
+    serpChanges: 0,
+    newKeywords: 0,
+    lostKeywords: 0,
+  });
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
 
   const loadSessions = async () => {
@@ -59,15 +70,19 @@ const Monitoring = () => {
     try {
       const days = parseInt(selectedPeriod.replace('d', ''));
       
-      const [metrics, distribution, daily] = await Promise.all([
+      const [metrics, distribution, daily, trends, stats] = await Promise.all([
         MonitoringAnalyticsService.getKeywordMetrics(activeProject.id, days),
         MonitoringAnalyticsService.getPositionDistribution(activeProject.id, days),
         MonitoringAnalyticsService.getDailyMetrics(activeProject.id, days),
+        MonitoringAnalyticsService.getTrendData(activeProject.id, days),
+        MonitoringAnalyticsService.getSummaryStats(activeProject.id, days),
       ]);
 
       setKeywordMetrics(metrics);
       setPositionDistribution(distribution);
       setDailyMetrics(daily);
+      setTrendData(trends);
+      setSummaryStats(stats);
     } catch (error) {
       console.error('Error loading analytics:', error);
     } finally {
@@ -181,6 +196,18 @@ const Monitoring = () => {
               {/* Main Chart */}
               <KeywordPositionChart 
                 data={positionDistribution}
+                isLoading={isLoadingAnalytics}
+              />
+
+              {/* Trends Section */}
+              <PositionTrendsSection 
+                data={trendData}
+                isLoading={isLoadingAnalytics}
+              />
+
+              {/* Detailed Summary Cards */}
+              <DetailedSummaryCards 
+                stats={summaryStats}
                 isLoading={isLoadingAnalytics}
               />
 

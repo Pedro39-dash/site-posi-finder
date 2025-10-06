@@ -25,6 +25,22 @@ export interface DailyMetrics {
   estimatedTraffic: number;
 }
 
+export interface TrendData {
+  date: string;
+  improvements: number;
+  declines: number;
+  traffic: number;
+}
+
+export interface SummaryStats {
+  totalChanges: number;
+  improvements: number;
+  declines: number;
+  serpChanges: number;
+  newKeywords: number;
+  lostKeywords: number;
+}
+
 export class MonitoringAnalyticsService {
   // Estima tráfego baseado na posição (CTR simplificado)
   private static estimateTrafficFromPosition(position: number, searchVolume: number = 1000): number {
@@ -237,6 +253,137 @@ export class MonitoringAnalyticsService {
     } catch (error) {
       console.error('Error fetching daily metrics:', error);
       return [];
+    }
+  }
+
+  static async getTrendData(projectId: string, days: number = 30): Promise<TrendData[]> {
+    const currentDate = new Date();
+    const startDate = subDays(currentDate, days);
+
+    try {
+      const { data, error } = await supabase
+        .from('ranking_history')
+        .select(`
+          position,
+          change_from_previous,
+          recorded_at,
+          keyword_ranking_id,
+          keyword_rankings!inner(project_id)
+        `)
+        .eq('keyword_rankings.project_id', projectId)
+        .gte('recorded_at', startDate.toISOString())
+        .order('recorded_at', { ascending: true });
+
+      if (error) throw error;
+
+      // Group by date
+      const dateGroups = new Map<string, any[]>();
+      data?.forEach(record => {
+        const dateKey = format(new Date(record.recorded_at), 'yyyy-MM-dd');
+        if (!dateGroups.has(dateKey)) {
+          dateGroups.set(dateKey, []);
+        }
+        dateGroups.get(dateKey)?.push(record);
+      });
+
+      // Calculate trends for each date
+      const trends: TrendData[] = [];
+      dateGroups.forEach((records, date) => {
+        const improvements = records.filter(r => r.change_from_previous < 0).length;
+        const declines = records.filter(r => r.change_from_previous > 0).length;
+        
+        const traffic = records.reduce((sum, record) => {
+          return sum + this.estimateTrafficFromPosition(record.position);
+        }, 0);
+
+        trends.push({
+          date,
+          improvements,
+          declines,
+          traffic,
+        });
+      });
+
+      return trends.sort((a, b) => a.date.localeCompare(b.date));
+    } catch (error) {
+      console.error('Error fetching trend data:', error);
+      return [];
+    }
+  }
+
+  static async getSummaryStats(projectId: string, days: number = 30): Promise<SummaryStats> {
+    const currentDate = new Date();
+    const startDate = subDays(currentDate, days);
+    const previousStartDate = subDays(startDate, days);
+
+    try {
+      // Get current period changes
+      const { data: currentChanges, error: currentError } = await supabase
+        .from('ranking_history')
+        .select(`
+          change_from_previous,
+          keyword_ranking_id,
+          keyword_rankings!inner(project_id)
+        `)
+        .eq('keyword_rankings.project_id', projectId)
+        .gte('recorded_at', startDate.toISOString())
+        .neq('change_from_previous', 0);
+
+      if (currentError) throw currentError;
+
+      // Get current period keywords
+      const { data: currentKeywords, error: keywordsError } = await supabase
+        .from('keyword_rankings')
+        .select('id')
+        .eq('project_id', projectId);
+
+      if (keywordsError) throw keywordsError;
+
+      // Get previous period keywords
+      const { data: previousKeywords, error: prevError } = await supabase
+        .from('ranking_history')
+        .select(`
+          keyword_ranking_id,
+          keyword_rankings!inner(project_id)
+        `)
+        .eq('keyword_rankings.project_id', projectId)
+        .gte('recorded_at', previousStartDate.toISOString())
+        .lt('recorded_at', startDate.toISOString());
+
+      if (prevError) throw prevError;
+
+      const improvements = currentChanges?.filter(c => c.change_from_previous < 0).length || 0;
+      const declines = currentChanges?.filter(c => c.change_from_previous > 0).length || 0;
+      const totalChanges = improvements + declines;
+
+      // Calculate new and lost keywords
+      const currentKeywordIds = new Set(currentKeywords?.map(k => k.id) || []);
+      const previousKeywordIds = new Set(previousKeywords?.map(k => k.keyword_ranking_id) || []);
+      
+      const newKeywords = Array.from(currentKeywordIds).filter(id => !previousKeywordIds.has(id)).length;
+      const lostKeywords = Array.from(previousKeywordIds).filter(id => !currentKeywordIds.has(id)).length;
+
+      // SERP changes (significant position changes > 5 positions)
+      const serpChanges = currentChanges?.filter(c => Math.abs(c.change_from_previous) >= 5).length || 0;
+
+      return {
+        totalChanges,
+        improvements,
+        declines,
+        serpChanges,
+        newKeywords,
+        lostKeywords,
+      };
+    } catch (error) {
+      console.error('Error fetching summary stats:', error);
+      return {
+        totalChanges: 0,
+        improvements: 0,
+        declines: 0,
+        serpChanges: 0,
+        newKeywords: 0,
+        lostKeywords: 0,
+      };
     }
   }
 }
