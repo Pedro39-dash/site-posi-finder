@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
 
 interface TrafficData {
   date: string;
-  [domain: string]: number | string;
+  isProjection?: boolean;
+  [domain: string]: number | string | boolean | undefined;
 }
 
 interface TrafficChartProps {
@@ -14,6 +15,7 @@ interface TrafficChartProps {
   competitors?: CompetitorDomain[];
   keywords?: CompetitorKeyword[];
   period?: number;
+  projectionDays?: number;
 }
 
 // Standard CTR rates by position (industry average)
@@ -42,7 +44,8 @@ const TrafficChart: React.FC<TrafficChartProps> = ({
   targetDomain, 
   competitors = [], 
   keywords = [], 
-  period = 30 
+  period = 30,
+  projectionDays = 30
 }) => {
   // Calculate estimated traffic based on real positions and search volumes
   const trafficData = useMemo(() => {
@@ -74,18 +77,20 @@ const TrafficChart: React.FC<TrafficChartProps> = ({
       return acc;
     }, {} as { [key: string]: number });
     
+    const cleanTargetDomain = targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    
+    // Historical data (past period)
     for (let i = period - 1; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       
-      const dateStr = date.toLocaleDateString('pt-BR');
-      const dataPoint: TrafficData = { date: dateStr };
+      const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+      const dataPoint: TrafficData = { date: dateStr, isProjection: false };
       
       // Generate realistic variations (±15%) around base traffic
       const variation = Math.sin((i / period) * Math.PI * 2) * 0.10 + Math.sin((i / 7) * Math.PI) * 0.05;
       
       // Target domain traffic
-      const cleanTargetDomain = targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
       if (targetBaseTraffic > 0) {
         dataPoint[cleanTargetDomain] = Math.max(0, Math.round(targetBaseTraffic * (1 + variation)));
       }
@@ -106,16 +111,59 @@ const TrafficChart: React.FC<TrafficChartProps> = ({
       data.push(dataPoint);
     }
     
+    // Store last values for projection
+    const lastDataPoint = data[data.length - 1];
+    const lastValues: { [key: string]: number } = {};
+    domains.forEach(domain => {
+      const value = lastDataPoint[domain];
+      if (typeof value === 'number') {
+        lastValues[domain] = value;
+      }
+    });
+    
+    // Future projection (next projectionDays)
+    for (let i = 1; i <= projectionDays; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      
+      const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+      const dataPoint: TrafficData = { date: dateStr, isProjection: true };
+      
+      const progress = i / projectionDays; // 0 to 1
+      const growthFactor = 1 + (progress * 0.20); // 20% growth over projection period
+      
+      // Project target domain traffic
+      if (lastValues[cleanTargetDomain]) {
+        const projected = lastValues[cleanTargetDomain] * growthFactor;
+        const variation = Math.sin((i / projectionDays) * Math.PI * 2) * 0.08;
+        dataPoint[`${cleanTargetDomain}_projected`] = Math.max(0, Math.round(projected * (1 + variation)));
+      }
+      
+      // Project competitor traffic
+      domains.forEach((domain) => {
+        if (domain !== cleanTargetDomain && lastValues[domain]) {
+          const projected = lastValues[domain] * (1 + (progress * 0.15)); // 15% growth for competitors
+          const variation = Math.sin(((i + domains.indexOf(domain) * 3) / projectionDays) * Math.PI * 2) * 0.08;
+          dataPoint[`${domain}_projected`] = Math.max(0, Math.round(projected * (1 + variation)));
+        }
+      });
+      
+      data.push(dataPoint);
+    }
+    
     return data;
-  }, [domains, targetDomain, competitors, keywords, period]);
+  }, [domains, targetDomain, competitors, keywords, period, projectionDays]);
    
   // Colors for different domains
   const colors = ['hsl(var(--primary))', 'hsl(var(--destructive))', 'hsl(var(--accent-foreground))', '#f97316', '#8dd1e1', '#d084d0'];
    
+  const todayIndex = trafficData.findIndex(d => !d.isProjection);
+  const todayDate = todayIndex >= 0 ? trafficData[period - 1]?.date : '';
+  
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Tráfego Orgânico Estimado ({period} dias)</CardTitle>
+        <CardTitle>Tráfego Orgânico Estimado ({period} dias + {projectionDays} dias projeção)</CardTitle>
       </CardHeader>
       <CardContent>
         <div style={{ width: '100%', height: 400 }}>
@@ -127,6 +175,7 @@ const TrafficChart: React.FC<TrafficChartProps> = ({
                 tick={{ fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
+                interval="preserveStartEnd"
               />
               <YAxis 
                 tick={{ fontSize: 12 }}
@@ -145,15 +194,46 @@ const TrafficChart: React.FC<TrafficChartProps> = ({
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
               />
               <Legend />
+              
+              {/* Reference line for "Hoje" */}
+              <ReferenceLine 
+                x={todayDate}
+                stroke="hsl(var(--muted-foreground))"
+                strokeDasharray="3 3"
+                label={{ 
+                  value: 'Hoje', 
+                  position: 'top', 
+                  fontSize: 11,
+                  fill: 'hsl(var(--muted-foreground))'
+                }}
+              />
+              
+              {/* Historical lines (solid) */}
               {domains.map((domain, index) => (
                 <Line
-                  key={domain}
+                  key={`${domain}-historical`}
                   type="monotone"
                   dataKey={domain}
                   stroke={colors[index % colors.length]}
                   strokeWidth={domain === targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '') ? 3 : 2}
                   dot={false}
                   name={domain.replace(/^https?:\/\//, '').replace(/^www\./, '')}
+                  connectNulls={false}
+                />
+              ))}
+              
+              {/* Projected lines (dashed) */}
+              {domains.map((domain, index) => (
+                <Line
+                  key={`${domain}-projected`}
+                  type="monotone"
+                  dataKey={`${domain}_projected`}
+                  stroke={colors[index % colors.length]}
+                  strokeWidth={domain === targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '') ? 3 : 2}
+                  strokeDasharray="5 5"
+                  dot={false}
+                  name={`${domain.replace(/^https?:\/\//, '').replace(/^www\./, '')} (Projeção)`}
+                  connectNulls={false}
                 />
               ))}
             </LineChart>
@@ -161,6 +241,7 @@ const TrafficChart: React.FC<TrafficChartProps> = ({
         </div>
         <div className="mt-4 text-xs text-muted-foreground">
           <p>💡 <strong>Estimativa baseada em CTR real:</strong> Calculado usando posições reais × volumes de busca × taxas de clique padrão da indústria.</p>
+          <p className="mt-1">📈 <strong>Projeção futura:</strong> Linhas tracejadas mostram crescimento estimado de 20% para seu domínio e 15% para concorrentes.</p>
         </div>
       </CardContent>
     </Card>
