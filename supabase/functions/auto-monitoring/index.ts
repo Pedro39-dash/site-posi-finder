@@ -9,230 +9,137 @@ const corsHeaders = {
 
 interface MonitoringRequest {
   config_id: string;
-  timestamp: string;
-}
-
-interface KeywordRanking {
-  id: string;
-  keyword: string;
-  current_position: number | null;
-  previous_position: number | null;
-  url: string | null;
-  search_engine: string;
-  location: string;
-  device: string;
-  project_id: string;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Auto-monitoring function iniciada');
-    
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { config_id }: MonitoringRequest = await req.json();
-    console.log('Processando config ID:', config_id);
-
+    const { config_id } = await req.json() as MonitoringRequest;
     const startTime = Date.now();
 
-    // Buscar configuração de monitoramento
-    const { data: config, error: configError } = await supabase
+    const { data: config } = await supabase
       .from('monitoring_configs')
-      .select('*')
+      .select('*, projects(domain, user_id)')
       .eq('id', config_id)
       .eq('is_active', true)
       .single();
 
-    if (configError || !config) {
-      console.error('Configuração não encontrada:', configError);
+    if (!config) {
       return new Response(
-        JSON.stringify({ error: 'Configuração de monitoramento não encontrada' }),
+        JSON.stringify({ error: 'Config not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Configuração encontrada:', config.monitoring_type);
-
-    // Buscar keywords do projeto para monitorar
-    const { data: keywords, error: keywordsError } = await supabase
+    const { data: keywords } = await supabase
       .from('keyword_rankings')
       .select('*')
-      .eq('project_id', config.project_id)
-      .order('created_at', { ascending: false });
+      .eq('project_id', config.project_id);
 
-    if (keywordsError) {
-      console.error('Erro ao buscar keywords:', keywordsError);
-      throw new Error('Erro ao buscar keywords do projeto');
-    }
+    const results = { keywords_checked: 0, notifications: [] as any[] };
+    const projectDomain = config.projects.domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
 
-    console.log(`Encontradas ${keywords?.length || 0} keywords para monitorar`);
-
-    const results: any[] = [];
-    const notifications: any[] = [];
-    
-    // Simular verificação de posições (em produção, integraria com APIs reais)
     for (const keyword of keywords || []) {
       try {
-        // Simular mudança de posição (para demonstração)
-        const positionChange = Math.floor(Math.random() * 10) - 5; // -5 a +5
-        const newPosition = keyword.current_position 
-          ? Math.max(1, Math.min(100, keyword.current_position + positionChange))
-          : Math.floor(Math.random() * 50) + 1;
+        const serpUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(keyword.keyword)}&location=${keyword.location || 'Brazil'}&api_key=${SERPAPI_KEY}&num=100`;
+        const response = await fetch(serpUrl);
+        const serpData = await response.json();
 
-        const previousPosition = keyword.current_position;
-        
-        // Atualizar posição se houver mudança significativa
-        if (!previousPosition || Math.abs(newPosition - previousPosition) >= 2) {
-          const { error: updateError } = await supabase
-            .from('keyword_rankings')
-            .update({
-              previous_position: previousPosition,
-              current_position: newPosition,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', keyword.id);
+        let newPosition: number | null = null;
+        let newUrl: string | null = null;
 
-          if (updateError) {
-            console.error('Erro ao atualizar keyword:', updateError);
-            continue;
-          }
-
-          // Criar notificação para mudanças significativas
-          if (previousPosition && Math.abs(newPosition - previousPosition) >= 5) {
-            const isImprovement = newPosition < previousPosition;
+        if (serpData.organic_results) {
+          for (let i = 0; i < serpData.organic_results.length; i++) {
+            const result = serpData.organic_results[i];
+            const resultDomain = result.link?.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
             
-            notifications.push({
-              user_id: config.user_id,
-              project_id: config.project_id,
-              title: isImprovement ? 'Melhoria no Ranking!' : 'Queda no Ranking',
-              message: `Keyword "${keyword.keyword}" ${isImprovement ? 'subiu' : 'caiu'} da posição ${previousPosition} para ${newPosition}`,
-              type: isImprovement ? 'success' : 'warning',
-              priority: Math.abs(newPosition - previousPosition) >= 10 ? 'high' : 'medium',
-              action_url: '/rankings',
-              metadata: {
-                keyword: keyword.keyword,
-                previous_position: previousPosition,
-                current_position: newPosition,
-                change: newPosition - previousPosition,
-                monitoring_type: 'automatic'
-              }
-            });
+            if (resultDomain?.includes(projectDomain) || projectDomain?.includes(resultDomain)) {
+              newPosition = i + 1;
+              newUrl = result.link;
+              break;
+            }
           }
+        }
 
-          results.push({
-            keyword_id: keyword.id,
-            keyword: keyword.keyword,
-            previous_position: previousPosition,
+        const positionChange = newPosition && keyword.current_position 
+          ? newPosition - keyword.current_position 
+          : 0;
+
+        await supabase
+          .from('keyword_rankings')
+          .update({
+            previous_position: keyword.current_position,
             current_position: newPosition,
-            change: previousPosition ? newPosition - previousPosition : 0,
-            status: 'updated'
-          });
-        } else {
-          results.push({
-            keyword_id: keyword.id,
-            keyword: keyword.keyword,
-            position: keyword.current_position,
-            status: 'no_change'
+            url: newUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', keyword.id);
+
+        if (newPosition !== null) {
+          await supabase
+            .from('ranking_history')
+            .insert({
+              keyword_ranking_id: keyword.id,
+              position: newPosition,
+              change_from_previous: positionChange
+            });
+        }
+
+        if (Math.abs(positionChange) >= 5) {
+          results.notifications.push({
+            user_id: config.projects.user_id,
+            project_id: config.project_id,
+            type: positionChange > 0 ? 'ranking_drop' : 'ranking_improvement',
+            title: `${positionChange > 0 ? 'Queda' : 'Melhoria'}: ${keyword.keyword}`,
+            message: `A keyword "${keyword.keyword}" ${positionChange > 0 ? 'caiu' : 'subiu'} ${Math.abs(positionChange)} posições`,
+            priority: Math.abs(positionChange) >= 10 ? 'high' : 'medium'
           });
         }
+
+        results.keywords_checked++;
+        await new Promise(resolve => setTimeout(resolve, 350));
+
       } catch (error) {
-        console.error('Erro ao processar keyword:', keyword.keyword, error);
-        results.push({
-          keyword_id: keyword.id,
-          keyword: keyword.keyword,
-          status: 'error',
-          error: error.message
-        });
+        console.error(`Error checking keyword "${keyword.keyword}":`, error);
+        results.keywords_checked++;
       }
     }
 
-    // Criar notificações em batch
-    if (notifications.length > 0) {
-      console.log(`Criando ${notifications.length} notificações`);
-      const { error: notificationsError } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (notificationsError) {
-        console.error('Erro ao criar notificações:', notificationsError);
-      }
+    if (results.notifications.length > 0) {
+      await supabase.from('notifications').insert(results.notifications);
     }
 
-    const executionTime = Date.now() - startTime;
+    await supabase.from('monitoring_logs').insert({
+      config_id,
+      execution_type: config.monitoring_type,
+      status: 'success',
+      results,
+      execution_time_ms: Date.now() - startTime
+    });
 
-    // Registrar log de execução
-    const { error: logError } = await supabase
-      .from('monitoring_logs')
-      .insert({
-        config_id: config_id,
-        execution_type: config.monitoring_type,
-        status: 'completed',
-        results: {
-          total_keywords: keywords?.length || 0,
-          updated_keywords: results.filter(r => r.status === 'updated').length,
-          no_change_keywords: results.filter(r => r.status === 'no_change').length,
-          error_keywords: results.filter(r => r.status === 'error').length,
-          notifications_created: notifications.length,
-          keywords: results
-        },
-        execution_time_ms: executionTime
-      });
-
-    if (logError) {
-      console.error('Erro ao registrar log:', logError);
-    }
-
-    // Atualizar configuração com última execução
-    const { error: configUpdateError } = await supabase
+    await supabase
       .from('monitoring_configs')
-      .update({
-        last_run_at: new Date().toISOString(),
-        next_run_at: new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString() // +24h
-      })
+      .update({ last_run_at: new Date().toISOString() })
       .eq('id', config_id);
 
-    if (configUpdateError) {
-      console.error('Erro ao atualizar configuração:', configUpdateError);
-    }
-
-    console.log(`Monitoramento concluído: ${results.length} keywords processadas em ${executionTime}ms`);
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        config_id,
-        execution_time_ms: executionTime,
-        results: {
-          total_keywords: keywords?.length || 0,
-          updated: results.filter(r => r.status === 'updated').length,
-          no_change: results.filter(r => r.status === 'no_change').length,
-          errors: results.filter(r => r.status === 'error').length,
-          notifications_created: notifications.length
-        }
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ success: true, results }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
-    console.error('Erro na função de monitoramento automático:', error);
-    
+
+  } catch (error) {
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        timestamp: new Date().toISOString()
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

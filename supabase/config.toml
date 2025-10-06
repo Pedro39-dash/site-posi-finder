@@ -17,3 +17,9 @@ verify_jwt = true
 
 [functions.auto-monitoring]
 verify_jwt = true
+
+[functions.check-rankings]
+verify_jwt = true
+
+[functions.discover-keywords]
+verify_jwt = true
