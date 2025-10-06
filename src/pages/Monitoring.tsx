@@ -9,12 +9,32 @@ import { useEffect, useState } from "react";
 import { MonitoringService, MonitoringSession } from "@/services/monitoringService";
 import { useProject } from "@/hooks/useProject";
 import { useToast } from "@/hooks/use-toast";
+import { MonitoringSummaryCards } from "@/components/monitoring/analytics/MonitoringSummaryCards";
+import { KeywordPositionChart } from "@/components/monitoring/analytics/KeywordPositionChart";
+import { PeriodSelector, PeriodOption } from "@/components/monitoring/filters/PeriodSelector";
+import { PositionFilters, PositionRange } from "@/components/monitoring/filters/PositionFilters";
+import { MonitoringAnalyticsService, KeywordMetrics, PositionDistribution, DailyMetrics } from "@/services/monitoringAnalyticsService";
 
 const Monitoring = () => {
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { activeProject } = useProject();
   const { toast } = useToast();
+
+  // Analytics state
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('30d');
+  const [selectedPosition, setSelectedPosition] = useState<PositionRange>('all');
+  const [keywordMetrics, setKeywordMetrics] = useState<KeywordMetrics>({
+    totalKeywords: 0,
+    estimatedTraffic: 0,
+    previousTotalKeywords: 0,
+    previousEstimatedTraffic: 0,
+    changePercentageKeywords: 0,
+    changePercentageTraffic: 0,
+  });
+  const [positionDistribution, setPositionDistribution] = useState<PositionDistribution[]>([]);
+  const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics[]>([]);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
 
   const loadSessions = async () => {
     setIsLoading(true);
@@ -32,9 +52,33 @@ const Monitoring = () => {
     }
   };
 
+  const loadAnalytics = async () => {
+    if (!activeProject?.id) return;
+    
+    setIsLoadingAnalytics(true);
+    try {
+      const days = parseInt(selectedPeriod.replace('d', ''));
+      
+      const [metrics, distribution, daily] = await Promise.all([
+        MonitoringAnalyticsService.getKeywordMetrics(activeProject.id, days),
+        MonitoringAnalyticsService.getPositionDistribution(activeProject.id, days),
+        MonitoringAnalyticsService.getDailyMetrics(activeProject.id, days),
+      ]);
+
+      setKeywordMetrics(metrics);
+      setPositionDistribution(distribution);
+      setDailyMetrics(daily);
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  };
+
   useEffect(() => {
     loadSessions();
-  }, [activeProject]);
+    loadAnalytics();
+  }, [activeProject, selectedPeriod]);
 
   const handleSetupComplete = () => {
     loadSessions();
@@ -111,6 +155,34 @@ const Monitoring = () => {
               </div>
 
               <SimulationNotice />
+
+              {/* Header: Summary Cards */}
+              <MonitoringSummaryCards
+                totalKeywords={keywordMetrics.totalKeywords}
+                estimatedTraffic={keywordMetrics.estimatedTraffic}
+                changePercentageKeywords={keywordMetrics.changePercentageKeywords}
+                changePercentageTraffic={keywordMetrics.changePercentageTraffic}
+                dailyMetrics={dailyMetrics}
+                isLoading={isLoadingAnalytics}
+              />
+
+              {/* Filters */}
+              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-6">
+                <PeriodSelector 
+                  value={selectedPeriod} 
+                  onChange={setSelectedPeriod} 
+                />
+                <PositionFilters 
+                  value={selectedPosition} 
+                  onChange={setSelectedPosition}
+                />
+              </div>
+
+              {/* Main Chart */}
+              <KeywordPositionChart 
+                data={positionDistribution}
+                isLoading={isLoadingAnalytics}
+              />
 
               {/* Stats Cards */}
               {sessions.length > 0 && (
