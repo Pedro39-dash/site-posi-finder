@@ -117,7 +117,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
   const averagePosition = useMemo(() => {
     const positionsWithValues = filteredKeywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
     if (positionsWithValues.length === 0) return 0;
-    return Math.round(positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length);
+    return positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length;
   }, [filteredKeywords]);
 
   const allMetrics = competitorMetrics; // Only show competitors, not target domain

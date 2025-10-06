@@ -125,7 +125,7 @@ export function getTop10CompetitorsAhead(
     .map(k => k.target_domain_position!);
   
   const targetAvgPosition = targetPositions.length > 0
-    ? Math.round(targetPositions.reduce((sum, pos) => sum + pos, 0) / targetPositions.length)
+    ? targetPositions.reduce((sum, pos) => sum + pos, 0) / targetPositions.length
     : null;
 
   // Process competitors and calculate their average positions
@@ -143,7 +143,7 @@ export function getTop10CompetitorsAhead(
       .filter((pos): pos is number => pos !== undefined && pos > 0);
     
     const averagePosition = competitorPositions.length > 0 
-      ? Math.round(competitorPositions.reduce((sum, pos) => sum + pos, 0) / competitorPositions.length)
+      ? competitorPositions.reduce((sum, pos) => sum + pos, 0) / competitorPositions.length
       : null;
 
     return {
