@@ -1,9 +1,9 @@
-import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import React, { useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp } from 'lucide-react';
 import { CompetitorKeyword } from '@/services/competitorAnalysisService';
-import { calculateProjectedTraffic, ImprovementType } from '@/utils/trafficProjection';
+import { calculateProjectedTraffic, generateTimeSeriesProjection, ImprovementType } from '@/utils/trafficProjection';
 
 interface TrafficProjectionChartProps {
   keywords: CompetitorKeyword[];
@@ -18,18 +18,10 @@ const TrafficProjectionChart: React.FC<TrafficProjectionChartProps> = ({
 }) => {
   const projection = calculateProjectedTraffic(keywords, improvementType);
   
-  const chartData = [
-    {
-      name: 'Atual',
-      value: projection.current,
-      fill: 'hsl(var(--muted-foreground))'
-    },
-    {
-      name: 'Projetado',
-      value: projection.projected,
-      fill: 'hsl(var(--primary))'
-    }
-  ];
+  const timeSeriesData = useMemo(
+    () => generateTimeSeriesProjection(keywords, improvementType),
+    [keywords, improvementType]
+  );
 
   // Se não houver dados, não renderizar
   if (projection.current === 0) {
@@ -39,6 +31,8 @@ const TrafficProjectionChart: React.FC<TrafficProjectionChartProps> = ({
       </div>
     );
   }
+  
+  const todayIndex = timeSeriesData.findIndex(d => d.date === 'Hoje');
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -54,18 +48,22 @@ const TrafficProjectionChart: React.FC<TrafficProjectionChartProps> = ({
         )}
       </div>
       
-      <div className="h-32">
+      <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="horizontal">
-            <CartesianGrid strokeDasharray="3 3" className="opacity-30" horizontal={false} />
-            <XAxis type="number" hide />
-            <YAxis 
-              type="category" 
-              dataKey="name" 
+          <LineChart data={timeSeriesData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+            <XAxis 
+              dataKey="date" 
+              tick={{ fontSize: 10 }}
+              interval={Math.floor(timeSeriesData.length / 6)}
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 12 }}
-              width={70}
+            />
+            <YAxis 
+              tick={{ fontSize: 10 }}
+              tickFormatter={(value) => `${(value / 1000).toFixed(1)}k`}
+              axisLine={false}
+              tickLine={false}
             />
             <Tooltip
               contentStyle={{
@@ -75,17 +73,50 @@ const TrafficProjectionChart: React.FC<TrafficProjectionChartProps> = ({
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
               }}
               formatter={(value: number) => [
-                `${value.toLocaleString('pt-BR')} visitas/mês`,
+                `${value?.toLocaleString('pt-BR')} visitas/mês`,
                 ''
               ]}
               labelStyle={{ color: 'hsl(var(--foreground))' }}
             />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
+            
+            {/* Linha atual (sólida) */}
+            <Line 
+              type="monotone"
+              dataKey="current"
+              stroke="hsl(var(--primary))"
+              strokeWidth={2}
+              dot={false}
+              connectNulls={false}
+              name="Tráfego Atual"
+            />
+            
+            {/* Linha projetada (tracejada) */}
+            <Line 
+              type="monotone"
+              dataKey="projected"
+              stroke="hsl(var(--chart-2))"
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
+              connectNulls={false}
+              name="Projeção"
+            />
+            
+            {/* Referência vertical (hoje) */}
+            {todayIndex >= 0 && (
+              <ReferenceLine 
+                x={timeSeriesData[todayIndex]?.date} 
+                stroke="hsl(var(--muted-foreground))"
+                strokeDasharray="3 3"
+                label={{ 
+                  value: 'Hoje', 
+                  position: 'top', 
+                  fontSize: 10,
+                  fill: 'hsl(var(--muted-foreground))'
+                }}
+              />
+            )}
+          </LineChart>
         </ResponsiveContainer>
       </div>
       

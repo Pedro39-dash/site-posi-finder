@@ -23,6 +23,12 @@ export const getCTRByPosition = (position: number): number => {
 
 export type ImprovementType = 'performance' | 'seo-score' | 'content' | 'images-links' | 'domain-authority' | 'page-size';
 
+export interface TimeSeriesData {
+  date: string;
+  current: number | null;
+  projected: number | null;
+}
+
 interface TrafficProjection {
   current: number;
   projected: number;
@@ -123,4 +129,56 @@ export const calculateProjectedTraffic = (
     increase: Math.round(increase),
     increasePercentage: Math.round(increasePercentage)
   };
+};
+
+/**
+ * Gera dados de série temporal para projeção de tráfego
+ */
+export const generateTimeSeriesProjection = (
+  keywords: CompetitorKeyword[],
+  improvementType: ImprovementType,
+  daysBack: number = 30,
+  daysForward: number = 30
+): TimeSeriesData[] => {
+  const currentTraffic = calculateCurrentTraffic(keywords);
+  const projection = calculateProjectedTraffic(keywords, improvementType);
+  
+  const data: TimeSeriesData[] = [];
+  const today = new Date();
+  
+  // Dados históricos (últimos 30 dias) com variação realista ±10%
+  for (let i = daysBack; i > 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    
+    data.push({
+      date: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+      current: Math.round(currentTraffic * (0.9 + Math.random() * 0.2)),
+      projected: null
+    });
+  }
+  
+  // Ponto de transição (hoje)
+  data.push({
+    date: 'Hoje',
+    current: currentTraffic,
+    projected: currentTraffic
+  });
+  
+  // Projeção futura (próximos 30 dias) - crescimento gradual
+  for (let i = 1; i <= daysForward; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    
+    const progress = i / daysForward; // 0 a 1
+    const interpolated = currentTraffic + (projection.projected - currentTraffic) * progress;
+    
+    data.push({
+      date: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+      current: null,
+      projected: Math.round(interpolated * (0.95 + Math.random() * 0.1))
+    });
+  }
+  
+  return data;
 };
