@@ -150,6 +150,92 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
     }
   };
 
+  // Gerar recomendações personalizadas baseadas nos dados
+  const getRecommendations = (opportunity: any) => {
+    const recommendations: string[] = [];
+    
+    switch (opportunity.id) {
+      case 'performance':
+        if (parseFloat(opportunity.data.lcp.value) > 2.5) {
+          recommendations.push('Otimize carregamento de imagens (WebP, lazy loading)');
+        }
+        if (parseInt(opportunity.data.fid.value) > 100) {
+          recommendations.push('Reduza JavaScript bloqueante');
+        }
+        if (parseFloat(opportunity.data.cls.value) > 0.1) {
+          recommendations.push('Fixe dimensões de imagens e elementos dinâmicos');
+        }
+        if (opportunity.data.gap > 10) {
+          recommendations.push('Use CDN para recursos estáticos');
+          recommendations.push('Minifique CSS e JavaScript');
+        }
+        break;
+        
+      case 'seo-score':
+        if (!opportunity.data.hasSchema) {
+          recommendations.push('Adicione Schema.org markup para rich snippets');
+        }
+        if (!opportunity.data.hasOpenGraph) {
+          recommendations.push('Implemente meta tags Open Graph');
+        }
+        if (!opportunity.data.isMobile) {
+          recommendations.push('Melhore responsividade mobile');
+        }
+        if (opportunity.data.gap > 5) {
+          recommendations.push('Otimize meta tags e estrutura HTML');
+        }
+        break;
+        
+      case 'content':
+        if (opportunity.data.gap > 0) {
+          recommendations.push(`Adicione ${opportunity.data.gap} palavras para igualar concorrentes`);
+        }
+        if (opportunity.data.h1 !== 1) {
+          recommendations.push('Use exatamente 1 tag H1 por página');
+        }
+        if (opportunity.data.titleLength > 60) {
+          recommendations.push('Reduza título para máximo 60 caracteres');
+        }
+        if (opportunity.data.metaLength > 160) {
+          recommendations.push('Reduza meta description para máximo 160 caracteres');
+        }
+        break;
+        
+      case 'images-links':
+        if (opportunity.data.imagesWithoutAlt > 0) {
+          recommendations.push(`Adicione ALT text em ${opportunity.data.imagesWithoutAlt} imagens`);
+        }
+        if (opportunity.data.internalLinks < 5) {
+          recommendations.push('Adicione mais links internos (mínimo 5)');
+        }
+        recommendations.push('Otimize tamanho de imagens (comprima para web)');
+        break;
+        
+      case 'domain-authority':
+        if (opportunity.data.gap > 0) {
+          recommendations.push('Foque em backlinks de alta qualidade');
+          recommendations.push('Crie conteúdo linkável e compartilhável');
+          recommendations.push('Melhore presença em redes sociais');
+        } else {
+          recommendations.push('Mantenha estratégia atual de link building');
+        }
+        break;
+        
+      case 'page-size':
+        if (opportunity.data.isLarger) {
+          recommendations.push('Comprima imagens com TinyPNG/ImageOptim');
+          recommendations.push('Minifique CSS e JavaScript');
+          recommendations.push('Remova recursos não utilizados');
+          recommendations.push('Use lazy loading para imagens e vídeos');
+        } else {
+          recommendations.push('Tamanho otimizado - mantenha assim!');
+        }
+        break;
+    }
+    
+    return recommendations;
+  };
+
   // Handler para análise profunda
   const handleDeepAnalysis = async () => {
     if (!analysisId) {
@@ -288,240 +374,273 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
           </div>
         </Card>
       ) : (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2" key={deepAnalysisData ? 'with-insights' : 'without-insights'}>
+        <div className="flex flex-col gap-4" key={deepAnalysisData ? 'with-insights' : 'without-insights'}>
           {opportunities.map((opportunity) => {
             const Icon = opportunity.icon;
+            const recommendations = getRecommendations(opportunity);
             
             return (
               <Card 
                 key={opportunity.id} 
                 className={`transition-all hover:shadow-md ${getPriorityColor(opportunity.priority)} ring-2 ring-primary/20 animate-in fade-in duration-500`}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg ${
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-6">
+                    {/* LEFT: Icon + Badge */}
+                    <div className="flex-shrink-0 flex flex-col items-center gap-2">
+                      <div className={`w-14 h-14 rounded-lg ${
                         opportunity.priority === 'high' ? 'bg-red-500' : 
                         opportunity.priority === 'medium' ? 'bg-amber-500' : 'bg-blue-500'
-                      } flex items-center justify-center text-white`}>
-                        <Icon className="h-5 w-5" />
+                      } flex items-center justify-center text-white shadow-lg`}>
+                        <Icon className="h-7 w-7" />
                       </div>
-                      <div>
-                        <h4 className="font-medium text-sm text-foreground">{opportunity.title}</h4>
-                      </div>
+                      <Badge 
+                        variant={opportunity.priority === 'high' ? 'destructive' : 
+                                opportunity.priority === 'medium' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {opportunity.priority === 'high' ? 'Alta' : 
+                         opportunity.priority === 'medium' ? 'Média' : 'Baixa'}
+                      </Badge>
                     </div>
-                    <Badge 
-                      variant={opportunity.priority === 'high' ? 'destructive' : 
-                              opportunity.priority === 'medium' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {opportunity.priority === 'high' ? 'Alta' : 
-                       opportunity.priority === 'medium' ? 'Média' : 'Baixa'}
-                    </Badge>
+
+                    {/* CENTER: Title + Metrics */}
+                    <div className="flex-1 space-y-4">
+                      <h4 className="font-semibold text-lg text-foreground">{opportunity.title}</h4>
+
+                      {/* Performance Card */}
+                      {opportunity.id === 'performance' && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-sm text-muted-foreground">Seu Score:</span>
+                              <span className="text-3xl font-bold ml-2">{opportunity.data.score}</span>
+                              <span className="text-muted-foreground">/100</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Concorrentes:</span>
+                              <span className="text-2xl font-medium ml-2">{opportunity.data.competitorScore}</span>
+                              <span className="text-muted-foreground">/100</span>
+                              {typeof opportunity.data.gap === 'number' && opportunity.data.gap !== 0 && (
+                                <Badge variant={opportunity.data.gap > 0 ? "destructive" : "default"} className="text-xs ml-2">
+                                  {opportunity.data.gap > 0 ? `+${opportunity.data.gap}` : opportunity.data.gap}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t">
+                            <p className="text-sm font-medium mb-2">Core Web Vitals:</p>
+                            <div className="flex gap-6">
+                              <div>
+                                <span className="font-bold text-lg">{opportunity.data.lcp.value}s</span>
+                                <span className="text-sm text-muted-foreground ml-2">
+                                  LCP {opportunity.data.lcp.status === 'good' ? '✅' : opportunity.data.lcp.status === 'needs-improvement' ? '⚠️' : '❌'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-lg">{opportunity.data.fid.value}ms</span>
+                                <span className="text-sm text-muted-foreground ml-2">
+                                  FID {opportunity.data.fid.status === 'good' ? '✅' : opportunity.data.fid.status === 'needs-improvement' ? '⚠️' : '❌'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-lg">{opportunity.data.cls.value}</span>
+                                <span className="text-sm text-muted-foreground ml-2">
+                                  CLS {opportunity.data.cls.status === 'good' ? '✅' : opportunity.data.cls.status === 'needs-improvement' ? '⚠️' : '❌'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SEO Score Card */}
+                      {opportunity.id === 'seo-score' && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-sm text-muted-foreground">Seu Score:</span>
+                              <span className="text-3xl font-bold ml-2">{opportunity.data.score}</span>
+                              <span className="text-muted-foreground">/100</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Concorrentes:</span>
+                              <span className="text-2xl font-medium ml-2">{opportunity.data.competitorScore}</span>
+                              <span className="text-muted-foreground">/100</span>
+                              {typeof opportunity.data.gap === 'number' && opportunity.data.gap !== 0 && (
+                                <Badge variant={opportunity.data.gap > 0 ? "destructive" : "default"} className="text-xs ml-2">
+                                  {opportunity.data.gap > 0 ? `+${opportunity.data.gap}` : opportunity.data.gap}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t">
+                            <p className="text-sm font-medium mb-2">Técnico:</p>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant={opportunity.data.hasSchema ? "default" : "secondary"}>
+                                {opportunity.data.hasSchema ? '✅' : '❌'} Schema.org
+                              </Badge>
+                              <Badge variant={opportunity.data.hasOpenGraph ? "default" : "secondary"}>
+                                {opportunity.data.hasOpenGraph ? '✅' : '❌'} Open Graph
+                              </Badge>
+                              <Badge variant={opportunity.data.isMobile ? "default" : "secondary"}>
+                                {opportunity.data.isMobile ? '✅' : '❌'} Mobile
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Content Card */}
+                      {opportunity.id === 'content' && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-sm text-muted-foreground">Palavras:</span>
+                              <span className="text-3xl font-bold ml-2">{opportunity.data.wordCount}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Concorrentes:</span>
+                              <span className="text-2xl font-medium ml-2">{opportunity.data.competitorWordCount}</span>
+                              {typeof opportunity.data.gap === 'number' && opportunity.data.gap !== 0 && (
+                                <Badge variant={opportunity.data.gap > 0 ? "destructive" : "default"} className="text-xs ml-2">
+                                  {opportunity.data.gap > 0 ? `+${opportunity.data.gap}` : opportunity.data.gap}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t">
+                            <p className="text-sm font-medium mb-2">Estrutura:</p>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">H1:</span>
+                                <span className="font-medium">{opportunity.data.h1} {opportunity.data.h1 === 1 ? '✅' : '⚠️'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">H2:</span>
+                                <span className="font-medium">{opportunity.data.h2}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Título:</span>
+                                <span className="font-medium">{opportunity.data.titleLength} chars {opportunity.data.titleLength <= 60 ? '✅' : '⚠️'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Meta:</span>
+                                <span className="font-medium">{opportunity.data.metaLength} chars {opportunity.data.metaLength <= 160 ? '✅' : '⚠️'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Images & Links Card */}
+                      {opportunity.id === 'images-links' && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-sm text-muted-foreground">Total de Imagens:</span>
+                              <span className="text-3xl font-bold ml-2">{opportunity.data.totalImages}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Sem ALT:</span>
+                              <span className="text-2xl font-medium ml-2">{opportunity.data.imagesWithoutAlt}</span>
+                              <Badge variant={opportunity.data.imagesWithoutAlt > 0 ? "destructive" : "default"} className="text-xs ml-2">
+                                {opportunity.data.imagesWithoutAlt > 0 ? '⚠️' : '✅'}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t">
+                            <p className="text-sm font-medium mb-2">Links:</p>
+                            <div className="flex gap-8 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Internos:</span>
+                                <span className="font-bold text-lg">{opportunity.data.internalLinks}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Externos:</span>
+                                <span className="font-bold text-lg">{opportunity.data.externalLinks}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Domain Authority Card */}
+                      {opportunity.id === 'domain-authority' && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-sm text-muted-foreground">Seu DA:</span>
+                              <span className="text-3xl font-bold ml-2">{opportunity.data.da}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Concorrentes:</span>
+                              <span className="text-2xl font-medium ml-2">{opportunity.data.competitorDA}</span>
+                              {typeof opportunity.data.gap === 'number' && opportunity.data.gap !== 0 && (
+                                <Badge variant={opportunity.data.gap > 0 ? "destructive" : "default"} className="text-xs ml-2">
+                                  {opportunity.data.gap > 0 ? `+${opportunity.data.gap}` : opportunity.data.gap}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t">
+                            <p className="text-sm text-muted-foreground">
+                              {typeof opportunity.data.gap === 'number' && opportunity.data.gap > 0
+                                ? 'Foque em estratégias de link building e criação de conteúdo de qualidade para aumentar a autoridade do domínio.' 
+                                : 'Sua autoridade de domínio está competitiva! Continue mantendo a qualidade do conteúdo e links.'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Page Size Card */}
+                      {opportunity.id === 'page-size' && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-sm text-muted-foreground">Seu Tamanho:</span>
+                              <span className="text-3xl font-bold ml-2">{opportunity.data.size}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-muted-foreground">Concorrentes:</span>
+                              <span className="text-2xl font-medium ml-2">{opportunity.data.competitorSize}</span>
+                              {opportunity.data.isLarger && (
+                                <Badge variant="destructive" className="text-xs ml-2">
+                                  +{opportunity.data.gap}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t">
+                            <p className="text-sm text-muted-foreground">
+                              {opportunity.data.isLarger 
+                                ? 'Sua página está maior que a dos concorrentes. Reduza o tamanho para melhorar o tempo de carregamento.' 
+                                : 'Tamanho da página otimizado! Continue monitorando para manter a performance.'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* RIGHT: Recommendations */}
+                    {recommendations.length > 0 && (
+                      <div className="flex-shrink-0 w-72 bg-muted/30 rounded-lg p-4 space-y-2">
+                        <h5 className="font-semibold text-sm flex items-center gap-2">
+                          <span className="text-lg">💡</span> Recomendações
+                        </h5>
+                        <ul className="text-xs space-y-2 text-muted-foreground">
+                          {recommendations.map((rec, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-primary mt-0.5">•</span>
+                              <span className="flex-1">{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-
-                  {/* Performance Card */}
-                  {opportunity.id === 'performance' && (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Seu Score:</span>
-                        <span className="text-sm font-bold">{opportunity.data.score}/100</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Concorrentes:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{opportunity.data.competitorScore}/100</span>
-                          {typeof opportunity.data.gap === 'number' && opportunity.data.gap !== 0 && (
-                            <Badge variant={opportunity.data.gap > 0 ? "destructive" : "default"} className="text-xs">
-                              {opportunity.data.gap > 0 ? `+${opportunity.data.gap}` : opportunity.data.gap}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">Core Web Vitals:</p>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div className="text-center">
-                            <div className="font-medium">{opportunity.data.lcp.value}s</div>
-                            <div className="text-muted-foreground">LCP {opportunity.data.lcp.status === 'good' ? '✅' : opportunity.data.lcp.status === 'needs-improvement' ? '⚠️' : '❌'}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-medium">{opportunity.data.fid.value}ms</div>
-                            <div className="text-muted-foreground">FID {opportunity.data.fid.status === 'good' ? '✅' : opportunity.data.fid.status === 'needs-improvement' ? '⚠️' : '❌'}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-medium">{opportunity.data.cls.value}</div>
-                            <div className="text-muted-foreground">CLS {opportunity.data.cls.status === 'good' ? '✅' : opportunity.data.cls.status === 'needs-improvement' ? '⚠️' : '❌'}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SEO Score Card */}
-                  {opportunity.id === 'seo-score' && (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Seu Score:</span>
-                        <span className="text-sm font-bold">{opportunity.data.score}/100</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Concorrentes:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{opportunity.data.competitorScore}/100</span>
-                          {typeof opportunity.data.gap === 'number' && opportunity.data.gap !== 0 && (
-                            <Badge variant={opportunity.data.gap > 0 ? "destructive" : "default"} className="text-xs">
-                              {opportunity.data.gap > 0 ? `+${opportunity.data.gap}` : opportunity.data.gap}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">Técnico:</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          <Badge variant={opportunity.data.hasSchema ? "default" : "secondary"} className="text-xs">
-                            {opportunity.data.hasSchema ? '✅' : '❌'} Schema.org
-                          </Badge>
-                          <Badge variant={opportunity.data.hasOpenGraph ? "default" : "secondary"} className="text-xs">
-                            {opportunity.data.hasOpenGraph ? '✅' : '❌'} Open Graph
-                          </Badge>
-                          <Badge variant={opportunity.data.isMobile ? "default" : "secondary"} className="text-xs">
-                            {opportunity.data.isMobile ? '✅' : '❌'} Mobile
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Content Card */}
-                  {opportunity.id === 'content' && (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Palavras:</span>
-                        <span className="text-sm font-bold">{opportunity.data.wordCount}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Concorrentes:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{opportunity.data.competitorWordCount}</span>
-                          {typeof opportunity.data.gap === 'number' && opportunity.data.gap !== 0 && (
-                            <Badge variant={opportunity.data.gap > 0 ? "destructive" : "default"} className="text-xs">
-                              {opportunity.data.gap > 0 ? `+${opportunity.data.gap}` : opportunity.data.gap}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">Estrutura:</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">H1:</span>
-                            <span className="font-medium">{opportunity.data.h1} {opportunity.data.h1 === 1 ? '✅' : '⚠️'}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">H2:</span>
-                            <span className="font-medium">{opportunity.data.h2}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Título:</span>
-                            <span className="font-medium">{opportunity.data.titleLength} chars {opportunity.data.titleLength <= 60 ? '✅' : '⚠️'}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Meta:</span>
-                            <span className="font-medium">{opportunity.data.metaLength} chars {opportunity.data.metaLength <= 160 ? '✅' : '⚠️'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Images & Links Card */}
-                  {opportunity.id === 'images-links' && (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Total de Imagens:</span>
-                        <span className="text-sm font-bold">{opportunity.data.totalImages}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Sem ALT:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{opportunity.data.imagesWithoutAlt}</span>
-                          <Badge variant={opportunity.data.imagesWithoutAlt > 0 ? "destructive" : "default"} className="text-xs">
-                            {opportunity.data.imagesWithoutAlt > 0 ? '⚠️' : '✅'}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">Links:</p>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Internos:</span>
-                          <span className="font-medium">{opportunity.data.internalLinks}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Externos:</span>
-                          <span className="font-medium">{opportunity.data.externalLinks}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Domain Authority Card */}
-                  {opportunity.id === 'domain-authority' && (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Seu DA:</span>
-                        <span className="text-sm font-bold">{opportunity.data.da}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Concorrentes:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{opportunity.data.competitorDA}</span>
-                          {typeof opportunity.data.gap === 'number' && opportunity.data.gap !== 0 && (
-                            <Badge variant={opportunity.data.gap > 0 ? "destructive" : "default"} className="text-xs">
-                              {opportunity.data.gap > 0 ? `+${opportunity.data.gap}` : opportunity.data.gap}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t">
-                        <p className="text-xs text-muted-foreground">
-                          {typeof opportunity.data.gap === 'number' && opportunity.data.gap > 0
-                            ? 'Melhore performance, SEO e conteúdo para aumentar autoridade' 
-                            : 'Sua autoridade está competitiva!'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Page Size Card */}
-                  {opportunity.id === 'page-size' && (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Seu Tamanho:</span>
-                        <span className="text-sm font-bold">{opportunity.data.size}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Concorrentes:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{opportunity.data.competitorSize}</span>
-                          {opportunity.data.isLarger && (
-                            <Badge variant="destructive" className="text-xs">
-                              +{opportunity.data.gap}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t">
-                        <p className="text-xs text-muted-foreground">
-                          {opportunity.data.isLarger 
-                            ? 'Comprima imagens e minifique CSS/JS' 
-                            : 'Tamanho otimizado!'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             );
