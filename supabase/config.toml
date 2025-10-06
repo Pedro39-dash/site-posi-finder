@@ -8,3 +8,12 @@ verify_jwt = true
 
 [functions.web-scraper]
 verify_jwt = true
+
+[functions.deep-seo-analysis]
+verify_jwt = true
+
+[functions.pagespeed-analysis]
+verify_jwt = true
+
+[functions.auto-monitoring]
+verify_jwt = true

@@ -1,19 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, Target, Zap, Trophy, ArrowRight } from 'lucide-react';
+import { TrendingUp, Target, Zap, Trophy, ArrowRight, Search, Loader2 } from 'lucide-react';
 import { CompetitorKeyword } from '@/services/competitorAnalysisService';
+import { DeepAnalysisService, DeepAnalysisData } from '@/services/deepAnalysisService';
+import DeepInsightsModal from './DeepInsightsModal';
+import { toast } from 'sonner';
 
 interface StrategicOpportunitiesProps {
   keywords: CompetitorKeyword[];
   targetDomain: string;
+  analysisId?: string;
 }
 
 const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({ 
   keywords, 
-  targetDomain 
+  targetDomain,
+  analysisId
 }) => {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [deepAnalysisData, setDeepAnalysisData] = useState<DeepAnalysisData | null>(null);
+  const [showModal, setShowModal] = useState(false);
   // Calculate real opportunities based on competitor analysis
   const contentGaps = keywords.filter(k => !k.target_domain_position && k.competitor_positions?.some(p => p.position <= 10));
   const quickWins = keywords.filter(k => k.target_domain_position && k.target_domain_position >= 11 && k.target_domain_position <= 20);
@@ -82,9 +90,76 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
     }
   };
 
+  // Handler para análise profunda
+  const handleDeepAnalysis = async () => {
+    if (!analysisId) {
+      toast.error('ID da análise não disponível');
+      return;
+    }
+
+    // Extrair top 3 concorrentes
+    const topCompetitors = [...new Set(
+      keywords
+        .flatMap(k => k.competitor_positions?.filter(p => p.position <= 10).map(p => p.domain) || [])
+        .filter(Boolean)
+    )].slice(0, 3);
+
+    if (topCompetitors.length === 0) {
+      toast.error('Nenhum concorrente encontrado para análise');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    toast.info(`🔍 Iniciando análise profunda de ${topCompetitors.length + 1} domínios...`);
+
+    try {
+      const result = await DeepAnalysisService.startDeepAnalysis(
+        analysisId,
+        targetDomain,
+        topCompetitors
+      );
+
+      if (result.success && result.data) {
+        setDeepAnalysisData(result.data);
+        setShowModal(true);
+        toast.success('✅ Análise profunda concluída!');
+      } else {
+        toast.error(result.error || 'Erro ao realizar análise');
+      }
+    } catch (error) {
+      toast.error('Erro ao realizar análise profunda');
+      console.error(error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold mb-4">Oportunidades Estratégicas</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Oportunidades Estratégicas</h3>
+        {analysisId && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleDeepAnalysis}
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Analisando...
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4 mr-2" />
+                Análise Profunda de SEO
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+      
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         {opportunities.map((opportunity) => {
           const Icon = opportunity.icon;
@@ -134,6 +209,13 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
           );
         })}
       </div>
+
+      {/* Modal de Análise Profunda */}
+      <DeepInsightsModal 
+        open={showModal}
+        onOpenChange={setShowModal}
+        data={deepAnalysisData}
+      />
     </div>
   );
 };

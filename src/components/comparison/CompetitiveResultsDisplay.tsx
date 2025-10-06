@@ -650,6 +650,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 <StrategicOpportunities 
                   keywords={analysisData?.keywords || []}
                   targetDomain={analysisData?.analysis?.target_domain || ''}
+                  analysisId={analysisId}
                 />
               </ErrorBoundary>
             </div>
