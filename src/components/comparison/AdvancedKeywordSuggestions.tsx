@@ -109,6 +109,24 @@ export default function AdvancedKeywordSuggestions({
     }
   };
 
+  const getGoogleSourceIcon = (googleSource?: string) => {
+    switch (googleSource) {
+      case 'related_searches': return '🔍';
+      case 'people_also_ask': return '❓';
+      case 'autocomplete': return '💬';
+      default: return null;
+    }
+  };
+
+  const getGoogleSourceLabel = (googleSource?: string) => {
+    switch (googleSource) {
+      case 'related_searches': return 'Do Google';
+      case 'people_also_ask': return 'Dúvida comum';
+      case 'autocomplete': return 'Autocompletar';
+      default: return null;
+    }
+  };
+
   const getDifficultyColor = (difficulty?: number) => {
     if (!difficulty) return 'bg-muted text-muted-foreground';
     if (difficulty < 30) return 'bg-green-50 text-green-700 border-green-200';
@@ -202,8 +220,8 @@ export default function AdvancedKeywordSuggestions({
                         key={suggestion.id} 
                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                       >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <span className="font-medium truncate">
                               {suggestion.suggested_keyword}
                             </span>
@@ -213,6 +231,12 @@ export default function AdvancedKeywordSuggestions({
                             >
                               {getSourceTypeLabel(suggestion.source_type)}
                             </Badge>
+                            {suggestion.metadata?.google_source && (
+                              <Badge variant="secondary" className="gap-1">
+                                <span>{getGoogleSourceIcon(suggestion.metadata.google_source)}</span>
+                                {getGoogleSourceLabel(suggestion.metadata.google_source)}
+                              </Badge>
+                            )}
                           </div>
                           
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">

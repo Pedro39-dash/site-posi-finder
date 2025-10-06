@@ -39,7 +39,7 @@ serve(async (req) => {
   }
 
   try {
-    const { keyword, maxResults = 20 } = await req.json();
+    const { keyword, maxResults = 20, type = 'search' } = await req.json();
     
     if (!keyword) {
       return new Response(JSON.stringify({ 
@@ -49,6 +49,84 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Handle suggestions request using SerpAPI
+    if (type === 'suggestions') {
+      const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
+      
+      if (!SERPAPI_KEY) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'SERPAPI_KEY not configured',
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      const serpApiUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(keyword)}&api_key=${SERPAPI_KEY}&gl=br&hl=pt`;
+      
+      console.log('Calling SerpAPI for suggestions:', keyword);
+      
+      const serpResponse = await fetch(serpApiUrl);
+      
+      if (!serpResponse.ok) {
+        console.error('SerpAPI error:', serpResponse.status);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `SerpAPI request failed: ${serpResponse.status}`,
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      const serpData = await serpResponse.json();
+      
+      const suggestions: Array<{ keyword: string; source: string }> = [];
+      
+      // Extract related searches
+      if (serpData.related_searches && Array.isArray(serpData.related_searches)) {
+        serpData.related_searches.slice(0, 5).forEach((item: any) => {
+          if (item.query) {
+            suggestions.push({
+              keyword: item.query,
+              source: 'related_searches'
+            });
+          }
+        });
+      }
+      
+      // Extract people also ask questions
+      if (serpData.related_questions && Array.isArray(serpData.related_questions)) {
+        serpData.related_questions.slice(0, 3).forEach((item: any) => {
+          if (item.question) {
+            suggestions.push({
+              keyword: item.question,
+              source: 'people_also_ask'
+            });
+          }
+        });
+      }
+      
+      console.log(`Found ${suggestions.length} suggestions from SerpAPI`);
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          suggestions
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     console.log(`🔍 Starting web scrape for keyword: "${keyword}"`);

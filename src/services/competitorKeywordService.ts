@@ -8,7 +8,10 @@ export interface CompetitorKeywordSuggestion {
   search_volume?: number;
   difficulty_score?: number;
   competitor_domains?: string[];
-  metadata?: Record<string, any>;
+  metadata?: {
+    google_source?: 'related_searches' | 'people_also_ask' | 'autocomplete';
+    [key: string]: any;
+  };
 }
 
 interface SerpKeywordData {
@@ -105,32 +108,62 @@ export class CompetitorKeywordService {
     try {
       const suggestions: CompetitorKeywordSuggestion[] = [];
       
-      for (const keyword of baseKeywords) {
-        // Get related searches from SerpApi
-        const relatedKeywords = await this.getSerpApiRelatedSearches(keyword);
-        
-        // Generate semantic variations with real context
-        const semanticVariations = this.generateContextualVariations(keyword);
-        
-        // Combine and score suggestions
-        [...relatedKeywords, ...semanticVariations].forEach((suggestion, index) => {
-          if (suggestion && suggestion.trim().length > 0) {
-            const relevanceScore = this.calculateSemanticRelevance(keyword, suggestion);
+      for (const keyword of baseKeywords.slice(0, 2)) {
+        // Get related searches from SerpApi via web-scraper
+        const { data, error } = await supabase.functions.invoke('web-scraper', {
+          body: { keyword, type: 'suggestions' }
+        });
+
+        if (!error && data?.suggestions && Array.isArray(data.suggestions)) {
+          data.suggestions.forEach((item: any) => {
+            const { keyword: suggestedKeyword, source } = item;
+            
+            // Determine relevance score based on source
+            let relevanceScore = 70;
+            
+            if (source === 'related_searches') {
+              relevanceScore = 85 + Math.floor(Math.random() * 10); // 85-95
+            } else if (source === 'people_also_ask') {
+              relevanceScore = 75 + Math.floor(Math.random() * 10); // 75-85
+            }
             
             suggestions.push({
-              id: `semantic-${Date.now()}-${index}`,
-              suggested_keyword: suggestion.toLowerCase().trim(),
+              id: `${source}-${Date.now()}-${Math.random()}`,
+              suggested_keyword: suggestedKeyword.toLowerCase().trim(),
               source_type: 'semantic',
               relevance_score: relevanceScore,
-              search_volume: this.estimateSearchVolume(suggestion, keyword),
-              difficulty_score: this.estimateDifficulty(suggestion),
+              search_volume: this.estimateSearchVolume(suggestedKeyword, keyword),
+              difficulty_score: this.estimateDifficulty(suggestedKeyword),
+              competitor_domains: [],
               metadata: { 
-                base_keyword: keyword,
-                similarity_type: relatedKeywords.includes(suggestion) ? 'serp_related' : 'semantic_variation'
+                google_source: source,
+                base_keyword: keyword
               }
             });
-          }
-        });
+          });
+        } else {
+          // Fallback to contextual variations
+          const semanticVariations = this.generateContextualVariations(keyword);
+          
+          semanticVariations.forEach((suggestion, index) => {
+            if (suggestion && suggestion.trim().length > 0) {
+              const relevanceScore = this.calculateSemanticRelevance(keyword, suggestion);
+              
+              suggestions.push({
+                id: `semantic-${Date.now()}-${index}`,
+                suggested_keyword: suggestion.toLowerCase().trim(),
+                source_type: 'semantic',
+                relevance_score: relevanceScore,
+                search_volume: this.estimateSearchVolume(suggestion, keyword),
+                difficulty_score: this.estimateDifficulty(suggestion),
+                metadata: { 
+                  base_keyword: keyword,
+                  similarity_type: 'semantic_variation'
+                }
+              });
+            }
+          });
+        }
       }
       
       return suggestions;
@@ -279,14 +312,21 @@ export class CompetitorKeywordService {
     try {
       const { data, error } = await supabase.functions.invoke('web-scraper', {
         body: { 
-          query: keyword,
-          type: 'related_searches',
-          limit: 5
+          keyword: keyword,
+          type: 'suggestions'
         }
       });
       
-      if (error) throw error;
-      return data?.related_searches || [];
+      if (error) {
+        console.error('Error calling web-scraper:', error);
+        return [];
+      }
+      
+      if (data?.suggestions && Array.isArray(data.suggestions)) {
+        return data.suggestions.map((s: any) => s.keyword);
+      }
+      
+      return [];
     } catch (error) {
       console.error('Error getting SerpApi related searches:', error);
       return [];
