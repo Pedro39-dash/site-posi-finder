@@ -9,10 +9,11 @@ import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalys
 import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
 import { useKeywordFilter } from '@/contexts/KeywordFilterContext';
 import { useAnalysisCache } from '@/hooks/useAnalysisCache';
+import { getCTRByPosition } from '@/utils/seoScoring';
 
 interface ShareOfVoiceData {
   domain: string;
-  count: number;
+  ctr: number;
   percentage: number;
 }
 
@@ -36,17 +37,42 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
 
   // Filter data to show only competitors for the selected keyword (excluding target domain position)
   const filteredData = useMemo(() => {
+    // If 1 keyword filtered, recalculate from scratch based only on that keyword
+    if (filteredKeywords.length === 1) {
+      const keyword = filteredKeywords[0];
+      const voiceData = new Map<string, number>();
+      
+      // Target domain
+      if (keyword.target_domain_position && keyword.target_domain_position <= 10) {
+        const cleanTargetDomain = targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+        const ctr = getCTRByPosition(keyword.target_domain_position);
+        voiceData.set(cleanTargetDomain, ctr);
+      }
+      
+      // Competitors
+      keyword.competitor_positions?.forEach(comp => {
+        if (comp.position <= 10) {
+          const domain = comp.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '');
+          const ctr = getCTRByPosition(comp.position);
+          voiceData.set(domain, ctr);
+        }
+      });
+      
+      const totalCTR = Array.from(voiceData.values()).reduce((sum, ctr) => sum + ctr, 0);
+      
+      return Array.from(voiceData.entries())
+        .map(([domain, ctr]) => ({
+          domain,
+          ctr: Math.round(ctr * 10) / 10,
+          percentage: totalCTR > 0 ? Math.round((ctr / totalCTR) * 100) : 0
+        }))
+        .filter(item => item.ctr > 0)
+        .sort((a, b) => b.ctr - a.ctr);
+    }
+    
+    // Multiple keywords: use aggregated data from parent
     const filteredCompetitors = getTop10CompetitorsAhead(competitors, filteredKeywords, targetDomain);
     const filteredDomains = filteredCompetitors.map(c => c.domain);
-    
-    // Debug log to understand filtering
-    console.log('ShareOfVoice filtering:', {
-      selectedKeywordId: selectedKeyword?.id,
-      selectedKeywordText: selectedKeyword?.keyword,
-      originalDataLength: data.length,
-      filteredCompetitorsCount: filteredCompetitors.length,
-      filteredDomains: filteredDomains.slice(0, 5) // Show first 5 for debugging
-    });
     
     // Filter original data to only include these domains
     const filtered = data.filter(item => {
@@ -67,12 +93,12 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
       return positionDiff !== 0 ? positionDiff : a.domain.localeCompare(b.domain);
     });
     
-    // Recalculate percentages based on filtered data only
-    const totalCount = sortedFiltered.reduce((sum, item) => sum + item.count, 0);
+    // Recalculate percentages based on CTR
+    const totalCTR = sortedFiltered.reduce((sum, item) => sum + item.ctr, 0);
     
     return sortedFiltered.map(item => ({
       ...item,
-      percentage: totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0
+      percentage: totalCTR > 0 ? Math.round((item.ctr / totalCTR) * 100) : 0
     }));
   }, [data, competitors, filteredKeywords, targetDomain, selectedKeyword]);
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set());
@@ -160,7 +186,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
                   dataKey="percentage"
                   strokeWidth={2}
                   stroke="hsl(var(--background))"
-                  label={(entry) => `${entry.percentage}% (${entry.count})`}
+                  label={(entry) => `${entry.percentage}%`}
                   labelLine={false}
                 >
                   {displayData.map((_, index) => (
@@ -222,7 +248,7 @@ const ShareOfVoiceChart: React.FC<ShareOfVoiceChartProps> = ({ data, competitors
                         {formatDomain(item.domain)}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {item.count} palavras-chave
+                        CTR: {item.ctr}% {filteredKeywords.length > 1 ? `(${filteredKeywords.length} kws)` : ''}
                       </div>
                     </div>
                   </div>

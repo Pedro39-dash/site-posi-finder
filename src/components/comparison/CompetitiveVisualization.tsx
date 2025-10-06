@@ -4,6 +4,7 @@ import { CompetitiveAnalysisData } from '@/services/competitorAnalysisService';
 import { StableBarChart, StablePieChart, StableAreaChart } from './StableChart';
 import { ErrorBoundary } from './ErrorBoundary';
 import ShareOfVoiceChart from './ShareOfVoiceChart';
+import { getCTRByPosition } from '@/utils/seoScoring';
 
 interface CompetitiveVisualizationProps {
   analysisData: CompetitiveAnalysisData;
@@ -97,35 +98,37 @@ const CompetitiveVisualization: React.FC<CompetitiveVisualizationProps> = memo((
       };
     });
 
-    // Share of voice
-    const voiceData = new Map();
+    // Share of voice - CTR Weighted
+    const voiceData = new Map<string, number>(); // domain -> accumulated CTR
     const targetDomain = memoizedAnalysisData.analysis.target_domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'Seu Site';
     
-    voiceData.set(targetDomain, 0);
-    
     memoizedAnalysisData.keywords.forEach(keyword => {
+      // Target domain
       if (keyword.target_domain_position && keyword.target_domain_position <= 10) {
-        voiceData.set(targetDomain, (voiceData.get(targetDomain) || 0) + 1);
+        const ctr = getCTRByPosition(keyword.target_domain_position);
+        voiceData.set(targetDomain, (voiceData.get(targetDomain) || 0) + ctr);
       }
       
+      // Competitors
       keyword.competitor_positions?.forEach(comp => {
         if (comp.position <= 10) {
           const domain = comp.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'Desconhecido';
-          voiceData.set(domain, (voiceData.get(domain) || 0) + 1);
+          const ctr = getCTRByPosition(comp.position);
+          voiceData.set(domain, (voiceData.get(domain) || 0) + ctr);
         }
       });
     });
 
-    const totalPositions = Array.from(voiceData.values()).reduce((a, b) => a + b, 0);
+    const totalCTR = Array.from(voiceData.values()).reduce((sum, ctr) => sum + ctr, 0);
     
     const shareOfVoiceData = Array.from(voiceData.entries())
-      .map(([domain, count]) => ({
+      .map(([domain, ctr]) => ({
         domain,
-        count,
-        percentage: totalPositions > 0 ? Math.round((count / totalPositions) * 100) : 0
+        ctr: Math.round(ctr * 10) / 10, // Round to 1 decimal
+        percentage: totalCTR > 0 ? Math.round((ctr / totalCTR) * 100) : 0
       }))
-      .filter(item => item.count > 0)
-      .sort((a, b) => b.count - a.count)
+      .filter(item => item.ctr > 0)
+      .sort((a, b) => b.ctr - a.ctr)
       .slice(0, 8);
 
     return {
