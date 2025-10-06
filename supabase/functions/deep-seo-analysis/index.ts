@@ -35,6 +35,24 @@ interface DomainAnalysisResult {
   pageSize: number;
 }
 
+// Normalize and validate URL
+function normalizeUrl(domain: string): string {
+  let url = domain.trim();
+  
+  // Add https:// if no protocol
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
+  }
+  
+  // Validate URL
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    throw new Error(`Invalid URL format: ${domain}`);
+  }
+}
+
 async function analyzeWithPageSpeed(url: string): Promise<any> {
   const apiKey = Deno.env.get('GOOGLE_PAGESPEED_API_KEY');
   if (!apiKey) {
@@ -45,10 +63,32 @@ async function analyzeWithPageSpeed(url: string): Promise<any> {
   
   const response = await fetch(pageSpeedUrl);
   if (!response.ok) {
-    throw new Error(`PageSpeed API error: ${response.statusText}`);
+    const errorBody = await response.text();
+    console.error('❌ PageSpeed API Error Details:', {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      errorBody: errorBody.substring(0, 500) // First 500 chars
+    });
+    throw new Error(`PageSpeed API error: ${response.statusText} (${response.status})`);
   }
   
   return await response.json();
+}
+
+// Retry PageSpeed with exponential backoff
+async function analyzeWithPageSpeedRetry(url: string, retries = 2): Promise<any> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await analyzeWithPageSpeed(url);
+    } catch (error) {
+      if (i === retries) throw error;
+      
+      const delay = 2000 * (i + 1);
+      console.log(`⏳ Retry ${i + 1}/${retries} for ${url} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
 }
 
 async function scrapeAndAnalyze(url: string): Promise<any> {
@@ -188,13 +228,13 @@ function getCoreWebVitalStatus(value: number, metric: 'lcp' | 'fid' | 'cls'): 'g
   }
 }
 
-async function analyzeDomain(url: string, isTarget: boolean = false): Promise<DomainAnalysisResult> {
+async function analyzeDomain(url: string, isTarget: boolean = false): Promise<DomainAnalysisResult | null> {
   console.log(`🔍 Analyzing domain: ${url}`);
   
   try {
-    // Run PageSpeed and scraping in parallel
+    // Run PageSpeed and scraping in parallel (with retry)
     const [pageSpeedData, onPageData] = await Promise.all([
-      analyzeWithPageSpeed(url),
+      analyzeWithPageSpeedRetry(url),
       scrapeAndAnalyze(url)
     ]);
     
@@ -223,7 +263,15 @@ async function analyzeDomain(url: string, isTarget: boolean = false): Promise<Do
     };
   } catch (error) {
     console.error(`❌ Error analyzing ${url}:`, error);
-    throw error;
+    
+    // If target fails, throw error (cannot continue)
+    if (isTarget) {
+      throw error;
+    }
+    
+    // If competitor fails, return null (analysis can continue)
+    console.log(`⚠️ Skipping competitor ${url} due to error`);
+    return null;
   }
 }
 
@@ -366,26 +414,41 @@ serve(async (req) => {
     console.log(`   - Competitor list: ${competitor_domains?.join(', ') || 'none'}`);
 
     // Analyze target domain
-    const targetUrl = target_domain.startsWith('http') ? target_domain : `https://${target_domain}`;
+    const targetUrl = normalizeUrl(target_domain);
     const targetAnalysis = await analyzeDomain(targetUrl, true);
 
     // Analyze competitor domains (max 3)
-    const competitorUrls = (competitor_domains || []).slice(0, 3).map((d: string) => 
-      d.startsWith('http') ? d : `https://${d}`
-    );
+    const competitorDomains = (competitor_domains || []).slice(0, 3);
+    const competitorUrls = competitorDomains.map((d: string) => normalizeUrl(d));
     
-    const competitorAnalyses = await Promise.all(
+    const competitorResults = await Promise.all(
       competitorUrls.map((url: string) => analyzeDomain(url, false))
     );
+    
+    // Filter out failed competitors (null values)
+    const competitorAnalyses = competitorResults.filter((c): c is DomainAnalysisResult => c !== null);
+    const failedDomains = competitorDomains.filter((_, i) => competitorResults[i] === null);
+    
+    console.log(`✅ Successfully analyzed ${competitorAnalyses.length}/${competitorDomains.length} competitors`);
+    if (failedDomains.length > 0) {
+      console.log(`⚠️ Failed domains:`, failedDomains);
+    }
 
-    // Calculate competitor averages
-    const competitorAvgs = {
-      performanceScore: competitorAnalyses.reduce((sum, c) => sum + c.performanceScore, 0) / competitorAnalyses.length || 0,
-      seoScore: competitorAnalyses.reduce((sum, c) => sum + c.seoScore, 0) / competitorAnalyses.length || 0,
-      wordCount: competitorAnalyses.reduce((sum, c) => sum + c.onPage.wordCount, 0) / competitorAnalyses.length || 0,
-      pageSize: competitorAnalyses.reduce((sum, c) => sum + c.pageSize, 0) / competitorAnalyses.length || 0,
-      hasSchema: competitorAnalyses.filter(c => c.onPage.hasSchema).length / competitorAnalyses.length || 0,
-      estimatedDA: competitorAnalyses.reduce((sum, c) => sum + c.estimatedDA, 0) / competitorAnalyses.length || 0
+    // Calculate competitor averages (only from successful analyses)
+    const competitorAvgs = competitorAnalyses.length > 0 ? {
+      performanceScore: competitorAnalyses.reduce((sum, c) => sum + c.performanceScore, 0) / competitorAnalyses.length,
+      seoScore: competitorAnalyses.reduce((sum, c) => sum + c.seoScore, 0) / competitorAnalyses.length,
+      wordCount: competitorAnalyses.reduce((sum, c) => sum + c.onPage.wordCount, 0) / competitorAnalyses.length,
+      pageSize: competitorAnalyses.reduce((sum, c) => sum + c.pageSize, 0) / competitorAnalyses.length,
+      hasSchema: competitorAnalyses.filter(c => c.onPage.hasSchema).length / competitorAnalyses.length,
+      estimatedDA: competitorAnalyses.reduce((sum, c) => sum + c.estimatedDA, 0) / competitorAnalyses.length
+    } : {
+      performanceScore: 0,
+      seoScore: 0,
+      wordCount: 0,
+      pageSize: 0,
+      hasSchema: 0,
+      estimatedDA: 0
     };
 
     // Generate prioritized recommendations
@@ -397,21 +460,29 @@ serve(async (req) => {
       competitors: competitorAnalyses,
       competitorAverages: competitorAvgs,
       recommendations,
-      analyzedAt: new Date().toISOString()
+      analyzedAt: new Date().toISOString(),
+      ...(failedDomains.length > 0 && { failedDomains })
     };
 
-    console.log(`✅ Deep analysis completed successfully`);
+    const analysisStatus = failedDomains.length > 0 ? 'partial' : 'complete';
+    console.log(`✅ Deep analysis completed with status: ${analysisStatus}`);
     console.log(`📊 Result summary:`, {
+      status: analysisStatus,
       target_domain: targetAnalysis.domain,
       target_performance: targetAnalysis.performanceScore,
       target_seo: targetAnalysis.seoScore,
       target_DA: targetAnalysis.estimatedDA,
       competitors_analyzed: competitorAnalyses.length,
+      competitors_failed: failedDomains.length,
       recommendations_count: recommendations.length
     });
 
     return new Response(
-      JSON.stringify({ success: true, data: result }),
+      JSON.stringify({ 
+        success: true, 
+        status: analysisStatus,
+        data: result 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
