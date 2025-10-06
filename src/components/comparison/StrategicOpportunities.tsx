@@ -92,10 +92,21 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
 
   // Extrair insights relevantes por tipo de oportunidade
   const getDeepInsights = (opportunityId: string) => {
-    if (!deepAnalysisData) return null;
+    console.log('🔍 getDeepInsights called:', { 
+      opportunityId, 
+      hasDeepData: !!deepAnalysisData,
+      deepAnalysisData: deepAnalysisData ? 'exists' : 'null'
+    });
+    
+    if (!deepAnalysisData) {
+      console.log('⚠️ No deep analysis data available yet');
+      return null;
+    }
     
     const target = deepAnalysisData.target;
     const avgCompetitors = deepAnalysisData.competitorAverages;
+    
+    console.log('✅ Extracting insights for:', opportunityId);
     
     switch(opportunityId) {
       case 'content-gaps':
@@ -160,9 +171,12 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
       );
 
       if (result.success && result.data) {
+        console.log('✅ Deep analysis completed:', result.data);
         setDeepAnalysisData(result.data);
         setShowModal(true);
-        toast.success('✅ Análise profunda concluída!');
+        toast.success('✅ Análise profunda concluída! Confira os insights nos cards abaixo.', {
+          duration: 5000,
+        });
       } else {
         toast.error(result.error || 'Erro ao realizar análise');
       }
@@ -205,10 +219,18 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
           const Icon = opportunity.icon;
           const insights = getDeepInsights(opportunity.id);
           
+          console.log('📊 Rendering card:', { 
+            id: opportunity.id, 
+            hasInsights: !!insights,
+            insights 
+          });
+          
           return (
             <Card 
               key={opportunity.id} 
-              className={`transition-all hover:shadow-md ${getPriorityColor(opportunity.priority)}`}
+              className={`transition-all hover:shadow-md ${getPriorityColor(opportunity.priority)} ${
+                insights ? 'ring-2 ring-primary/20 animate-in fade-in duration-500' : ''
+              }`}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
@@ -223,14 +245,21 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
                       </Badge>
                     </div>
                   </div>
-                  <Badge 
-                    variant={opportunity.priority === 'high' ? 'destructive' : 
-                            opportunity.priority === 'medium' ? 'default' : 'secondary'}
-                    className="text-xs"
-                  >
-                    {opportunity.priority === 'high' ? 'Alta' : 
-                     opportunity.priority === 'medium' ? 'Média' : 'Baixa'}
-                  </Badge>
+                  <div className="flex flex-col gap-1 items-end">
+                    {insights && (
+                      <Badge variant="default" className="text-xs bg-primary/10 text-primary border-primary/20">
+                        🆕 Atualizado
+                      </Badge>
+                    )}
+                    <Badge 
+                      variant={opportunity.priority === 'high' ? 'destructive' : 
+                              opportunity.priority === 'medium' ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {opportunity.priority === 'high' ? 'Alta' : 
+                       opportunity.priority === 'medium' ? 'Média' : 'Baixa'}
+                    </Badge>
+                  </div>
                 </div>
                 
                 <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
