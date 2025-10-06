@@ -16,6 +16,9 @@ import { DetailedSummaryCards } from "@/components/monitoring/analytics/Detailed
 import { PeriodSelector, PeriodOption } from "@/components/monitoring/filters/PeriodSelector";
 import { PositionFilters, PositionRange } from "@/components/monitoring/filters/PositionFilters";
 import { MonitoringAnalyticsService, KeywordMetrics, PositionDistribution, DailyMetrics, TrendData, SummaryStats } from "@/services/monitoringAnalyticsService";
+import { KeywordMetricsService, KeywordDetail, PageMetrics } from "@/services/keywordMetricsService";
+import { TopPagesTable } from "@/components/monitoring/tables/TopPagesTable";
+import { KeywordDetailsTable } from "@/components/monitoring/tables/KeywordDetailsTable";
 
 const Monitoring = () => {
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
@@ -45,7 +48,10 @@ const Monitoring = () => {
     newKeywords: 0,
     lostKeywords: 0,
   });
+  const [keywordDetails, setKeywordDetails] = useState<KeywordDetail[]>([]);
+  const [pageMetrics, setPageMetrics] = useState<PageMetrics[]>([]);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
+  const [isLoadingTables, setIsLoadingTables] = useState(true);
 
   const loadSessions = async () => {
     setIsLoading(true);
@@ -90,9 +96,33 @@ const Monitoring = () => {
     }
   };
 
+  const loadTables = async () => {
+    if (!activeProject?.id) return;
+    
+    setIsLoadingTables(true);
+    try {
+      const [keywords, pages] = await Promise.all([
+        KeywordMetricsService.getKeywordDetails(activeProject.id),
+        KeywordMetricsService.getPageMetrics(activeProject.id),
+      ]);
+
+      setKeywordDetails(keywords);
+      setPageMetrics(pages);
+    } catch (error) {
+      console.error('Error loading tables:', error);
+    } finally {
+      setIsLoadingTables(false);
+    }
+  };
+
+  const handleLoadKeywordHistory = async (keywordId: string) => {
+    return await KeywordMetricsService.getKeywordHistory(keywordId, 30);
+  };
+
   useEffect(() => {
     loadSessions();
     loadAnalytics();
+    loadTables();
   }, [activeProject, selectedPeriod]);
 
   const handleSetupComplete = () => {
@@ -209,6 +239,19 @@ const Monitoring = () => {
               <DetailedSummaryCards 
                 stats={summaryStats}
                 isLoading={isLoadingAnalytics}
+              />
+
+              {/* Top Pages Table */}
+              <TopPagesTable 
+                data={pageMetrics}
+                isLoading={isLoadingTables}
+              />
+
+              {/* Keyword Details Table */}
+              <KeywordDetailsTable 
+                data={keywordDetails}
+                isLoading={isLoadingTables}
+                onLoadHistory={handleLoadKeywordHistory}
               />
 
               {/* Stats Cards */}
