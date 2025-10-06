@@ -527,6 +527,41 @@ export type Database = {
         }
         Relationships: []
       }
+      keyword_tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          keyword_ranking_id: string
+          tag_color: string | null
+          tag_name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          keyword_ranking_id: string
+          tag_color?: string | null
+          tag_name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          keyword_ranking_id?: string
+          tag_color?: string | null
+          tag_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_tags_keyword_ranking_id_fkey"
+            columns: ["keyword_ranking_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_rankings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monitoring_configs: {
         Row: {
           created_at: string

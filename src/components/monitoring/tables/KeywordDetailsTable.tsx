@@ -22,9 +22,11 @@ interface KeywordDetailsTableProps {
   data: KeywordDetail[];
   isLoading?: boolean;
   onLoadHistory?: (keywordId: string) => Promise<{ date: string; position: number }[]>;
+  onKeywordClick?: (keywordId: string, keywordName: string) => void;
+  filteredCount?: number;
 }
 
-export const KeywordDetailsTable = ({ data, isLoading = false, onLoadHistory }: KeywordDetailsTableProps) => {
+export const KeywordDetailsTable = ({ data, isLoading = false, onLoadHistory, onKeywordClick, filteredCount }: KeywordDetailsTableProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<'keyword' | 'currentPosition' | 'change' | 'estimatedTraffic'>('currentPosition');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -219,7 +221,13 @@ export const KeywordDetailsTable = ({ data, isLoading = false, onLoadHistory }: 
                             </Button>
                           </CollapsibleTrigger>
                         </TableCell>
-                        <TableCell className="font-medium">{keyword.keyword}</TableCell>
+                        <TableCell 
+                          className="font-medium cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => onKeywordClick?.(keyword.id, keyword.keyword)}
+                          title="Clique para análise detalhada"
+                        >
+                          {keyword.keyword}
+                        </TableCell>
                         <TableCell className="text-center">
                           {keyword.currentPosition ? (
                             <Badge 
@@ -339,7 +347,11 @@ export const KeywordDetailsTable = ({ data, isLoading = false, onLoadHistory }: 
         
         {sortedData.length > 0 && (
           <div className="mt-4 text-sm text-muted-foreground text-center">
-            Mostrando {sortedData.length} de {data.length} palavras-chave
+            {filteredCount !== undefined && filteredCount !== data.length ? (
+              <>Mostrando {sortedData.length} de {filteredCount} palavras-chave filtradas (total: {data.length})</>
+            ) : (
+              <>Mostrando {sortedData.length} de {data.length} palavras-chave</>
+            )}
           </div>
         )}
       </CardContent>

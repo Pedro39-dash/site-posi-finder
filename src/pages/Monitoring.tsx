@@ -19,6 +19,10 @@ import { MonitoringAnalyticsService, KeywordMetrics, PositionDistribution, Daily
 import { KeywordMetricsService, KeywordDetail, PageMetrics } from "@/services/keywordMetricsService";
 import { TopPagesTable } from "@/components/monitoring/tables/TopPagesTable";
 import { KeywordDetailsTable } from "@/components/monitoring/tables/KeywordDetailsTable";
+import { QuickWinsCards } from "@/components/monitoring/insights/QuickWinsCards";
+import { AdvancedFiltersPanel, AdvancedFilters } from "@/components/monitoring/filters/AdvancedFiltersPanel";
+import { KeywordAnalysisModal } from "@/components/monitoring/analytics/KeywordAnalysisModal";
+import { quickWinsService, QuickWinsData } from "@/services/quickWinsService";
 
 const Monitoring = () => {
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
@@ -52,6 +56,23 @@ const Monitoring = () => {
   const [pageMetrics, setPageMetrics] = useState<PageMetrics[]>([]);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   const [isLoadingTables, setIsLoadingTables] = useState(true);
+  
+  // Quick Wins & Advanced Filters state
+  const [quickWinsData, setQuickWinsData] = useState<QuickWinsData | null>(null);
+  const [isLoadingQuickWins, setIsLoadingQuickWins] = useState(true);
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
+    positionRange: 'all',
+    changeType: 'all',
+    trafficLevel: 'all',
+    url: null,
+    opportunity: 'all',
+    device: 'all'
+  });
+  
+  // Modal state
+  const [selectedKeywordId, setSelectedKeywordId] = useState<string | null>(null);
+  const [selectedKeywordName, setSelectedKeywordName] = useState<string>('');
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
 
   const loadSessions = async () => {
     setIsLoading(true);
@@ -119,10 +140,39 @@ const Monitoring = () => {
     return await KeywordMetricsService.getKeywordHistory(keywordId, 30);
   };
 
+  const loadQuickWins = async () => {
+    if (!activeProject?.id) return;
+    
+    setIsLoadingQuickWins(true);
+    try {
+      const data = await quickWinsService.getQuickWinsData(activeProject.id);
+      setQuickWinsData(data);
+    } catch (error) {
+      console.error('Error loading quick wins:', error);
+    } finally {
+      setIsLoadingQuickWins(false);
+    }
+  };
+
+  const handleKeywordClick = (keywordId: string, keywordName: string) => {
+    setSelectedKeywordId(keywordId);
+    setSelectedKeywordName(keywordName);
+    setIsAnalysisModalOpen(true);
+  };
+
+  const handleQuickWinCardClick = (type: 'quick-wins' | 'at-risk' | 'featured-snippet' | 'cannibalization') => {
+    // Aplicar filtro correspondente
+    setAdvancedFilters(prev => ({
+      ...prev,
+      opportunity: type
+    }));
+  };
+
   useEffect(() => {
     loadSessions();
     loadAnalytics();
     loadTables();
+    loadQuickWins();
   }, [activeProject, selectedPeriod]);
 
   const handleSetupComplete = () => {
@@ -217,10 +267,6 @@ const Monitoring = () => {
                   value={selectedPeriod} 
                   onChange={setSelectedPeriod} 
                 />
-                <PositionFilters 
-                  value={selectedPosition} 
-                  onChange={setSelectedPosition}
-                />
               </div>
 
               {/* Main Chart */}
@@ -241,6 +287,20 @@ const Monitoring = () => {
                 isLoading={isLoadingAnalytics}
               />
 
+              {/* Quick Wins Cards */}
+              <QuickWinsCards 
+                data={quickWinsData}
+                isLoading={isLoadingQuickWins}
+                onViewDetails={handleQuickWinCardClick}
+              />
+
+              {/* Advanced Filters */}
+              <AdvancedFiltersPanel 
+                filters={advancedFilters}
+                onChange={setAdvancedFilters}
+                availableUrls={[...new Set(keywordDetails.map(k => k.url).filter(Boolean) as string[])]}
+              />
+
               {/* Top Pages Table */}
               <TopPagesTable 
                 data={pageMetrics}
@@ -249,9 +309,44 @@ const Monitoring = () => {
 
               {/* Keyword Details Table */}
               <KeywordDetailsTable 
-                data={keywordDetails}
+                data={keywordDetails.filter(kw => {
+                  // Apply advanced filters
+                  if (advancedFilters.changeType !== 'all') {
+                    if (advancedFilters.changeType === 'improvements' && kw.change >= 0) return false;
+                    if (advancedFilters.changeType === 'declines' && kw.change <= 0) return false;
+                    if (advancedFilters.changeType === 'stable' && kw.change !== 0) return false;
+                  }
+                  
+                  if (advancedFilters.trafficLevel !== 'all') {
+                    if (advancedFilters.trafficLevel === 'high' && kw.estimatedTraffic <= 100) return false;
+                    if (advancedFilters.trafficLevel === 'medium' && (kw.estimatedTraffic <= 10 || kw.estimatedTraffic > 100)) return false;
+                    if (advancedFilters.trafficLevel === 'low' && kw.estimatedTraffic > 10) return false;
+                  }
+                  
+                  if (advancedFilters.url && kw.url !== advancedFilters.url) return false;
+                  
+                  if (advancedFilters.opportunity !== 'all') {
+                    const pos = kw.currentPosition || 100;
+                    if (advancedFilters.opportunity === 'quick-wins' && (pos < 4 || pos > 10)) return false;
+                    if (advancedFilters.opportunity === 'at-risk' && kw.change < 5) return false;
+                  }
+                  
+                  if (advancedFilters.device !== 'all' && kw.device !== advancedFilters.device) return false;
+                  
+                  return true;
+                })}
                 isLoading={isLoadingTables}
                 onLoadHistory={handleLoadKeywordHistory}
+                onKeywordClick={handleKeywordClick}
+                filteredCount={keywordDetails.length}
+              />
+
+              {/* Keyword Analysis Modal */}
+              <KeywordAnalysisModal 
+                open={isAnalysisModalOpen}
+                onOpenChange={setIsAnalysisModalOpen}
+                keywordRankingId={selectedKeywordId}
+                keywordName={selectedKeywordName}
               />
 
               {/* Stats Cards */}
