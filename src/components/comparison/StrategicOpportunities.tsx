@@ -8,6 +8,8 @@ import { DeepAnalysisService, DeepAnalysisData } from '@/services/deepAnalysisSe
 import DeepInsightsModal from './DeepInsightsModal';
 import { toast } from 'sonner';
 import { useKeywordFilter } from '@/contexts/KeywordFilterContext';
+import TrafficProjectionChart from './TrafficProjectionChart';
+import { ImprovementType } from '@/utils/trafficProjection';
 
 interface StrategicOpportunitiesProps {
   keywords: CompetitorKeyword[];
@@ -622,6 +624,14 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
                           </div>
                         </div>
                       )}
+                      
+                      {/* Traffic Projection Chart */}
+                      <div className="pt-4 mt-4 border-t">
+                        <TrafficProjectionChart
+                          keywords={keywords}
+                          improvementType={opportunity.id as ImprovementType}
+                        />
+                      </div>
                     </div>
 
                     {/* RIGHT: Recommendations */}
