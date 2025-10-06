@@ -40,7 +40,6 @@ import { ManualPositionCorrection } from './ManualPositionCorrection';
 import { getTop10CompetitorsAroundTarget } from '@/utils/competitorFiltering';
 import { useStableKeywords } from '@/hooks/useStableKeywords';
 import { DataValidationIndicator } from '@/components/ui/data-validation-indicator';
-import { DataAccuracyCard } from './DataAccuracyCard';
 
 interface CompetitiveResultsDisplayProps {
   analysisId: string;
@@ -605,13 +604,6 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
               
             {/* Keyword Filter Section */}
             <KeywordSelector keywords={analysisData?.keywords || []} />
-
-            {/* Data Accuracy Card */}
-            <DataAccuracyCard 
-              analysisData={analysisData}
-              onReverifyAll={handleReverifyAll}
-              isReverifyingAll={reverifyingAll}
-            />
 
             {/* Domain Selection Panel */}
             {allDomains.length > 0 && (
