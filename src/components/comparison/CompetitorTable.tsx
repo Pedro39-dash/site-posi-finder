@@ -5,9 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Download, ExternalLink, ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { Download, ExternalLink, ChevronLeft, ChevronRight, Info, AlertCircle } from 'lucide-react';
 import { CompetitorDomain, CompetitorKeyword } from '@/services/competitorAnalysisService';
-import { generateBacklinkEstimate, calculateTrafficEstimate, formatDomainDisplay } from '@/utils/domainEstimation';
+import { formatDomainDisplay } from '@/utils/domainEstimation';
 import { getTop10CompetitorsAhead, getDomainColor } from '@/utils/competitorFiltering';
 import { useKeywordFilter } from '@/contexts/KeywordFilterContext';
 
@@ -47,77 +47,52 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
 
   // Calculate metrics for filtered competitors - memoized for stability
   const competitorMetrics = useMemo(() => {
+    // We only work with the selected keyword (filteredKeywords should be 1 keyword)
+    if (filteredKeywords.length === 0) return [];
+    
+    const keywordData = filteredKeywords[0]; // Always 1 keyword when filtered
+    const targetPosition = keywordData.target_domain_position || null;
+    
     return filteredCompetitors.map(filtered => {
       const cleanDomain = filtered.domain;
       
-      // Find keywords where this competitor appears (filtered by selected keyword)
-      const competitorKeywords = filteredKeywords.filter(keyword => 
-        keyword.competitor_positions?.some(pos => 
-          pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
-        )
+      // Find competitor's data for this keyword
+      const competitorData = keywordData.competitor_positions?.find(
+        pos => pos.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
       );
       
-      // Calculate Share of Voice (from CompetitorDomain)
-      const shareOfVoice = filtered.share_of_voice || 0;
+      const competitorPosition = competitorData?.position || null;
       
-      // Count keywords where competitor is ahead of target domain
-      const keywordsAhead = filteredKeywords.filter(keyword => {
-        const myPos = keyword.target_domain_position || 999;
-        const competitorPos = keyword.competitor_positions?.find(
-          cp => cp.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
-        )?.position || 999;
-        return competitorPos < myPos;
-      }).length;
+      // Calculate position difference (negative = competitor ahead, positive = we're ahead)
+      const positionDifference = competitorPosition && targetPosition 
+        ? competitorPosition - targetPosition 
+        : null;
       
-      // Calculate average gap (positive = competitor ahead, negative = we're ahead)
-      const gaps = filteredKeywords
-        .map(keyword => {
-          const myPos = keyword.target_domain_position || 999;
-          const competitorPos = keyword.competitor_positions?.find(
-            cp => cp.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
-          )?.position || 999;
-          return myPos - competitorPos;
-        })
-        .filter(gap => gap !== 0 && Math.abs(gap) < 900); // Filter out invalid comparisons
-      
-      const averageGap = gaps.length > 0 
-        ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) 
-        : 0;
-      
-      // Calculate stable traffic estimate
-      const estimatedTraffic = Math.round(calculateTrafficEstimate(competitorKeywords, cleanDomain, false));
+      // Determine status
+      let status: 'ahead' | 'behind' | 'equal' | 'no-rank' = 'no-rank';
+      if (positionDifference !== null) {
+        if (positionDifference < 0) status = 'ahead'; // Competitor is ahead (lower position)
+        else if (positionDifference > 0) status = 'behind'; // We're ahead
+        else status = 'equal';
+      }
       
       return {
         domain: cleanDomain,
         originalDomain: filtered.originalDomain,
-        shareOfVoice,
-        keywordsAhead,
-        averageGap,
-        estimatedTraffic,
-        averagePosition: filtered.averagePosition,
+        position: competitorPosition,
+        positionDifference,
+        rankedUrl: competitorData?.url || '',
+        rankedTitle: competitorData?.title || competitorData?.url || '',
+        status,
         detectedAutomatically: filtered.detectedAutomatically
       };
     });
   }, [filteredCompetitors, filteredKeywords]);
 
-  // Add target domain to the table - memoized for stability
-  const targetMetrics = useMemo(() => {
-    const cleanTargetDomain = targetDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
-    
-    return {
-      domain: cleanTargetDomain,
-      originalDomain: targetDomain,
-      estimatedTraffic: Math.round(calculateTrafficEstimate(filteredKeywords, cleanTargetDomain, true)),
-      estimatedBacklinks: generateBacklinkEstimate(cleanTargetDomain, true),
-      detectedAutomatically: false // Target domain is never detected automatically
-    };
-  }, [targetDomain, filteredKeywords]);
-
-  // Calculate average position for summary (for selected keyword only)
-  const averagePosition = useMemo(() => {
-    const positionsWithValues = filteredKeywords.filter(k => k.target_domain_position && k.target_domain_position > 0);
-    if (positionsWithValues.length === 0) return 0;
-    return positionsWithValues.reduce((sum, k) => sum + (k.target_domain_position || 0), 0) / positionsWithValues.length;
+  // Get target domain position for display
+  const targetPosition = useMemo(() => {
+    if (filteredKeywords.length === 0) return null;
+    return filteredKeywords[0].target_domain_position || null;
   }, [filteredKeywords]);
 
   const allMetrics = competitorMetrics; // Only show competitors, not target domain
@@ -150,34 +125,27 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle>
-                {averagePosition === 1 ? 'Top 15 Concorrentes' : 'Concorrentes (Posições 1-4 e 6-16)'}
-              </CardTitle>
+              <CardTitle>Análise de Concorrentes</CardTitle>
               <Badge variant="outline" className="text-xs">
-                {allMetrics.length} encontrados
+                {allMetrics.length} concorrentes
               </Badge>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="max-w-xs">
-                    <p className="font-medium mb-1">Filtro por Palavra-chave</p>
-                    <p className="text-xs">
-                      {averagePosition === 1 
-                        ? 'Seu domínio está em 1º lugar. Mostrando os melhores concorrentes posicionados.' 
-                        : `Seu domínio está na ${averagePosition}ª posição. Mostrando concorrentes nas demais posições para análise comparativa.`
-                      }
-                    </p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+              {targetPosition && (
+                <Badge variant="default" className="text-xs">
+                  Sua posição: {targetPosition}º
+                </Badge>
+              )}
+              {!selectedKeyword && (
+                <Tooltip>
+                  <TooltipTrigger>
+                    <AlertCircle className="h-4 w-4 text-orange-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-xs">Selecione uma palavra-chave para ver a análise detalhada de concorrentes</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Concorrente
-              </Button>
               <Button variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
@@ -191,41 +159,21 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
             <TableHeader>
               <TableRow>
                 <TableHead>Domínio</TableHead>
+                <TableHead className="text-center">Posição</TableHead>
                 <TableHead className="text-center">
                   <Tooltip>
                     <TooltipTrigger className="flex items-center justify-center gap-1 cursor-help">
-                      Share of Voice
+                      Diferença
                       <Info className="h-3 w-3" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs">Participação de voz nos resultados</p>
+                      <p className="text-xs">Diferença de posições em relação ao seu domínio</p>
+                      <p className="text-xs text-muted-foreground mt-1">Negativo = concorrente à frente</p>
                     </TooltipContent>
                   </Tooltip>
                 </TableHead>
-                <TableHead className="text-center">
-                  <Tooltip>
-                    <TooltipTrigger className="flex items-center justify-center gap-1 cursor-help">
-                      Keywords à Frente
-                      <Info className="h-3 w-3" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">Nº de keywords onde o concorrente está melhor posicionado</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TableHead>
-                <TableHead className="text-center">
-                  <Tooltip>
-                    <TooltipTrigger className="flex items-center justify-center gap-1 cursor-help">
-                      Gap Médio
-                      <Info className="h-3 w-3" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">Diferença média de posição (+ = concorrente na frente)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TableHead>
-                <TableHead className="text-center">Tráfego Est.</TableHead>
-                <TableHead className="text-center">Posição Média</TableHead>
+                <TableHead>Página Ranqueada</TableHead>
+                <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -233,8 +181,26 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
               {paginationData.currentPageItems.length > 0 ? (
                 paginationData.currentPageItems.map((metrics, pageIndex) => {
                   const globalIndex = paginationData.startIndex + pageIndex;
+                  
+                  // Badge variants based on status
+                  const getStatusBadge = () => {
+                    switch (metrics.status) {
+                      case 'ahead':
+                        return { variant: 'destructive' as const, text: '🔴 À Frente' };
+                      case 'behind':
+                        return { variant: 'default' as const, text: '🟢 Atrás' };
+                      case 'equal':
+                        return { variant: 'secondary' as const, text: '⚪ Igual' };
+                      default:
+                        return { variant: 'outline' as const, text: 'N/A' };
+                    }
+                  };
+                  
+                  const statusBadge = getStatusBadge();
+                  
                   return (
                     <TableRow key={metrics.domain}>
+                      {/* Domínio */}
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div 
@@ -253,11 +219,6 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                                 <p className="text-muted-foreground break-all">
                                   {formatDomainDisplay(metrics.originalDomain || metrics.domain).fullUrl}
                                 </p>
-                                {formatDomainDisplay(metrics.domain).isPage && (
-                                  <p className="text-orange-500 mt-1">
-                                    ⚠️ Página específica analisada
-                                  </p>
-                                )}
                               </div>
                             </TooltipContent>
                           </Tooltip>
@@ -268,39 +229,78 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                           )}
                         </div>
                       </TableCell>
+                      
+                      {/* Posição Exata */}
                       <TableCell className="text-center">
-                        <Badge variant={metrics.shareOfVoice > 20 ? "default" : "outline"} className="font-mono">
-                          {metrics.shareOfVoice.toFixed(1)}%
+                        {metrics.position ? (
+                          <Badge 
+                            variant={metrics.position <= 3 ? 'default' : 'outline'}
+                            className="font-mono"
+                          >
+                            {metrics.position}º
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
+                      </TableCell>
+                      
+                      {/* Diferença de Posição */}
+                      <TableCell className="text-center">
+                        {metrics.positionDifference !== null ? (
+                          <Badge 
+                            variant={
+                              metrics.positionDifference < 0 
+                                ? 'destructive' 
+                                : metrics.positionDifference > 0 
+                                  ? 'default' 
+                                  : 'secondary'
+                            }
+                            className="font-mono"
+                          >
+                            {metrics.positionDifference > 0 ? '+' : ''}{metrics.positionDifference}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                      
+                      {/* Página Ranqueada */}
+                      <TableCell>
+                        {metrics.rankedUrl ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1 text-sm cursor-help hover:text-primary">
+                                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate max-w-[250px]">
+                                  {metrics.rankedTitle}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-md">
+                              <p className="text-xs font-medium mb-1">{metrics.rankedTitle}</p>
+                              <p className="text-xs text-muted-foreground break-all">{metrics.rankedUrl}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">URL não disponível</span>
+                        )}
+                      </TableCell>
+                      
+                      {/* Status Badge */}
+                      <TableCell className="text-center">
+                        <Badge variant={statusBadge.variant}>
+                          {statusBadge.text}
                         </Badge>
                       </TableCell>
+                      
+                      {/* Ações */}
                       <TableCell className="text-center">
-                        <Badge 
-                          variant={metrics.keywordsAhead > filteredKeywords.length / 2 ? "destructive" : "outline"} 
-                          className="font-mono"
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          disabled={!metrics.rankedUrl}
+                          onClick={() => metrics.rankedUrl && window.open(metrics.rankedUrl, '_blank')}
                         >
-                          {metrics.keywordsAhead}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge 
-                          variant={metrics.averageGap > 0 ? "destructive" : metrics.averageGap < 0 ? "default" : "outline"}
-                          className="font-mono"
-                        >
-                          {metrics.averageGap > 0 ? '+' : ''}{metrics.averageGap}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className="font-mono text-sm">
-                          {metrics.estimatedTraffic.toLocaleString()}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className="font-mono text-sm">
-                          {metrics.averagePosition ? `${metrics.averagePosition}º` : 'N/A'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button variant="ghost" size="sm">
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -309,12 +309,10 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    {averagePosition === 1 
-                      ? 'Parabéns! Você está em 1º lugar para esta palavra-chave.' 
-                      : selectedKeyword 
-                        ? `Nenhum concorrente encontrado para "${selectedKeyword.keyword}".`
-                        : 'Nenhum concorrente encontrado. Selecione uma palavra-chave para filtrar.'
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    {selectedKeyword 
+                      ? `Nenhum concorrente encontrado para "${selectedKeyword.keyword}".`
+                      : 'Selecione uma palavra-chave para ver a análise de concorrentes.'
                     }
                   </TableCell>
                 </TableRow>
