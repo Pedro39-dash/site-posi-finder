@@ -57,13 +57,32 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
         )
       );
       
-      // Count common keywords (where keyword is being analyzed for both target and competitor)
-      const commonKeywords = competitorKeywords.length; // All keywords where competitor appears are being analyzed
+      // Calculate Share of Voice (from CompetitorDomain)
+      const shareOfVoice = filtered.share_of_voice || 0;
       
-      // Count different keywords (where only competitor ranks, target doesn't)
-      const differentKeywords = competitorKeywords.filter(keyword => 
-        !keyword.target_domain_position || keyword.target_domain_position === null
-      ).length;
+      // Count keywords where competitor is ahead of target domain
+      const keywordsAhead = filteredKeywords.filter(keyword => {
+        const myPos = keyword.target_domain_position || 999;
+        const competitorPos = keyword.competitor_positions?.find(
+          cp => cp.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
+        )?.position || 999;
+        return competitorPos < myPos;
+      }).length;
+      
+      // Calculate average gap (positive = competitor ahead, negative = we're ahead)
+      const gaps = filteredKeywords
+        .map(keyword => {
+          const myPos = keyword.target_domain_position || 999;
+          const competitorPos = keyword.competitor_positions?.find(
+            cp => cp.domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') === cleanDomain
+          )?.position || 999;
+          return myPos - competitorPos;
+        })
+        .filter(gap => gap !== 0 && Math.abs(gap) < 900); // Filter out invalid comparisons
+      
+      const averageGap = gaps.length > 0 
+        ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) 
+        : 0;
       
       // Calculate stable traffic estimate
       const estimatedTraffic = Math.round(calculateTrafficEstimate(competitorKeywords, cleanDomain, false));
@@ -71,8 +90,9 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
       return {
         domain: cleanDomain,
         originalDomain: filtered.originalDomain,
-        commonKeywords,
-        differentKeywords,
+        shareOfVoice,
+        keywordsAhead,
+        averageGap,
         estimatedTraffic,
         averagePosition: filtered.averagePosition,
         detectedAutomatically: filtered.detectedAutomatically
@@ -87,8 +107,6 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
     return {
       domain: cleanTargetDomain,
       originalDomain: targetDomain,
-      commonKeywords: filteredKeywords.length, // Only selected keyword
-      differentKeywords: 0, // Target domain doesn't have "different" keywords from itself
       estimatedTraffic: Math.round(calculateTrafficEstimate(filteredKeywords, cleanTargetDomain, true)),
       estimatedBacklinks: generateBacklinkEstimate(cleanTargetDomain, true),
       detectedAutomatically: false // Target domain is never detected automatically
@@ -173,8 +191,39 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
             <TableHeader>
               <TableRow>
                 <TableHead>Domínio</TableHead>
-                <TableHead className="text-center">Palavras-chave Comuns</TableHead>
-                <TableHead className="text-center">Diferentes</TableHead>
+                <TableHead className="text-center">
+                  <Tooltip>
+                    <TooltipTrigger className="flex items-center justify-center gap-1 cursor-help">
+                      Share of Voice
+                      <Info className="h-3 w-3" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Participação de voz nos resultados</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TableHead>
+                <TableHead className="text-center">
+                  <Tooltip>
+                    <TooltipTrigger className="flex items-center justify-center gap-1 cursor-help">
+                      Keywords à Frente
+                      <Info className="h-3 w-3" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Nº de keywords onde o concorrente está melhor posicionado</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TableHead>
+                <TableHead className="text-center">
+                  <Tooltip>
+                    <TooltipTrigger className="flex items-center justify-center gap-1 cursor-help">
+                      Gap Médio
+                      <Info className="h-3 w-3" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Diferença média de posição (+ = concorrente na frente)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TableHead>
                 <TableHead className="text-center">Tráfego Est.</TableHead>
                 <TableHead className="text-center">Posição Média</TableHead>
                 <TableHead className="text-center">Ações</TableHead>
@@ -220,13 +269,24 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="font-mono">
-                          {metrics.commonKeywords}
+                        <Badge variant={metrics.shareOfVoice > 20 ? "default" : "outline"} className="font-mono">
+                          {metrics.shareOfVoice.toFixed(1)}%
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="font-mono">
-                          {metrics.differentKeywords}
+                        <Badge 
+                          variant={metrics.keywordsAhead > filteredKeywords.length / 2 ? "destructive" : "outline"} 
+                          className="font-mono"
+                        >
+                          {metrics.keywordsAhead}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge 
+                          variant={metrics.averageGap > 0 ? "destructive" : metrics.averageGap < 0 ? "default" : "outline"}
+                          className="font-mono"
+                        >
+                          {metrics.averageGap > 0 ? '+' : ''}{metrics.averageGap}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
@@ -249,7 +309,7 @@ const CompetitorTable: React.FC<CompetitorTableProps> = ({
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {averagePosition === 1 
                       ? 'Parabéns! Você está em 1º lugar para esta palavra-chave.' 
                       : selectedKeyword 

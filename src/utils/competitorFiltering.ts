@@ -5,6 +5,7 @@ export interface FilteredCompetitor {
   originalDomain: string;
   averagePosition: number | null;
   detectedAutomatically: boolean;
+  share_of_voice: number;
 }
 
 /**
@@ -53,7 +54,8 @@ export function getTop10CompetitorsAroundTarget(
       domain: cleanDomain,
       originalDomain: competitor.domain,
       averagePosition,
-      detectedAutomatically: competitor.detected_automatically
+      detectedAutomatically: competitor.detected_automatically,
+      share_of_voice: competitor.share_of_voice
     };
   });
 
@@ -148,7 +150,8 @@ export function getTop10CompetitorsAhead(
       domain: cleanDomain,
       originalDomain: competitor.domain,
       averagePosition,
-      detectedAutomatically: competitor.detected_automatically
+      detectedAutomatically: competitor.detected_automatically,
+      share_of_voice: competitor.share_of_voice
     };
   });
 
