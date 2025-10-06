@@ -208,10 +208,16 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
         setDeepAnalysisData(result.data);
         setShowModal(true);
         
-        toast.success('✅ Análise profunda concluída! Confira os insights nos cards abaixo.', {
+        toast.success('✅ Análise profunda concluída!', {
           id: 'deep-analysis',
-          duration: 6000,
+          duration: 3000,
         });
+
+        // Fechar modal automaticamente e destacar cards atualizados
+        setTimeout(() => {
+          setShowModal(false);
+          toast.success('✅ Confira os insights nos cards abaixo!', { duration: 5000 });
+        }, 1000);
       } else {
         console.error('❌ Deep analysis failed:', result.error);
         setAnalysisError(result.error || 'Erro desconhecido');
@@ -282,7 +288,7 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
         </div>
       </div>
       
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2" key={deepAnalysisData ? 'with-insights' : 'without-insights'}>
         {opportunities.map((opportunity) => {
           const Icon = opportunity.icon;
           const insights = getDeepInsights(opportunity.id);
