@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { DeepAnalysisService, DeepAnalysisData } from '@/services/deepAnalysisService';
 import DeepInsightsModal from './DeepInsightsModal';
 import { toast } from 'sonner';
+import { useKeywordFilter } from '@/contexts/KeywordFilterContext';
 
 interface StrategicOpportunitiesProps {
   keywords: CompetitorKeyword[];
@@ -19,18 +20,30 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
   targetDomain,
   analysisId
 }) => {
+  const { deepAnalysisData, setDeepAnalysisData } = useKeywordFilter();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [deepAnalysisData, setDeepAnalysisData] = useState<DeepAnalysisData | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  
+  // useRef para proteger dados durante re-renders
+  const deepAnalysisDataRef = useRef<DeepAnalysisData | null>(null);
+  
+  // Sincronizar ref com o context
+  useEffect(() => {
+    if (deepAnalysisData) {
+      deepAnalysisDataRef.current = deepAnalysisData;
+    }
+  }, [deepAnalysisData]);
 
   // Gerar cards baseados em dados reais da análise profunda
   const getOpportunitiesFromData = () => {
-    if (!deepAnalysisData) {
+    // Usar ref como fallback se o context estiver null durante re-render
+    const data = deepAnalysisData || deepAnalysisDataRef.current;
+    if (!data) {
       return [];
     }
 
-    const { target, competitorAverages } = deepAnalysisData;
+    const { target, competitorAverages } = data;
     
     const formatBytes = (bytes: number) => {
       const mb = bytes / 1024 / 1024;

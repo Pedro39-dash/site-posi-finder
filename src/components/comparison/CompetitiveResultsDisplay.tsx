@@ -74,7 +74,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     lastUpdated,
     isStale
   } = useSupabaseCache<CompetitiveAnalysisData>(
-    `competitive-analysis-${analysisId}-keyword-${selectedKeyword || 'all'}`,
+    `competitive-analysis-${analysisId}-keyword-${selectedKeyword?.keyword || 'all'}`,
     () => CompetitorAnalysisService.getAnalysisData(analysisId).then(result => {
       if (!result.success || !result.data) {
         throw new Error(result.error || 'Failed to load analysis data');
