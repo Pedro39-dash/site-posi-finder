@@ -5,12 +5,14 @@ import { KeywordMetricsService } from '@/services/keywordMetricsService';
 import { MonitoringAnalyticsService } from '@/services/monitoringAnalyticsService';
 import { quickWinsService } from '@/services/quickWinsService';
 import { KeywordDiscoveryService } from '@/services/keywordDiscoveryService';
+import { RankingService, KeywordRanking } from '@/services/rankingService';
 import { supabase } from '@/integrations/supabase/client';
 import { MonitoringSetup } from '@/components/monitoring/MonitoringSetup';
 import { MonitoringCard } from '@/components/monitoring/MonitoringCard';
-import { SimulationNotice } from '@/components/SimulationNotice';
+import SimulationNotice from '@/components/SimulationNotice';
 import { ScheduleManager } from '@/components/monitoring/ScheduleManager';
-import KeywordSuggestions from '@/components/ranking/KeywordSuggestions';
+import { KeywordSuggestions } from '@/components/ranking/KeywordSuggestions';
+import { KeywordManager } from '@/components/monitoring/KeywordManager';
 import { MonitoringSummaryCards } from '@/components/monitoring/analytics/MonitoringSummaryCards';
 import { KeywordPositionChart } from '@/components/monitoring/analytics/KeywordPositionChart';
 import { PositionTrendsSection } from '@/components/monitoring/analytics/PositionTrendsSection';
@@ -23,12 +25,14 @@ import { KeywordDetailsTable } from '@/components/monitoring/tables/KeywordDetai
 import { KeywordAnalysisModal } from '@/components/monitoring/analytics/KeywordAnalysisModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useProject } from '@/hooks/useProject';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw, Search as SearchIcon } from 'lucide-react';
+import { RefreshCw, Search as SearchIcon, Globe, TrendingUp, Clock, Monitor } from 'lucide-react';
 
 const Monitoring = () => {
   const [sessions, setSessions] = useState<MonitoringSession[]>([]);
+  const [rankings, setRankings] = useState<KeywordRanking[]>([]);
   const { activeProject } = useProject();
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState<any>('30d');
@@ -116,11 +120,42 @@ const Monitoring = () => {
     }
   };
 
+  const loadRankings = async () => {
+    if (!activeProject) return;
+    try {
+      const result = await RankingService.getProjectRankings(activeProject.id);
+      if (result.success) {
+        setRankings(result.rankings || []);
+      }
+    } catch (error) {
+      console.error('Error loading rankings:', error);
+    }
+  };
+
+  const loadSuggestions = async () => {
+    if (!activeProject) return;
+    try {
+      const stats = await KeywordDiscoveryService.getDiscoveryStats(activeProject.id);
+      // Get pending suggestions from the database
+      const { data } = await supabase
+        .from('keyword_suggestions')
+        .select('*')
+        .eq('project_id', activeProject.id)
+        .eq('status', 'pending')
+        .order('relevance_score', { ascending: false });
+      setSuggestions(data || []);
+    } catch (error) {
+      console.error('Error loading suggestions:', error);
+    }
+  };
+
   useEffect(() => {
     loadSessions();
     loadAnalytics();
     loadTables();
     loadQuickWins();
+    loadRankings();
+    loadSuggestions();
   }, [activeProject, selectedPeriod]);
 
   const handleSetupComplete = () => {
@@ -190,6 +225,7 @@ const Monitoring = () => {
     setIsDiscovering(true);
     try {
       await KeywordDiscoveryService.discoverKeywords(activeProject.id);
+      await loadSuggestions();
       toast({ title: 'Descoberta concluída' });
     } catch (error) {
       toast({ title: 'Erro', variant: 'destructive' });
@@ -215,6 +251,14 @@ const Monitoring = () => {
               </Button>
             </div>
 
+            {/* Gerenciamento de Keywords */}
+            <KeywordManager
+              rankings={rankings}
+              projectId={activeProject?.id || ''}
+              onRankingsUpdate={loadRankings}
+            />
+
+            {/* Descoberta de Keywords */}
             <Card className="mb-8">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -223,14 +267,32 @@ const Monitoring = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Button onClick={handleDiscoverKeywords} disabled={isDiscovering}>
-                  {isDiscovering ? 'Descobrindo...' : 'Descobrir Novas Keywords'}
-                </Button>
+                <div className="flex gap-4 mb-6">
+                  <Button onClick={handleDiscoverKeywords} disabled={isDiscovering}>
+                    {isDiscovering ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Descobrindo...
+                      </>
+                    ) : (
+                      <>
+                        <SearchIcon className="h-4 w-4 mr-2" />
+                        Descobrir Novas Keywords
+                      </>
+                    )}
+                  </Button>
+                  {suggestions.length > 0 && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      {suggestions.length} sugestões disponíveis
+                    </Badge>
+                  )}
+                </div>
+                
                 {suggestions.length > 0 && (
                   <KeywordSuggestions
                     suggestions={suggestions}
                     projectId={activeProject?.id || ''}
-                    onSuggestionsUpdate={() => {}}
+                    onSuggestionsUpdate={loadSuggestions}
                   />
                 )}
               </CardContent>
