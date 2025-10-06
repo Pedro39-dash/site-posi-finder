@@ -659,4 +659,11 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
   );
 };
 
-export default StrategicOpportunities;
+export default React.memo(StrategicOpportunities, (prevProps, nextProps) => {
+  return (
+    prevProps.targetDomain === nextProps.targetDomain &&
+    prevProps.analysisId === nextProps.analysisId &&
+    prevProps.keywords.length === nextProps.keywords.length &&
+    prevProps.keywords[0]?.keyword === nextProps.keywords[0]?.keyword
+  );
+});

@@ -64,9 +64,19 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
 
   const { filters, filterActions } = useOptimizedFilters();
 
-  // Cache da análise com invalidação automática por palavra-chave
+  // Cache da análise - estável sem invalidação por keyword
+  const fetcher = useCallback(
+    () => CompetitorAnalysisService.getAnalysisData(analysisId).then(result => {
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to load analysis data');
+      }
+      return result.data;
+    }),
+    [analysisId]
+  );
+
   const {
-    data: analysisData,
+    data: rawAnalysisData,
     loading,
     error,
     refresh,
@@ -74,21 +84,23 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     lastUpdated,
     isStale
   } = useSupabaseCache<CompetitiveAnalysisData>(
-    `competitive-analysis-${analysisId}-keyword-${selectedKeyword?.keyword || 'all'}`,
-    () => CompetitorAnalysisService.getAnalysisData(analysisId).then(result => {
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to load analysis data');
-      }
-      return result.data;
-    }),
-    { ttl: 3 * 60 * 1000, enableAutoRefresh: false } // 3 minutes for keyword-specific data
+    `competitive-analysis-${analysisId}`,
+    fetcher,
+    { ttl: 5 * 60 * 1000, enableAutoRefresh: false }
   );
 
-  // Invalidate cache when keyword changes
-  useEffect(() => {
-    console.log(`🔄 Keyword changed to: ${selectedKeyword}, invalidating cache`);
-    invalidate();
-  }, [selectedKeyword, invalidate]);
+  // Filtrar dados localmente por palavra-chave (sem invalidar cache)
+  const analysisData = useMemo(() => {
+    if (!rawAnalysisData) return null;
+    if (!selectedKeyword) return rawAnalysisData;
+    
+    return {
+      ...rawAnalysisData,
+      keywords: rawAnalysisData.keywords.filter(k => 
+        k.keyword === selectedKeyword.keyword
+      )
+    };
+  }, [rawAnalysisData, selectedKeyword?.keyword]);
 
   // ALL remaining hooks and memoized values (must be called consistently)
 
