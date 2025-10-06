@@ -22,6 +22,14 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [deepAnalysisData, setDeepAnalysisData] = useState<DeepAnalysisData | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  console.log('🎯 StrategicOpportunities mounted:', {
+    hasAnalysisId: !!analysisId,
+    analysisId,
+    hasDeepData: !!deepAnalysisData,
+    isAnalyzing
+  });
   // Calculate real opportunities based on competitor analysis
   const contentGaps = keywords.filter(k => !k.target_domain_position && k.competitor_positions?.some(p => p.position <= 10));
   const quickWins = keywords.filter(k => k.target_domain_position && k.target_domain_position >= 11 && k.target_domain_position <= 20);
@@ -143,75 +151,135 @@ const StrategicOpportunities: React.FC<StrategicOpportunitiesProps> = ({
 
   // Handler para análise profunda
   const handleDeepAnalysis = async () => {
+    console.log('🚀 handleDeepAnalysis called');
+    
     if (!analysisId) {
-      toast.error('ID da análise não disponível');
-      return;
-    }
-
-    // Extrair top 3 concorrentes
-    const topCompetitors = [...new Set(
-      keywords
-        .flatMap(k => k.competitor_positions?.filter(p => p.position <= 10).map(p => p.domain) || [])
-        .filter(Boolean)
-    )].slice(0, 3);
-
-    if (topCompetitors.length === 0) {
-      toast.error('Nenhum concorrente encontrado para análise');
+      console.error('❌ No analysisId provided');
+      toast.error('ID de análise não encontrado. Tente recarregar a página.');
       return;
     }
 
     setIsAnalyzing(true);
-    toast.info(`🔍 Iniciando análise profunda de ${topCompetitors.length + 1} domínios...`);
-
+    setAnalysisError(null);
+    
+    console.log('⏳ Starting deep analysis for:', { analysisId, targetDomain });
+    
+    // Show initial toast with loading state
+    toast.loading('🔍 Iniciando análise profunda... (~40 segundos)', {
+      id: 'deep-analysis',
+    });
+    
     try {
+      // Get top 3 competitors by average position
+      const topCompetitors = keywords
+        .filter(k => k.competitor_positions && k.competitor_positions.length > 0)
+        .flatMap(k => k.competitor_positions || [])
+        .reduce((acc, comp) => {
+          const existing = acc.find(c => c.domain === comp.domain);
+          if (existing) {
+            existing.totalPosition += comp.position || 100;
+            existing.count++;
+          } else {
+            acc.push({
+              domain: comp.domain,
+              totalPosition: comp.position || 100,
+              count: 1
+            });
+          }
+          return acc;
+        }, [] as Array<{ domain: string; totalPosition: number; count: number }>)
+        .map(c => ({ ...c, avgPosition: c.totalPosition / c.count }))
+        .sort((a, b) => a.avgPosition - b.avgPosition)
+        .slice(0, 3)
+        .map(c => c.domain);
+
+      console.log('📊 Top competitors selected:', topCompetitors);
+
       const result = await DeepAnalysisService.startDeepAnalysis(
         analysisId,
         targetDomain,
         topCompetitors
       );
 
+      console.log('📥 Deep analysis result:', result);
+
       if (result.success && result.data) {
-        console.log('✅ Deep analysis completed:', result.data);
+        console.log('✅ Deep analysis successful, setting data');
         setDeepAnalysisData(result.data);
         setShowModal(true);
+        
         toast.success('✅ Análise profunda concluída! Confira os insights nos cards abaixo.', {
-          duration: 5000,
+          id: 'deep-analysis',
+          duration: 6000,
         });
       } else {
-        toast.error(result.error || 'Erro ao realizar análise');
+        console.error('❌ Deep analysis failed:', result.error);
+        setAnalysisError(result.error || 'Erro desconhecido');
+        toast.error(result.error || 'Erro ao realizar análise profunda', {
+          id: 'deep-analysis',
+        });
       }
     } catch (error) {
-      toast.error('Erro ao realizar análise profunda');
-      console.error(error);
+      console.error('❌ Exception during deep analysis:', error);
+      setAnalysisError(error instanceof Error ? error.message : 'Erro inesperado');
+      toast.error('Erro ao executar análise profunda. Verifique os logs para mais detalhes.', {
+        id: 'deep-analysis',
+      });
     } finally {
       setIsAnalyzing(false);
+      console.log('🏁 Deep analysis finished');
     }
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Oportunidades Estratégicas</h3>
-        {analysisId && (
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleDeepAnalysis}
-            disabled={isAnalyzing}
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Analisando...
-              </>
-            ) : (
-              <>
-                <Search className="h-4 w-4 mr-2" />
-                Análise Profunda de SEO
-              </>
-            )}
-          </Button>
-        )}
+        <div>
+          <h3 className="text-lg font-semibold">Oportunidades Estratégicas</h3>
+          {deepAnalysisData && (
+            <p className="text-xs text-primary font-medium mt-1">
+              ✅ Insights detalhados disponíveis nos cards abaixo
+            </p>
+          )}
+          {analysisError && (
+            <p className="text-xs text-destructive font-medium mt-1">
+              ❌ {analysisError}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-2 items-end">
+          {!analysisId && (
+            <p className="text-xs text-muted-foreground">
+              ⚠️ ID de análise não disponível
+            </p>
+          )}
+          {analysisId && (
+            <Button 
+              variant={deepAnalysisData ? "outline" : "default"}
+              size="sm"
+              onClick={handleDeepAnalysis}
+              disabled={isAnalyzing}
+              className="gap-2"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analisando... (~40s)
+                </>
+              ) : deepAnalysisData ? (
+                <>
+                  <TrendingUp className="h-4 w-4" />
+                  Atualizar Análise
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4" />
+                  Análise Profunda de SEO
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
       
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2">

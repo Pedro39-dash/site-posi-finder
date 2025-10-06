@@ -340,19 +340,30 @@ function generateRecommendations(
 }
 
 serve(async (req) => {
+  console.log('🎯 Deep SEO Analysis Edge Function called');
+  console.log('📥 Request method:', req.method);
+  
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight handled');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { analysis_id, target_domain, competitor_domains } = await req.json();
+    const body = await req.json();
+    console.log('📦 Request body received:', JSON.stringify(body, null, 2));
+    
+    const { analysis_id, target_domain, competitor_domains } = body;
 
     if (!analysis_id || !target_domain) {
+      console.error('❌ Missing parameters:', { analysis_id, target_domain });
       throw new Error('Missing required parameters: analysis_id and target_domain');
     }
 
-    console.log(`🚀 Starting deep SEO analysis for ${target_domain}`);
-    console.log(`📊 Analyzing ${competitor_domains?.length || 0} competitors`);
+    console.log(`🚀 Starting deep SEO analysis`);
+    console.log(`   - Analysis ID: ${analysis_id}`);
+    console.log(`   - Target domain: ${target_domain}`);
+    console.log(`   - Competitors: ${competitor_domains?.length || 0} domains`);
+    console.log(`   - Competitor list: ${competitor_domains?.join(', ') || 'none'}`);
 
     // Analyze target domain
     const targetUrl = target_domain.startsWith('http') ? target_domain : `https://${target_domain}`;
@@ -390,6 +401,14 @@ serve(async (req) => {
     };
 
     console.log(`✅ Deep analysis completed successfully`);
+    console.log(`📊 Result summary:`, {
+      target_domain: targetAnalysis.domain,
+      target_performance: targetAnalysis.performanceScore,
+      target_seo: targetAnalysis.seoScore,
+      target_DA: targetAnalysis.estimatedDA,
+      competitors_analyzed: competitorAnalyses.length,
+      recommendations_count: recommendations.length
+    });
 
     return new Response(
       JSON.stringify({ success: true, data: result }),
@@ -398,10 +417,16 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Deep analysis error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message || 'Unknown error during deep analysis'
       }),
       { 
         status: 500,
