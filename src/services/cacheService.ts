@@ -4,6 +4,7 @@ export interface CacheEntry {
   cache_key: string;
   data: any;
   expires_at: string;
+  user_id: string;
 }
 
 export class CacheService {
@@ -14,6 +15,14 @@ export class CacheService {
   // Set cache with custom TTL
   static async set(key: string, data: any, ttlMs: number = this.DEFAULT_TTL): Promise<void> {
     try {
+      // Get current user ID for ownership tracking
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.warn('⚠️ Cannot set cache: User not authenticated');
+        return;
+      }
+
       const expiresAt = new Date(Date.now() + ttlMs).toISOString();
       
       const { error } = await supabase
@@ -22,7 +31,8 @@ export class CacheService {
           {
             cache_key: key,
             data: data,
-            expires_at: expiresAt
+            expires_at: expiresAt,
+            user_id: user.id
           },
           { onConflict: 'cache_key' }
         );

@@ -22,6 +22,7 @@ export type Database = {
           expires_at: string
           id: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           cache_key: string
@@ -30,6 +31,7 @@ export type Database = {
           expires_at?: string
           id?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           cache_key?: string
@@ -38,6 +40,7 @@ export type Database = {
           expires_at?: string
           id?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
