@@ -10,8 +10,13 @@ import { RefreshCw } from "lucide-react";
 
 type AnalysisState = 'form' | 'results';
 
-const Comparison = () => {
-  const { activeProject } = useProject();
+interface ComparisonProps {
+  activeProject?: any;
+}
+
+const Comparison = ({ activeProject: propActiveProject }: ComparisonProps = {}) => {
+  const { activeProject: contextActiveProject } = useProject();
+  const activeProject = propActiveProject || contextActiveProject;
   
   // Main state management
   const [state, setState] = useState<AnalysisState>('form');
@@ -22,7 +27,11 @@ const Comparison = () => {
 
   // Reset state when active project changes
   useEffect(() => {
-    console.log('🎯 Comparison useEffect disparado - activeProject:', activeProject?.name, activeProject?.id);
+    console.log('🎯 Comparison montou/atualizou com projeto:', {
+      id: activeProject?.id,
+      name: activeProject?.name,
+      timestamp: Date.now()
+    });
     
     if (activeProject?.id) {
       console.log('🔄 Comparison: Projeto ativo mudou para:', activeProject.name);
@@ -35,7 +44,7 @@ const Comparison = () => {
       // Remove indicator after brief delay
       setTimeout(() => setIsChangingProject(false), 500);
     }
-  }, [activeProject]);
+  }, [activeProject?.id]);
 
   // Handler functions
   const handleAnalysisStarted = (newAnalysisId: string) => {

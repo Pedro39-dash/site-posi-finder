@@ -33,10 +33,25 @@ const ComparisonWithKey = () => {
   const [renderKey, setRenderKey] = useState(0);
   
   useEffect(() => {
+    console.log('🔑 ComparisonWithKey: activeProject mudou', {
+      id: activeProject?.id,
+      name: activeProject?.name,
+      renderKey
+    });
     setRenderKey(prev => prev + 1);
   }, [activeProject?.id]);
   
-  return <Comparison key={`${activeProject?.id}-${renderKey}`} />;
+  console.log('🎨 ComparisonWithKey render:', {
+    projectId: activeProject?.id,
+    projectName: activeProject?.name,
+    renderKey,
+    key: `${activeProject?.id}-${renderKey}`
+  });
+  
+  return <Comparison 
+    key={`${activeProject?.id}-${renderKey}`} 
+    activeProject={activeProject}
+  />;
 };
 
 // Layout component with integrated onboarding and project management
