@@ -1,5 +1,14 @@
 project_id = "yfvfklgjzmmobwfhdrqp"
 
+[functions.google-oauth]
+verify_jwt = false
+
+[functions.sync-search-console]
+verify_jwt = true
+
+[functions.sync-analytics]
+verify_jwt = true
+
 [functions.seo-audit]
 verify_jwt = true
 

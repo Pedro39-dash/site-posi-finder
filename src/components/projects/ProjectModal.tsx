@@ -20,6 +20,8 @@ import { useProject } from '@/hooks/useProject';
 import { ProjectService } from '@/services/projectService';
 import { RankingService } from '@/services/rankingService';
 import { toast } from 'sonner';
+import IntegrationManager from '@/components/integrations/IntegrationManager';
+import { Separator } from '@/components/ui/separator';
 
 interface ProjectModalProps {
   open: boolean;
@@ -247,6 +249,13 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               Separe os domínios por vírgula
             </p>
           </div>
+
+          {isEdit && projectId && (
+            <>
+              <Separator className="my-4" />
+              <IntegrationManager projectId={projectId} />
+            </>
+          )}
 
           <div className="flex gap-2 pt-4">
             <Button 

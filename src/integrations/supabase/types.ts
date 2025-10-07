@@ -445,10 +445,14 @@ export type Database = {
       }
       keyword_rankings: {
         Row: {
+          clicks: number | null
           created_at: string
+          ctr: number | null
           current_position: number | null
+          data_source: string | null
           device: string
           id: string
+          impressions: number | null
           keyword: string
           location: string | null
           metadata: Json | null
@@ -459,10 +463,14 @@ export type Database = {
           url: string | null
         }
         Insert: {
+          clicks?: number | null
           created_at?: string
+          ctr?: number | null
           current_position?: number | null
+          data_source?: string | null
           device?: string
           id?: string
+          impressions?: number | null
           keyword: string
           location?: string | null
           metadata?: Json | null
@@ -473,10 +481,14 @@ export type Database = {
           url?: string | null
         }
         Update: {
+          clicks?: number | null
           created_at?: string
+          ctr?: number | null
           current_position?: number | null
+          data_source?: string | null
           device?: string
           id?: string
+          impressions?: number | null
           keyword?: string
           location?: string | null
           metadata?: Json | null
@@ -750,6 +762,71 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      project_integrations: {
+        Row: {
+          access_token: string | null
+          account_email: string | null
+          connected_at: string | null
+          created_at: string | null
+          id: string
+          integration_type: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          project_id: string
+          property_id: string | null
+          refresh_token: string | null
+          sync_error: string | null
+          sync_status: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+          view_id: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          account_email?: string | null
+          connected_at?: string | null
+          created_at?: string | null
+          id?: string
+          integration_type: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          project_id: string
+          property_id?: string | null
+          refresh_token?: string | null
+          sync_error?: string | null
+          sync_status?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          view_id?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          account_email?: string | null
+          connected_at?: string | null
+          created_at?: string | null
+          id?: string
+          integration_type?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          project_id?: string
+          property_id?: string | null
+          refresh_token?: string | null
+          sync_error?: string | null
+          sync_status?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          view_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_integrations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {

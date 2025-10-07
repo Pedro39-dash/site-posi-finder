@@ -8,6 +8,8 @@ import { PositionChangeTrendChart } from '@/components/monitoring/analytics/Posi
 import { QuickWinsCards } from '@/components/monitoring/insights/QuickWinsCards';
 import { useProject } from '@/hooks/useProject';
 import { quickWinsService, QuickWinsData } from '@/services/quickWinsService';
+import IntegrationStatusBanner from '@/components/integrations/IntegrationStatusBanner';
+import { IntegrationService, ProjectIntegration } from '@/services/integrationService';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
@@ -15,6 +17,7 @@ const Monitoring = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [quickWinsData, setQuickWinsData] = useState<QuickWinsData | null>(null);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+  const [integrations, setIntegrations] = useState<ProjectIntegration[]>([]);
 
   const loadRankings = async () => {
     if (!activeProject) {
@@ -74,6 +77,14 @@ const Monitoring = () => {
     }
   };
 
+  const loadIntegrations = async () => {
+    if (!activeProject) return;
+    const result = await IntegrationService.getProjectIntegrations(activeProject.id);
+    if (result.success && result.integrations) {
+      setIntegrations(result.integrations);
+    }
+  };
+
   useEffect(() => {
     console.log('🔄 [Monitoring] useEffect triggered:', {
       activeProjectId: activeProject?.id,
@@ -85,6 +96,7 @@ const Monitoring = () => {
     console.log('🧹 [Monitoring] Limpando dados do projeto anterior');
     setRankings([]);
     setQuickWinsData(null);
+    setIntegrations([]);
     
     // Early return se não houver projeto ativo
     if (!activeProject || !activeProject.id) {
@@ -97,6 +109,7 @@ const Monitoring = () => {
     console.log('📥 [Monitoring] Carregando dados para projeto:', activeProject.id);
     loadRankings();
     loadQuickWins();
+    loadIntegrations();
   }, [activeProject?.id]);
 
   return (
@@ -110,10 +123,18 @@ const Monitoring = () => {
               <p className="text-muted-foreground">Acompanhe suas posições nos mecanismos de busca</p>
             </div>
 
+            {/* Banner de Integração */}
+            {activeProject && (
+              <IntegrationStatusBanner 
+                projectId={activeProject.id}
+                integrations={integrations}
+              />
+            )}
+
             {/* Métricas de Keywords */}
             {activeProject && (
               <>
-                <KeywordMetricsSummary 
+                <KeywordMetricsSummary
                   rankings={rankings}
                   projectId={activeProject.id}
                   isLoading={isLoading}
