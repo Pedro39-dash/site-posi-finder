@@ -33,6 +33,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { projects, activeProject, isLoading: projectsLoading } = useProject();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     // Check if user needs onboarding (first time user with no projects)
@@ -46,11 +47,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   };
 
   const handleCreateProject = () => {
+    setEditingProjectId(undefined);
     setShowProjectModal(true);
   };
 
   const handleEditProject = () => {
     if (activeProject) {
+      setEditingProjectId(activeProject.id);
       setShowProjectModal(true);
     }
   };
@@ -89,8 +92,11 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       
       <ProjectModal 
         open={showProjectModal}
-        onClose={() => setShowProjectModal(false)}
-        projectId={activeProject?.id}
+        onClose={() => {
+          setShowProjectModal(false);
+          setEditingProjectId(undefined);
+        }}
+        projectId={editingProjectId}
       />
     </SidebarProvider>
   );
