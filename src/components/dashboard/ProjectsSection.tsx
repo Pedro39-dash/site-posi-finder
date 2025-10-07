@@ -2,28 +2,27 @@ import { FolderOpen, Plus, TrendingUp, TrendingDown, Minus, ArrowRight } from "l
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useProjects, Project } from "@/contexts/ProjectContext";
+import { useProject } from "@/hooks/useProject";
 import { useNavigate } from "react-router-dom";
+import type { Project } from "@/services/projectService";
 
 const ProjectsSection = () => {
-  const { projects, activeProject, setSelectedProject, setActiveProject } = useProjects();
+  const { projects, activeProject, setActiveProject } = useProject();
   const navigate = useNavigate();
 
   const handleViewProject = (project: Project) => {
-    setSelectedProject(project);
     navigate("/projects");
   };
 
   const handleSwitchProject = (project: Project) => {
-    setActiveProject(project);
+    setActiveProject(project.id);
   };
 
   const handleCompareProject = (project: Project) => {
-    setSelectedProject(project);
     navigate("/comparison");
   };
 
-  const getTrendIcon = (trend: Project['trend']) => {
+  const getTrendIcon = (trend?: 'up' | 'down' | 'stable') => {
     switch (trend) {
       case 'up':
         return <TrendingUp className="h-4 w-4 text-accent" />;
@@ -43,7 +42,6 @@ const ProjectsSection = () => {
   // Filtra outros projetos (exceto o ativo) e mostra os top 3
   const otherProjects = projects
     .filter(project => project.id !== activeProject?.id)
-    .sort((a, b) => b.currentScore - a.currentScore)
     .slice(0, 3);
 
   if (otherProjects.length === 0) {
@@ -106,27 +104,21 @@ const ProjectsSection = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex-1">
                 <h4 className="font-semibold text-foreground">{project.name}</h4>
-                <p className="text-sm text-muted-foreground">{project.mainDomain}</p>
+                <p className="text-sm text-muted-foreground">{project.domain}</p>
               </div>
               
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1">
-                  {getTrendIcon(project.trend)}
-                  <span className={`text-lg font-bold ${getScoreColor(project.currentScore)}`}>
-                    {project.currentScore}
-                  </span>
-                </div>
-                <Badge variant="secondary">{project.sector}</Badge>
+                <Badge variant="secondary">{project.market_segment || 'N/A'}</Badge>
               </div>
             </div>
             
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-4">
                 <span className="text-muted-foreground">
-                  {project.competitors.length} concorrentes
+                  {project.competitor_domains?.length || 0} concorrentes
                 </span>
                 <span className="text-muted-foreground">
-                  {project.keywords.length} palavras-chave
+                  {project.focus_keywords?.length || 0} palavras-chave
                 </span>
               </div>
               

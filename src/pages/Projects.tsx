@@ -1,59 +1,40 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Plus, TrendingUp, TrendingDown, Minus, Search, GitCompare, BarChart3 } from "lucide-react";
+import { Plus, Search, GitCompare, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useProjects, Project } from "@/contexts/ProjectContext";
+import { useProject } from "@/hooks/useProject";
 import { useNavigate } from "react-router-dom";
 import { ProjectModal } from "@/components/projects/ProjectModal";
+import type { Project } from "@/services/projectService";
 
 const Projects = () => {
-  const { projects, setSelectedProject } = useProjects();
+  const { projects } = useProject();
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState<string | null>(null);
 
   const handleCreateProject = () => {
     setEditingProject(null);
     setIsModalOpen(true);
   };
 
-  const handleEditProject = (project: Project) => {
-    setEditingProject(project);
+  const handleEditProject = (projectId: string) => {
+    setEditingProject(projectId);
     setIsModalOpen(true);
   };
 
-  const handleAnalyze = (project: Project) => {
-    setSelectedProject(project);
+  const handleAnalyze = () => {
     navigate("/");
   };
 
-  const handleCompare = (project: Project) => {
-    setSelectedProject(project);
+  const handleCompare = () => {
     navigate("/comparison");
   };
 
-  const handleMonitor = (project: Project) => {
-    setSelectedProject(project);
+  const handleMonitor = () => {
     navigate("/monitoring");
-  };
-
-  const getTrendIcon = (trend: Project['trend']) => {
-    switch (trend) {
-      case 'up':
-        return <TrendingUp className="h-4 w-4 text-accent" />;
-      case 'down':
-        return <TrendingDown className="h-4 w-4 text-destructive" />;
-      default:
-        return <Minus className="h-4 w-4 text-muted-foreground" />;
-    }
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-accent";
-    if (score >= 60) return "text-primary";
-    return "text-destructive";
   };
 
   return (
@@ -111,16 +92,13 @@ const Projects = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">
-                        Score Médio
+                        Projetos Ativos
                       </p>
                       <p className="text-2xl font-bold text-foreground">
-                        {projects.length > 0 
-                          ? Math.round(projects.reduce((acc, p) => acc + p.currentScore, 0) / projects.length)
-                          : 0
-                        }
+                        {projects.filter(p => p.is_active).length}
                       </p>
                     </div>
-                    <TrendingUp className="h-8 w-8 text-accent" />
+                    <BarChart3 className="h-8 w-8 text-accent" />
                   </div>
                 </CardContent>
               </Card>
@@ -133,7 +111,7 @@ const Projects = () => {
                         Palavras-chave
                       </p>
                       <p className="text-2xl font-bold text-foreground">
-                        {projects.reduce((acc, p) => acc + p.keywords.length, 0)}
+                        {projects.reduce((acc, p) => acc + (p.focus_keywords?.length || 0), 0)}
                       </p>
                     </div>
                     <Search className="h-8 w-8 text-primary" />
@@ -166,18 +144,15 @@ const Projects = () => {
                         <div className="flex-1">
                           <CardTitle className="text-lg">{project.name}</CardTitle>
                           <CardDescription className="mt-1">
-                            {project.mainDomain}
+                            {project.domain}
                           </CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {getTrendIcon(project.trend)}
-                          <span className={`text-2xl font-bold ${getScoreColor(project.currentScore)}`}>
-                            {project.currentScore}
-                          </span>
-                        </div>
+                        {project.is_active && (
+                          <Badge variant="default">Ativo</Badge>
+                        )}
                       </div>
                       <Badge variant="secondary" className="w-fit">
-                        {project.sector}
+                        {project.market_segment || 'N/A'}
                       </Badge>
                     </CardHeader>
 
@@ -185,16 +160,16 @@ const Projects = () => {
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Concorrentes:</span>
-                          <span className="font-medium">{project.competitors.length}</span>
+                          <span className="font-medium">{project.competitor_domains?.length || 0}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Palavras-chave:</span>
-                          <span className="font-medium">{project.keywords.length}</span>
+                          <span className="font-medium">{project.focus_keywords?.length || 0}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Criado em:</span>
                           <span className="font-medium">
-                            {project.createdAt.toLocaleDateString('pt-BR')}
+                            {new Date(project.created_at).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
                       </div>
@@ -204,7 +179,7 @@ const Projects = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleAnalyze(project)}
+                        onClick={() => handleAnalyze()}
                         className="gap-1 flex-1"
                       >
                         <Search className="h-3 w-3" />
@@ -213,9 +188,9 @@ const Projects = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCompare(project)}
+                        onClick={() => handleCompare()}
                         className="gap-1 flex-1"
-                        disabled={project.competitors.length === 0}
+                        disabled={(project.competitor_domains?.length || 0) === 0}
                       >
                         <GitCompare className="h-3 w-3" />
                         Comparar
@@ -223,7 +198,7 @@ const Projects = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEditProject(project)}
+                        onClick={() => handleEditProject(project.id)}
                         className="w-full mt-2"
                       >
                         Editar Projeto
@@ -240,7 +215,7 @@ const Projects = () => {
       <ProjectModal
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        projectId={editingProject?.id}
+        projectId={editingProject || undefined}
       />
     </>
   );

@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useProjects } from "@/contexts/ProjectContext";
+import { useProject } from "@/hooks/useProject";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface ProjectSelectionModalProps {
   onComplete: () => void;
@@ -14,43 +15,47 @@ interface ProjectSelectionModalProps {
 
 const ProjectSelectionModal = ({ onComplete }: ProjectSelectionModalProps) => {
   const [mode, setMode] = useState<'select' | 'create'>('select');
+  const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     mainDomain: '',
     sector: ''
   });
   
-  const { projects, selectedProject, setSelectedProject, createProject } = useProjects();
+  const { projects, createProject, setActiveProject } = useProject();
   const { user } = useAuth();
 
-  const handleSelectProject = (project: any) => {
-    setSelectedProject(project);
-    localStorage.setItem('activeProject', JSON.stringify(project));
-    onComplete();
+  const handleSelectProject = async (projectId: string) => {
+    try {
+      await setActiveProject(projectId);
+      onComplete();
+    } catch (error) {
+      console.error('Error selecting project:', error);
+      toast.error('Erro ao selecionar projeto');
+    }
   };
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     if (!formData.name || !formData.mainDomain || !formData.sector) return;
     
-    const newProject = {
-      name: formData.name,
-      mainDomain: formData.mainDomain,
-      sector: formData.sector,
-      competitors: [],
-      keywords: []
-    };
-    
-    createProject(newProject);
-    
-    // Encontra o projeto recém-criado e o seleciona
-    setTimeout(() => {
-      const createdProject = JSON.parse(localStorage.getItem('projects') || '[]')
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    setIsCreating(true);
+    try {
+      await createProject({
+        name: formData.name,
+        domain: formData.mainDomain,
+        market_segment: formData.sector,
+        focus_keywords: [],
+        competitor_domains: []
+      });
       
-      setSelectedProject(createdProject);
-      localStorage.setItem('activeProject', JSON.stringify(createdProject));
+      toast.success('Projeto criado com sucesso!');
       onComplete();
-    }, 100);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast.error('Erro ao criar projeto');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   if (mode === 'create') {
@@ -115,10 +120,10 @@ const ProjectSelectionModal = ({ onComplete }: ProjectSelectionModalProps) => {
               </Button>
               <Button 
                 onClick={handleCreateProject}
-                disabled={!formData.name || !formData.mainDomain || !formData.sector}
+                disabled={!formData.name || !formData.mainDomain || !formData.sector || isCreating}
                 className="flex-1"
               >
-                Criar Projeto
+                {isCreating ? 'Criando...' : 'Criar Projeto'}
               </Button>
             </div>
           </CardContent>
@@ -148,7 +153,7 @@ const ProjectSelectionModal = ({ onComplete }: ProjectSelectionModalProps) => {
                 {projects.map((project) => (
                   <button
                     key={project.id}
-                    onClick={() => handleSelectProject(project)}
+                    onClick={() => handleSelectProject(project.id)}
                     className="p-4 rounded-lg border border-border hover:bg-secondary/50 transition-colors text-left group"
                   >
                     <div className="flex items-center justify-between">
@@ -158,13 +163,13 @@ const ProjectSelectionModal = ({ onComplete }: ProjectSelectionModalProps) => {
                         </div>
                         <div>
                           <h4 className="font-medium text-foreground">{project.name}</h4>
-                          <p className="text-sm text-muted-foreground">{project.mainDomain}</p>
+                          <p className="text-sm text-muted-foreground">{project.domain}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm text-muted-foreground">{project.sector}</div>
+                        <div className="text-sm text-muted-foreground">{project.market_segment || 'N/A'}</div>
                         <div className="text-xs text-muted-foreground">
-                          {project.keywords.length} palavras-chave
+                          {project.focus_keywords?.length || 0} palavras-chave
                         </div>
                       </div>
                     </div>

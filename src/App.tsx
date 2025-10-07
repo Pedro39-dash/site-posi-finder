@@ -7,7 +7,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { MonitoringProvider } from "@/contexts/MonitoringContext";
-import { ProjectProvider } from "@/contexts/ProjectContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
@@ -143,8 +142,7 @@ const App = () => (
       <ThemeProvider defaultTheme="dark">
         <AuthErrorBoundary>
           <AuthProvider>
-            <ProjectProvider>
-              <MonitoringProvider>
+            <MonitoringProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -198,7 +196,6 @@ const App = () => (
                 </BrowserRouter>
               </TooltipProvider>
             </MonitoringProvider>
-            </ProjectProvider>
           </AuthProvider>
         </AuthErrorBoundary>
       </ThemeProvider>
