@@ -26,7 +26,12 @@ export const useProject = () => {
         
         // Find active project
         const active = userProjects.find(p => p.is_active);
-        setActiveProject(active || null);
+        setActiveProject(active ? { ...active } : null);
+        console.log('🔄 [useProject] Setando activeProject:', {
+          id: active?.id,
+          name: active?.name,
+          timestamp: Date.now()
+        });
         console.log('📌 Projeto ativo:', active?.name || 'Nenhum', active ? {
           id: active.id,
           domain: active.domain,
@@ -87,6 +92,15 @@ export const useProject = () => {
       toast.success('Projeto alterado com sucesso!');
       // Recarregar projetos para garantir sincronização
       await loadProjects();
+      // Força um re-render adicionando timestamp ao objeto
+      const { success: refreshSuccess, projects: refreshedProjects } = await ProjectService.getUserProjects();
+      if (refreshSuccess && refreshedProjects) {
+        const newActive = refreshedProjects.find(p => p.is_active);
+        if (newActive) {
+          setActiveProject({ ...newActive, _forceUpdate: Date.now() } as any);
+          console.log('🔄 [useProject] Forçando atualização do activeProject:', newActive.name);
+        }
+      }
       // Delay para garantir propagação do estado
       await new Promise(resolve => setTimeout(resolve, 300));
     } else {
