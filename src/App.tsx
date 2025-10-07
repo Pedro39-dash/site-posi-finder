@@ -60,10 +60,16 @@ const ComparisonWithKey = ({ activeProject }: { activeProject: any }) => {
   />;
 };
 
+// Wrapper to provide activeProject for key-based remounting
+const AppLayoutWrapper = ({ children }: { children: React.ReactNode | ((activeProject: any) => React.ReactNode) }) => {
+  const { activeProject } = useProject();
+  return <AppLayout key={activeProject?.id} activeProject={activeProject}>{children}</AppLayout>;
+};
+
 // Layout component with integrated onboarding and project management
-const AppLayout = ({ children }: { children: React.ReactNode | ((activeProject: any) => React.ReactNode) }) => {
+const AppLayout = ({ activeProject, children }: { activeProject: any; children: React.ReactNode | ((activeProject: any) => React.ReactNode) }) => {
   const { user, isLoading: authLoading } = useAuth();
-  const { projects, activeProject, isLoading: projectsLoading } = useProject();
+  const { projects, isLoading: projectsLoading } = useProject();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | undefined>(undefined);
@@ -150,45 +156,45 @@ const App = () => (
                     <Route path="/login" element={<Login />} />
                     <Route path="/" element={
                       <ProtectedRoute>
-                        <AppLayout>
+                        <AppLayoutWrapper>
                           <Index />
-                        </AppLayout>
+                        </AppLayoutWrapper>
                       </ProtectedRoute>
                     } />
                     <Route path="/projects" element={
                       <ProtectedRoute>
-                        <AppLayout>
+                        <AppLayoutWrapper>
                           <Projects />
-                        </AppLayout>
+                        </AppLayoutWrapper>
                       </ProtectedRoute>
                     } />
                     <Route path="/comparison" element={
                       <ProtectedRoute>
-                        <AppLayout>
+                        <AppLayoutWrapper>
                           {(activeProject) => <ComparisonWithKey activeProject={activeProject} />}
-                        </AppLayout>
+                        </AppLayoutWrapper>
                       </ProtectedRoute>
                     } />
                     <Route path="/monitoring" element={
                       <ProtectedRoute>
-                        <AppLayout>
+                        <AppLayoutWrapper>
                           <Monitoring />
-                        </AppLayout>
+                        </AppLayoutWrapper>
                       </ProtectedRoute>
                     } />
                     <Route path="/auto-monitoring" element={
                       <ProtectedRoute>
-                        <AppLayout>
+                        <AppLayoutWrapper>
                           <AutoMonitoring />
-                        </AppLayout>
+                        </AppLayoutWrapper>
                       </ProtectedRoute>
                     } />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={
                       <ProtectedRoute>
-                        <AppLayout>
+                        <AppLayoutWrapper>
                           <NotFound />
-                        </AppLayout>
+                        </AppLayoutWrapper>
                       </ProtectedRoute>
                     } />
                   </Routes>
