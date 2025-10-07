@@ -64,7 +64,7 @@ const Comparison = () => {
       </Helmet>
 
       {/* Content with full width and proper padding */}
-      <div className="p-8" key={activeProject?.id}>
+      <div className="p-8">
         <div className="mb-8">
           <p className="text-muted-foreground">
             {state === 'form' && "Configure sua análise competitiva com dados reais do Google"}

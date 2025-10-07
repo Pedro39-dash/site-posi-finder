@@ -44,18 +44,25 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     keywords?: string;
   }>({});
 
-  // Reset form when active project changes
+  // Reset and auto-fill when active project changes
   useEffect(() => {
-    console.log('🔄 DirectCompetitiveForm: Projeto mudou, resetando formulário');
+    if (!activeProject?.id) return;
     
-    // Reset user input flags to allow auto-fill
+    console.log('🔄 DirectCompetitiveForm: Projeto mudou para', activeProject.name);
+    console.log('📌 Dados do projeto:', {
+      domain: activeProject.domain,
+      keywords: activeProject.focus_keywords,
+      competitors: activeProject.competitor_domains
+    });
+    
+    // 1. Reset user input flags FIRST
     hasUserInputRef.current = {
       domain: false,
       competitors: false,
       keywords: false
     };
     
-    // Clear all form states
+    // 2. Clear all form states
     setClientDomain('');
     setCompetitors([]);
     setCompetitorInput('');
@@ -63,27 +70,32 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     setKeywordInput('');
     setCurrentKeywordInput('');
     setErrors({});
-  }, [activeProject?.id]);
-
-  // Auto-fill with project data after reset
-  useEffect(() => {
-    if (activeProject) {
-      // Only auto-fill if user hasn't manually entered data
-      if (!hasUserInputRef.current.domain) {
-        setClientDomain(activeProject.domain || '');
+    
+    // 3. Use setTimeout to ensure auto-fill happens AFTER clearing
+    const timeoutId = setTimeout(() => {
+      console.log('✅ Preenchendo formulário com dados do projeto');
+      
+      // Auto-fill with project data
+      if (activeProject.domain) {
+        setClientDomain(activeProject.domain);
+        console.log('  → Domain:', activeProject.domain);
       }
       
-      if (!hasUserInputRef.current.keywords) {
-        const projectKeywords = activeProject.focus_keywords || [];
-        setSelectedKeywords(projectKeywords.slice(0, 5)); // Limit to 5
+      if (activeProject.focus_keywords?.length > 0) {
+        const keywords = activeProject.focus_keywords.slice(0, 5);
+        setSelectedKeywords(keywords);
+        console.log('  → Keywords:', keywords);
       }
       
-      if (!hasUserInputRef.current.competitors) {
-        const projectCompetitors = activeProject.competitor_domains || [];
-        setCompetitors(projectCompetitors.slice(0, 5)); // Limit to 5
+      if (activeProject.competitor_domains?.length > 0) {
+        const comps = activeProject.competitor_domains.slice(0, 5);
+        setCompetitors(comps);
+        console.log('  → Competitors:', comps);
       }
-    }
-  }, [activeProject]);
+    }, 100); // 100ms delay to ensure proper order
+    
+    return () => clearTimeout(timeoutId);
+  }, [activeProject?.id, activeProject?.domain, activeProject?.focus_keywords, activeProject?.competitor_domains]);
 
   const addCompetitor = () => {
     if (competitorInput.trim() && !competitors.includes(competitorInput.trim()) && competitors.length < 5) {

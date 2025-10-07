@@ -27,7 +27,12 @@ export const useProject = () => {
         // Find active project
         const active = userProjects.find(p => p.is_active);
         setActiveProject(active || null);
-        console.log('📌 Projeto ativo:', active?.name || 'Nenhum');
+        console.log('📌 Projeto ativo:', active?.name || 'Nenhum', active ? {
+          id: active.id,
+          domain: active.domain,
+          keywords: active.focus_keywords?.length || 0,
+          competitors: active.competitor_domains?.length || 0
+        } : '');
       }
     } catch (error) {
       console.error('❌ Error loading projects:', error);
