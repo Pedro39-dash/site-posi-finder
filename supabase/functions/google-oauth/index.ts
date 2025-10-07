@@ -33,11 +33,17 @@ serve(async (req) => {
     if (path === 'authorize') {
       const { projectId, integrationType } = await req.json();
       
+      // Get user ID from JWT
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
       const scopes = integrationType === 'search_console'
         ? ['https://www.googleapis.com/auth/webmasters.readonly']
         : ['https://www.googleapis.com/auth/analytics.readonly'];
 
-      const state = btoa(JSON.stringify({ projectId, integrationType }));
+      const state = btoa(JSON.stringify({ projectId, integrationType, userId: user.id }));
       
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${GOOGLE_CLIENT_ID}&` +
@@ -62,7 +68,19 @@ serve(async (req) => {
         throw new Error('Missing code or state parameter');
       }
 
-      const { projectId, integrationType } = JSON.parse(atob(state));
+      const { projectId, integrationType, userId } = JSON.parse(atob(state));
+      
+      // Validate that the project belongs to the user
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('id', projectId)
+        .eq('user_id', userId)
+        .single();
+      
+      if (projectError || !project) {
+        throw new Error('Project not found or unauthorized');
+      }
 
       // Exchange code for tokens
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -89,15 +107,7 @@ serve(async (req) => {
       });
       const userInfo = await userInfoResponse.json();
 
-      // Get user ID from JWT
-      const jwt = req.headers.get('Authorization')?.split('Bearer ')[1];
-      const { data: { user } } = await supabase.auth.getUser(jwt);
-
-      if (!user) {
-        throw new Error('Unauthorized');
-      }
-
-      // Store integration
+      // Store integration (userId already validated from state)
       const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
       
       const { error } = await supabase
