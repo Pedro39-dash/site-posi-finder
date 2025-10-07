@@ -27,8 +27,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 // Wrapper for Comparison to force re-render on project change
-const ComparisonWithKey = () => {
-  const { activeProject } = useProject();
+const ComparisonWithKey = ({ activeProject }: { activeProject: any }) => {
   const [renderKey, setRenderKey] = useState(0);
   const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
   
@@ -62,7 +61,7 @@ const ComparisonWithKey = () => {
 };
 
 // Layout component with integrated onboarding and project management
-const AppLayout = ({ children }: { children: React.ReactNode }) => {
+const AppLayout = ({ children }: { children: React.ReactNode | ((activeProject: any) => React.ReactNode) }) => {
   const { user, isLoading: authLoading } = useAuth();
   const { projects, activeProject, isLoading: projectsLoading } = useProject();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -113,7 +112,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             onCreateProject={handleCreateProject}
           />
           <main className="flex-1 overflow-auto bg-zinc-950">
-            {children}
+            {typeof children === 'function' ? children(activeProject) : children}
           </main>
         </div>
       </div>
@@ -166,7 +165,7 @@ const App = () => (
                     <Route path="/comparison" element={
                       <ProtectedRoute>
                         <AppLayout>
-                          <ComparisonWithKey />
+                          {(activeProject) => <ComparisonWithKey activeProject={activeProject} />}
                         </AppLayout>
                       </ProtectedRoute>
                     } />
