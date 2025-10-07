@@ -118,6 +118,28 @@ export class RankingService {
     }
   }
 
+  static async deleteKeyword(keywordId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      const { error } = await supabase
+        .from('keyword_rankings')
+        .delete()
+        .eq('id', keywordId);
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting keyword:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
   static async updateKeywordPosition(
     rankingId: string,
     position: number,

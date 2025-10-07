@@ -76,12 +76,17 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
     }
 
     try {
-      // TODO: Implementar deleteKeyword no RankingService
-      toast({
-        title: "Keyword Removida",
-        description: `"${keyword}" foi removida do monitoramento`
-      });
-      onRankingsUpdate();
+      const result = await RankingService.deleteKeyword(keywordId);
+      
+      if (result.success) {
+        toast({
+          title: "Keyword Removida",
+          description: `"${keyword}" foi removida do monitoramento`
+        });
+        onRankingsUpdate();
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
       toast({
         title: "Erro",
