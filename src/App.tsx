@@ -31,19 +31,27 @@ const queryClient = new QueryClient();
 const ComparisonWithKey = () => {
   const { activeProject } = useProject();
   const [renderKey, setRenderKey] = useState(0);
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
   
   useEffect(() => {
-    console.log('🔑 ComparisonWithKey: activeProject mudou', {
-      id: activeProject?.id,
-      name: activeProject?.name,
-      renderKey
-    });
-    setRenderKey(prev => prev + 1);
-  }, [activeProject?.id]);
+    // Detecta mudança real no ID do projeto
+    if (activeProject?.id && activeProject?.id !== currentProjectId) {
+      console.log('🔑 ComparisonWithKey: activeProject mudou', {
+        de: currentProjectId,
+        para: activeProject?.id,
+        name: activeProject?.name,
+        novoRenderKey: renderKey + 1
+      });
+      
+      setCurrentProjectId(activeProject?.id);
+      setRenderKey(prev => prev + 1);
+    }
+  }, [activeProject?.id, currentProjectId]);
   
   console.log('🎨 ComparisonWithKey render:', {
     projectId: activeProject?.id,
     projectName: activeProject?.name,
+    currentProjectId,
     renderKey,
     key: `${activeProject?.id}-${renderKey}`
   });
