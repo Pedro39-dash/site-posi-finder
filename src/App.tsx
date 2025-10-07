@@ -44,13 +44,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     // Check if onboarding was already completed
     const onboardingCompleted = localStorage.getItem('onboarding_completed');
     
-    // Show onboarding only for first-time users with no projects
-    if (user && !onboardingCompleted && projects.length === 0) {
+    // Show onboarding only for first-time users with no projects and no active project
+    if (user && !onboardingCompleted && projects.length === 0 && !activeProject) {
       setShowOnboarding(true);
     }
     
     setHasCheckedOnboarding(true);
-  }, [user, authLoading, projectsLoading, projects, hasCheckedOnboarding]);
+  }, [user, authLoading, projectsLoading, projects, activeProject, hasCheckedOnboarding]);
 
   const handleOnboardingComplete = () => {
     localStorage.setItem('onboarding_completed', 'true');

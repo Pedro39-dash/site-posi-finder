@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Flame, ChartPie, FileText, Zap, Link as LinkIcon, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import WelcomeOnboarding from "@/components/WelcomeOnboarding";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +29,6 @@ const Index = () => {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { isAdmin, isClient, isDisplay, isLoading: roleLoading } = useRole();
   const { activeProject } = useProject();
-  const [viewMode, setViewMode] = useState<'search' | 'onboarding'>('search');
   const [latestAnalysis, setLatestAnalysis] = useState<CompetitiveAnalysisData | null>(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const navigate = useNavigate();
@@ -77,17 +75,13 @@ const Index = () => {
 
   // If authenticated, show role-specific dashboard
   if (isAuthenticated) {
-    if (viewMode === 'onboarding') {
-      return <WelcomeOnboarding onComplete={() => setViewMode('search')} />;
-    }
-    
     // Show role-specific dashboard
     if (isAdmin) {
       return <AdminDashboard />;
     } else if (isClient) {
       return <ClientDashboard />;
     } else if (isDisplay) {
-      return <DisplayDashboard onViewModeChange={setViewMode} />;
+      return <DisplayDashboard />;
     }
   }
 
