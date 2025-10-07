@@ -38,30 +38,48 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     // Only check once after data is loaded
-    if (hasCheckedOnboarding || authLoading || projectsLoading || isOnboardingInProgress) {
+    if (authLoading || projectsLoading) {
       return;
     }
 
-    // Check if onboarding was already completed
-    const onboardingCompleted = localStorage.getItem('onboarding_completed');
-    
-    console.log('🔍 Onboarding check:', { 
-      user: !!user, 
-      onboardingCompleted, 
-      projectsLength: projects.length, 
-      activeProject: !!activeProject,
-      isOnboardingInProgress 
-    });
-    
-    // Show onboarding only for first-time users with no projects and no active project
-    if (user && !onboardingCompleted && projects.length === 0 && !activeProject && !isOnboardingInProgress) {
-      console.log('✅ Showing onboarding');
-      setIsOnboardingInProgress(true);
-      setShowOnboarding(true);
-    }
-    
-    setHasCheckedOnboarding(true);
-  }, [user, authLoading, projectsLoading, projects, activeProject, hasCheckedOnboarding, isOnboardingInProgress]);
+    // Delay de segurança para garantir que o estado foi completamente atualizado
+    const timeoutId = setTimeout(() => {
+      if (hasCheckedOnboarding) {
+        return;
+      }
+
+      const onboardingCompleted = localStorage.getItem('onboarding_completed');
+      
+      console.log('🔍 Onboarding check (with safety delay):', { 
+        user: !!user, 
+        onboardingCompletedValue: onboardingCompleted,
+        onboardingCompletedType: typeof onboardingCompleted,
+        projectsLength: projects.length, 
+        activeProject: !!activeProject,
+        isOnboardingInProgress,
+        shouldShow: user && onboardingCompleted !== 'true' && projects.length === 0 && !activeProject && !isOnboardingInProgress
+      });
+      
+      // Show onboarding only for genuinely new users
+      if (user && onboardingCompleted !== 'true' && projects.length === 0 && !activeProject && !isOnboardingInProgress) {
+        console.log('✅ Showing onboarding for new user');
+        setIsOnboardingInProgress(true);
+        setShowOnboarding(true);
+      } else {
+        console.log('⏭️ Skipping onboarding:', {
+          reason: !user ? 'no user' : 
+                  onboardingCompleted === 'true' ? 'already completed' :
+                  projects.length > 0 ? 'has projects' :
+                  activeProject ? 'has active project' :
+                  isOnboardingInProgress ? 'onboarding in progress' : 'unknown'
+        });
+      }
+      
+      setHasCheckedOnboarding(true);
+    }, 100); // 100ms safety delay
+
+    return () => clearTimeout(timeoutId);
+  }, [user, authLoading, projectsLoading, projects.length, activeProject, hasCheckedOnboarding, isOnboardingInProgress]);
 
   const handleOnboardingComplete = async () => {
     console.log('🎉 Onboarding completed');
