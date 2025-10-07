@@ -26,7 +26,27 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
   const [device, setDevice] = useState("desktop");
   const [location, setLocation] = useState("brazil");
 
-  // Proteção: se não há projectId válido, mostrar skeleton de carregamento
+  // ✅ useMemo DEVE vir ANTES de qualquer return condicional
+  const filteredRankings = useMemo(() => {
+    // Proteção interna: se não há projectId, retornar array vazio
+    if (!projectId || projectId === '') {
+      return [];
+    }
+    
+    const filtered = rankings.filter(r => r.project_id === projectId);
+    
+    console.log('🔍 [KeywordManager] Filtrando rankings:', {
+      projectId,
+      totalRankings: rankings.length,
+      filteredCount: filtered.length,
+      allProjectIds: [...new Set(rankings.map(r => r.project_id))],
+      filteredKeywords: filtered.map(r => ({ keyword: r.keyword, project_id: r.project_id }))
+    });
+    
+    return filtered;
+  }, [rankings, projectId]);
+
+  // ✅ AGORA podemos fazer o early return para skeleton
   if (!projectId || projectId === '') {
     console.warn('⚠️ [KeywordManager] projectId inválido:', projectId);
     return (
@@ -40,21 +60,6 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
       </Card>
     );
   }
-
-  // Filtro de segurança com useMemo: garantir que apenas keywords do projeto atual sejam exibidas
-  const filteredRankings = useMemo(() => {
-    const filtered = rankings.filter(r => r.project_id === projectId);
-    
-    console.log('🔍 [KeywordManager] Filtrando rankings:', {
-      projectId,
-      totalRankings: rankings.length,
-      filteredCount: filtered.length,
-      allProjectIds: [...new Set(rankings.map(r => r.project_id))],
-      filteredKeywords: filtered.map(r => ({ keyword: r.keyword, project_id: r.project_id }))
-    });
-    
-    return filtered;
-  }, [rankings, projectId]);
 
   const handleAddKeyword = async () => {
     if (!newKeyword.trim()) return;
