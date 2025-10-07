@@ -8,15 +8,16 @@ import { X, Plus, Target, Users, Loader2, AlertTriangle, Check, Info } from 'luc
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CompetitorAnalysisService } from '@/services/competitorAnalysisService';
 import { toast } from '@/hooks/use-toast';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ProjectSelector } from '@/components/projects/ProjectSelector';
 import AdvancedKeywordSuggestions from './AdvancedKeywordSuggestions';
 
 interface DirectCompetitiveFormProps {
-  activeProject?: any;
   onAnalysisStarted: (analysisId: string) => void;
 }
 
-const DirectCompetitiveForm = ({ activeProject, onAnalysisStarted }: DirectCompetitiveFormProps) => {
+const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps) => {
+  const { activeProject } = useActiveProject();
   
   // Track if user has manually entered data
   const hasUserInputRef = useRef({

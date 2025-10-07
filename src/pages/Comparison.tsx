@@ -4,16 +4,14 @@ import DirectCompetitiveForm from "@/components/comparison/DirectCompetitiveForm
 import CompetitiveResultsDisplay from "@/components/comparison/CompetitiveResultsDisplay";
 import { HookErrorBoundary } from "@/components/comparison/HookErrorBoundary";
 import { KeywordFilterProvider } from "@/contexts/KeywordFilterContext";
+import { useActiveProject } from "@/contexts/ActiveProjectContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RefreshCw } from "lucide-react";
 
 type AnalysisState = 'form' | 'results';
 
-interface ComparisonProps {
-  activeProject?: any;
-}
-
-const Comparison = ({ activeProject }: ComparisonProps = {}) => {
+const Comparison = () => {
+  const { activeProject } = useActiveProject();
   
   // Main state management
   const [state, setState] = useState<AnalysisState>('form');
@@ -93,7 +91,6 @@ const Comparison = ({ activeProject }: ComparisonProps = {}) => {
         {/* Direct Analysis Form */}
         {state === 'form' && (
           <DirectCompetitiveForm 
-            activeProject={activeProject}
             onAnalysisStarted={handleAnalysisStarted} 
           />
         )}

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
@@ -11,11 +11,11 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { ActiveProjectProvider, useActiveProject } from "@/contexts/ActiveProjectContext";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { TopBar } from "@/components/layout/TopBar";
 import { ProjectModal } from "@/components/projects/ProjectModal";
-import { useProject } from "@/hooks/useProject";
 import Index from "./pages/Index";
 import Projects from "./pages/Projects";
 import Comparison from "./pages/Comparison";
@@ -26,40 +26,10 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Wrapper for Comparison to force re-render on project change
-const ComparisonWithKey = ({ activeProject }: { activeProject: any }) => {
-  console.log('🎨 ComparisonWithKey render:', {
-    projectId: activeProject?.id,
-    projectName: activeProject?.name,
-    timestamp: Date.now()
-  });
-  
-  // Use useMemo to ensure stable reference
-  const memoizedComparison = useMemo(() => {
-    console.log('🔄 ComparisonWithKey: Creating new Comparison instance for project:', activeProject?.id);
-    return <Comparison activeProject={activeProject} />;
-  }, [activeProject?.id]);
-  
-  return memoizedComparison;
-};
-
-// Wrapper to provide activeProject for key-based remounting
-const AppLayoutWrapper = ({ children }: { children: React.ReactNode | ((activeProject: any) => React.ReactNode) }) => {
-  const { activeProject } = useProject();
-  
-  console.log('🏗️ AppLayoutWrapper render:', {
-    projectId: activeProject?.id,
-    projectName: activeProject?.name,
-    timestamp: Date.now()
-  });
-  
-  return <AppLayout key={activeProject?.id} activeProject={activeProject}>{children}</AppLayout>;
-};
-
 // Layout component with integrated onboarding and project management
-const AppLayout = ({ activeProject, children }: { activeProject: any; children: React.ReactNode | ((activeProject: any) => React.ReactNode) }) => {
+const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading: authLoading } = useAuth();
-  const { projects, isLoading: projectsLoading } = useProject();
+  const { projects, activeProject, isLoading: projectsLoading } = useActiveProject();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | undefined>(undefined);
@@ -108,7 +78,7 @@ const AppLayout = ({ activeProject, children }: { activeProject: any; children: 
             onCreateProject={handleCreateProject}
           />
           <main className="flex-1 overflow-auto bg-zinc-950">
-            {typeof children === 'function' ? children(activeProject) : children}
+            {children}
           </main>
         </div>
       </div>
@@ -137,67 +107,62 @@ const App = () => (
       <ThemeProvider defaultTheme="dark">
         <AuthErrorBoundary>
           <AuthProvider>
-            <MonitoringProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/" element={
-                      <ProtectedRoute>
-                        <AppLayoutWrapper>
-                          <Index />
-                        </AppLayoutWrapper>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/projects" element={
-                      <ProtectedRoute>
-                        <AppLayoutWrapper>
-                          <Projects />
-                        </AppLayoutWrapper>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/comparison" element={
-                      <ProtectedRoute>
-                        <AppLayoutWrapper>
-                          {(activeProject) => {
-                            console.log('🔄 Render prop /comparison chamado com activeProject:', {
-                              id: activeProject?.id,
-                              name: activeProject?.name,
-                              timestamp: Date.now()
-                            });
-                            return <ComparisonWithKey activeProject={activeProject} />;
-                          }}
-                        </AppLayoutWrapper>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/monitoring" element={
-                      <ProtectedRoute>
-                        <AppLayoutWrapper>
-                          <Monitoring />
-                        </AppLayoutWrapper>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/auto-monitoring" element={
-                      <ProtectedRoute>
-                        <AppLayoutWrapper>
-                          <AutoMonitoring />
-                        </AppLayoutWrapper>
-                      </ProtectedRoute>
-                    } />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={
-                      <ProtectedRoute>
-                        <AppLayoutWrapper>
-                          <NotFound />
-                        </AppLayoutWrapper>
-                      </ProtectedRoute>
-                    } />
-                  </Routes>
-                </BrowserRouter>
-              </TooltipProvider>
-            </MonitoringProvider>
+            <ActiveProjectProvider>
+              <MonitoringProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <Routes>
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/" element={
+                        <ProtectedRoute>
+                          <AppLayout>
+                            <Index />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/projects" element={
+                        <ProtectedRoute>
+                          <AppLayout>
+                            <Projects />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/comparison" element={
+                        <ProtectedRoute>
+                          <AppLayout>
+                            <Comparison />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/monitoring" element={
+                        <ProtectedRoute>
+                          <AppLayout>
+                            <Monitoring />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/auto-monitoring" element={
+                        <ProtectedRoute>
+                          <AppLayout>
+                            <AutoMonitoring />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } />
+                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                      <Route path="*" element={
+                        <ProtectedRoute>
+                          <AppLayout>
+                            <NotFound />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } />
+                    </Routes>
+                  </BrowserRouter>
+                </TooltipProvider>
+              </MonitoringProvider>
+            </ActiveProjectProvider>
           </AuthProvider>
         </AuthErrorBoundary>
       </ThemeProvider>
