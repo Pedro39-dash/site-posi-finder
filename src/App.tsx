@@ -30,7 +30,13 @@ const queryClient = new QueryClient();
 // Wrapper for Comparison to force re-render on project change
 const ComparisonWithKey = () => {
   const { activeProject } = useProject();
-  return <Comparison key={activeProject?.id || 'no-project'} />;
+  const [renderKey, setRenderKey] = useState(0);
+  
+  useEffect(() => {
+    setRenderKey(prev => prev + 1);
+  }, [activeProject?.id]);
+  
+  return <Comparison key={`${activeProject?.id}-${renderKey}`} />;
 };
 
 // Layout component with integrated onboarding and project management
