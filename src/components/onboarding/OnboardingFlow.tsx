@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useProject } from '@/hooks/useProject';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
@@ -45,7 +45,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   open, 
   onComplete 
 }) => {
-  const { createProject } = useProject();
+  const { createProject, refreshProjects } = useActiveProject();
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,6 +89,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
       if (result.success) {
         toast.success('Projeto criado com sucesso!');
+        await refreshProjects();
         onComplete();
       } else {
         toast.error(result.error || 'Erro ao criar projeto');
@@ -104,7 +105,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const isStep2Valid = projectName.length > 0 && marketSegment.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

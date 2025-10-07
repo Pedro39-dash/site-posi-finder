@@ -29,32 +29,46 @@ const queryClient = new QueryClient();
 // Layout component with integrated onboarding and project management
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading: authLoading } = useAuth();
-  const { projects, activeProject, isLoading: projectsLoading } = useActiveProject();
+  const { projects, activeProject, isLoading: projectsLoading, refreshProjects } = useActiveProject();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | undefined>(undefined);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+  const [isOnboardingInProgress, setIsOnboardingInProgress] = useState(false);
 
   useEffect(() => {
     // Only check once after data is loaded
-    if (hasCheckedOnboarding || authLoading || projectsLoading) {
+    if (hasCheckedOnboarding || authLoading || projectsLoading || isOnboardingInProgress) {
       return;
     }
 
     // Check if onboarding was already completed
     const onboardingCompleted = localStorage.getItem('onboarding_completed');
     
+    console.log('🔍 Onboarding check:', { 
+      user: !!user, 
+      onboardingCompleted, 
+      projectsLength: projects.length, 
+      activeProject: !!activeProject,
+      isOnboardingInProgress 
+    });
+    
     // Show onboarding only for first-time users with no projects and no active project
-    if (user && !onboardingCompleted && projects.length === 0 && !activeProject) {
+    if (user && !onboardingCompleted && projects.length === 0 && !activeProject && !isOnboardingInProgress) {
+      console.log('✅ Showing onboarding');
+      setIsOnboardingInProgress(true);
       setShowOnboarding(true);
     }
     
     setHasCheckedOnboarding(true);
-  }, [user, authLoading, projectsLoading, projects, activeProject, hasCheckedOnboarding]);
+  }, [user, authLoading, projectsLoading, projects, activeProject, hasCheckedOnboarding, isOnboardingInProgress]);
 
-  const handleOnboardingComplete = () => {
+  const handleOnboardingComplete = async () => {
+    console.log('🎉 Onboarding completed');
     localStorage.setItem('onboarding_completed', 'true');
     setShowOnboarding(false);
+    setIsOnboardingInProgress(false);
+    await refreshProjects();
   };
 
   const handleCreateProject = () => {
