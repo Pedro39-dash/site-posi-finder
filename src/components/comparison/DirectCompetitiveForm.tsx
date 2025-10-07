@@ -46,6 +46,8 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
 
   // Reset and auto-fill when active project changes
   useEffect(() => {
+    console.log('🎯 DirectCompetitiveForm useEffect disparado - activeProject:', activeProject?.name, activeProject?.id);
+    
     if (!activeProject?.id) return;
     
     console.log('🔄 DirectCompetitiveForm: Projeto mudou para', activeProject.name);
@@ -95,7 +97,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     }, 100); // 100ms delay to ensure proper order
     
     return () => clearTimeout(timeoutId);
-  }, [activeProject?.id, activeProject?.domain, activeProject?.focus_keywords, activeProject?.competitor_domains]);
+  }, [activeProject]);
 
   const addCompetitor = () => {
     if (competitorInput.trim() && !competitors.includes(competitorInput.trim()) && competitors.length < 5) {

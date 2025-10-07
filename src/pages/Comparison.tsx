@@ -22,6 +22,8 @@ const Comparison = () => {
 
   // Reset state when active project changes
   useEffect(() => {
+    console.log('🎯 Comparison useEffect disparado - activeProject:', activeProject?.name, activeProject?.id);
+    
     if (activeProject?.id) {
       console.log('🔄 Comparison: Projeto ativo mudou para:', activeProject.name);
       console.log('📌 Resetando estado da página Comparison');
@@ -33,7 +35,7 @@ const Comparison = () => {
       // Remove indicator after brief delay
       setTimeout(() => setIsChangingProject(false), 500);
     }
-  }, [activeProject?.id]);
+  }, [activeProject]);
 
   // Handler functions
   const handleAnalysisStarted = (newAnalysisId: string) => {
