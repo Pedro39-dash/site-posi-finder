@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { TrendingUp, Home, Zap, HelpCircle, BarChart, Settings, ChevronDown, Plus, Globe, Check } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
@@ -67,8 +68,15 @@ export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps =
   const location = useLocation();
   const { isAdmin, isClient, isLoading: roleLoading } = useRole();
   const { activeProject, projects, setActiveProject } = useProject();
+  const [isChangingProject, setIsChangingProject] = useState(false);
   
   const navSections = getNavigationItems(isAdmin, isClient);
+
+  const handleProjectChange = async (projectId: string) => {
+    setIsChangingProject(true);
+    await setActiveProject(projectId);
+    setIsChangingProject(false);
+  };
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
@@ -130,7 +138,8 @@ export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps =
                   projects.map((project) => (
                     <DropdownMenuItem
                       key={project.id}
-                      onClick={() => setActiveProject(project.id)}
+                      onClick={() => handleProjectChange(project.id)}
+                      disabled={isChangingProject}
                       className={cn(
                         "cursor-pointer",
                         project.id === activeProject.id ? "bg-accent" : ""

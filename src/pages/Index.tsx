@@ -40,6 +40,8 @@ const Index = () => {
     const fetchLatestAnalysis = async () => {
       if (!activeProject?.id || !isAuthenticated) return;
       
+      // Limpar dados antigos
+      setLatestAnalysis(null);
       setLoadingAnalysis(true);
       try {
         const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(1);

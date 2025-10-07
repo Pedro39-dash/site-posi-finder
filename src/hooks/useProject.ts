@@ -79,7 +79,11 @@ export const useProject = () => {
     const result = await ProjectService.setActiveProject(projectId);
     if (result.success) {
       console.log('✅ Projeto ativo alterado com sucesso');
+      toast.success('Projeto alterado com sucesso!');
+      // Recarregar projetos para garantir sincronização
       await loadProjects();
+      // Delay para garantir propagação do estado
+      await new Promise(resolve => setTimeout(resolve, 300));
     } else {
       console.error('❌ Erro ao alterar projeto ativo:', result.error);
       toast.error(result.error || 'Erro ao alterar projeto');

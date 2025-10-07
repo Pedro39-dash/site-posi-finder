@@ -20,8 +20,15 @@ export const ClientDashboard: React.FC = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadClientData();
-  }, [activeProject]);
+    // Limpar dados antigos
+    setMonitoringSessions([]);
+    setNotifications([]);
+    setUnreadCount(0);
+    
+    if (activeProject) {
+      loadClientData();
+    }
+  }, [activeProject?.id]);
 
   const loadClientData = async () => {
     setIsLoading(true);

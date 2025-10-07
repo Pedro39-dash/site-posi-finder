@@ -65,8 +65,13 @@ export const DashboardOverview: React.FC = () => {
   const { isAdmin, isClient } = useRole();
 
   useEffect(() => {
-    loadMetrics();
-  }, [activeProject]);
+    // Limpar métricas antigas
+    setMetrics([]);
+    
+    if (activeProject) {
+      loadMetrics();
+    }
+  }, [activeProject?.id]);
 
   const loadMetrics = async () => {
     setIsLoading(true);

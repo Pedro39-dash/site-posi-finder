@@ -22,10 +22,15 @@ export const RankingDashboard = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
+    // Limpar dados antigos
+    setRankings([]);
+    setSuggestions([]);
+    setAlerts([]);
+    
     if (activeProject) {
       loadDashboardData();
     }
-  }, [activeProject]);
+  }, [activeProject?.id]);
 
   const loadDashboardData = async () => {
     if (!activeProject) return;

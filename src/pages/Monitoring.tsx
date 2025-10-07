@@ -150,13 +150,22 @@ const Monitoring = () => {
   };
 
   useEffect(() => {
-    loadSessions();
-    loadAnalytics();
-    loadTables();
-    loadQuickWins();
-    loadRankings();
-    loadSuggestions();
-  }, [activeProject, selectedPeriod]);
+    // Limpar dados antigos quando o projeto muda
+    setSessions([]);
+    setRankings([]);
+    setSuggestions([]);
+    setKeywordMetrics({});
+    setPositionDistribution([]);
+    
+    if (activeProject) {
+      loadSessions();
+      loadAnalytics();
+      loadTables();
+      loadQuickWins();
+      loadRankings();
+      loadSuggestions();
+    }
+  }, [activeProject?.id, selectedPeriod]);
 
   const handleSetupComplete = () => {
     loadSessions();
