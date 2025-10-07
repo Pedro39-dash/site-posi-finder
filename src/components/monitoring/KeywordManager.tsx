@@ -4,12 +4,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
 import { RankingService, KeywordRanking } from "@/services/rankingService";
-import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2 } from "lucide-react";
+import { 
+  Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, 
+  Globe, Trash2, Download, Settings2, Tag, Clock, X 
+} from "lucide-react";
+import { KeywordIntentBadge } from "./KeywordIntentBadge";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface KeywordManagerProps {
   rankings: KeywordRanking[];
@@ -25,54 +32,25 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
   const [searchEngine, setSearchEngine] = useState("google");
   const [device, setDevice] = useState("desktop");
   const [location, setLocation] = useState("brazil");
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState({
+    intent: true,
+    previousPosition: true,
+    volume: true,
+    difficulty: true,
+    cpc: true,
+    url: true,
+    updated: true
+  });
 
-  // ✅ useMemo DEVE vir ANTES de qualquer return condicional
   const filteredRankings = useMemo(() => {
-    const timestamp = Date.now();
-    
-    // Log detalhado de TODOS os rankings recebidos
-    console.log('🔍 [KeywordManager] useMemo executado:', {
-      timestamp,
-      projectId,
-      totalRankings: rankings.length,
-      allRankings: rankings.map(r => ({
-        id: r.id,
-        keyword: r.keyword,
-        project_id: r.project_id,
-        matches: r.project_id === projectId
-      }))
-    });
-    
-    // Proteção: se não há projectId válido, retornar array vazio
     if (!projectId || projectId === '') {
-      console.warn('⚠️ [KeywordManager] projectId inválido');
       return [];
     }
-    
-    // Filtrar com verificação STRICT
-    const filtered = rankings.filter(r => {
-      const matches = r.project_id === projectId;
-      if (!matches) {
-        console.warn('⚠️ [KeywordManager] Keyword ignorada (project_id não corresponde):', {
-          keyword: r.keyword,
-          rankingProjectId: r.project_id,
-          expectedProjectId: projectId
-        });
-      }
-      return matches;
-    });
-    
-    console.log('✅ [KeywordManager] Rankings filtrados:', {
-      filteredCount: filtered.length,
-      keywords: filtered.map(r => r.keyword)
-    });
-    
-    return filtered;
+    return rankings.filter(r => r.project_id === projectId);
   }, [rankings, projectId]);
 
-  // ✅ AGORA podemos fazer o early return para skeleton
   if (!projectId || projectId === '') {
-    console.warn('⚠️ [KeywordManager] projectId inválido:', projectId);
     return (
       <Card>
         <CardHeader>
@@ -84,6 +62,133 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
       </Card>
     );
   }
+
+  // Utility functions
+  const calculateTrafficChange = (ranking: KeywordRanking): number => {
+    if (!ranking.current_position || !ranking.previous_position) return 0;
+    
+    const ctrMap: Record<number, number> = {
+      1: 0.32, 2: 0.17, 3: 0.11, 4: 0.08, 5: 0.06,
+      6: 0.05, 7: 0.04, 8: 0.03, 9: 0.03, 10: 0.02
+    };
+    
+    const currentCTR = ctrMap[ranking.current_position] || 0.01;
+    const previousCTR = ctrMap[ranking.previous_position] || 0.01;
+    const searchVolume = (ranking.metadata as any)?.search_volume || 1000;
+    
+    const currentTraffic = searchVolume * currentCTR;
+    const previousTraffic = searchVolume * previousCTR;
+    
+    return Math.round(currentTraffic - previousTraffic);
+  };
+
+  const getKeywordDifficulty = (ranking: KeywordRanking): number => {
+    const metadata = ranking.metadata as any;
+    if (metadata?.keyword_difficulty) return metadata.keyword_difficulty;
+    
+    const volume = metadata?.search_volume || 0;
+    if (volume > 10000) return 75;
+    if (volume > 1000) return 50;
+    return 25;
+  };
+
+  const getDifficultyColor = (kd: number): string => {
+    if (kd < 30) return "text-green-600";
+    if (kd < 70) return "text-amber-600";
+    return "text-red-600";
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedKeywords.length === filteredRankings.length) {
+      setSelectedKeywords([]);
+    } else {
+      setSelectedKeywords(filteredRankings.map(r => r.id));
+    }
+  };
+
+  const toggleSelectKeyword = (id: string) => {
+    setSelectedKeywords(prev => 
+      prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedKeywords.length;
+    if (!confirm(`Tem certeza que deseja remover ${count} keyword(s)?`)) return;
+
+    try {
+      for (const id of selectedKeywords) {
+        await RankingService.deleteKeyword(id);
+      }
+      toast({
+        title: "Keywords Removidas",
+        description: `${count} keyword(s) foram removidas com sucesso`
+      });
+      setSelectedKeywords([]);
+      onRankingsUpdate();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao remover keywords",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      'Palavra-chave', 'Intenção', 'Posição Anterior', 'Posição Atual', 
+      'Diferença', 'Volume', 'KD %', 'CPC', 'URL', 'Buscador', 'Dispositivo', 'Localização'
+    ];
+    
+    const rows = filteredRankings.map(r => {
+      const metadata = r.metadata as any;
+      const diff = r.previous_position && r.current_position 
+        ? r.previous_position - r.current_position 
+        : 0;
+      
+      return [
+        r.keyword,
+        'Informacional',
+        r.previous_position || 'N/R',
+        r.current_position || 'N/R',
+        diff,
+        metadata?.search_volume || 0,
+        getKeywordDifficulty(r),
+        metadata?.cpc || 0,
+        r.url || '',
+        r.search_engine,
+        r.device,
+        r.location
+      ].join(',');
+    });
+    
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `keywords-${new Date().toISOString()}.csv`;
+    a.click();
+    
+    toast({
+      title: "Exportado",
+      description: "Dados exportados com sucesso"
+    });
+  };
+
+  const formatUrl = (url: string | null): string => {
+    if (!url) return 'N/A';
+    try {
+      const urlObj = new URL(url);
+      const path = urlObj.pathname.length > 30 
+        ? urlObj.pathname.substring(0, 30) + '...' 
+        : urlObj.pathname;
+      return path || '/';
+    } catch {
+      return url.substring(0, 30) + '...';
+    }
+  };
 
   const handleAddKeyword = async () => {
     if (!newKeyword.trim()) return;
@@ -195,82 +300,114 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Gerenciar Keywords ({filteredRankings.length})</CardTitle>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Keyword
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Adicionar Keyword ao Monitoramento</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Palavra-chave</label>
-                  <Input
-                    placeholder="Ex: marketing digital"
-                    value={newKeyword}
-                    onChange={(e) => setNewKeyword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Buscador</label>
-                    <Select value={searchEngine} onValueChange={setSearchEngine}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="google">Google</SelectItem>
-                        <SelectItem value="bing">Bing</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Dispositivo</label>
-                    <Select value={device} onValueChange={setDevice}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="desktop">Desktop</SelectItem>
-                        <SelectItem value="mobile">Mobile</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Localização</label>
-                    <Select value={location} onValueChange={setLocation}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="brazil">Brasil</SelectItem>
-                        <SelectItem value="portugal">Portugal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={handleAddKeyword}
-                  disabled={isAddingKeyword || !newKeyword.trim()}
-                  className="w-full"
-                >
-                  {isAddingKeyword ? "Adicionando..." : "Adicionar ao Monitoramento"}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportToCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Keyword
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar Keyword ao Monitoramento</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Palavra-chave</label>
+                    <Input
+                      placeholder="Ex: marketing digital"
+                      value={newKeyword}
+                      onChange={(e) => setNewKeyword(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Buscador</label>
+                      <Select value={searchEngine} onValueChange={setSearchEngine}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="google">Google</SelectItem>
+                          <SelectItem value="bing">Bing</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Dispositivo</label>
+                      <Select value={device} onValueChange={setDevice}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="desktop">Desktop</SelectItem>
+                          <SelectItem value="mobile">Mobile</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Localização</label>
+                      <Select value={location} onValueChange={setLocation}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="brazil">Brasil</SelectItem>
+                          <SelectItem value="portugal">Portugal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleAddKeyword}
+                    disabled={isAddingKeyword || !newKeyword.trim()}
+                    className="w-full"
+                  >
+                    {isAddingKeyword ? "Adicionando..." : "Adicionar ao Monitoramento"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
+        {selectedKeywords.length > 0 && (
+          <div className="flex items-center gap-2 mb-4 p-4 bg-muted rounded-lg">
+            <span className="font-medium">{selectedKeywords.length} selecionada(s)</span>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setSelectedKeywords([])}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Limpar
+            </Button>
+            <Button variant="outline" size="sm">
+              <Tag className="h-4 w-4 mr-1" />
+              Adicionar tag
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={handleBulkDelete}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Remover
+            </Button>
+          </div>
+        )}
+
         {filteredRankings.length === 0 ? (
           <div className="text-center py-12">
             <TrendingUp className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
@@ -284,63 +421,128 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
             </Button>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Keyword</TableHead>
-                <TableHead>Buscador</TableHead>
-                <TableHead>Dispositivo</TableHead>
-                <TableHead>Localização</TableHead>
-                <TableHead className="text-center">Tendência</TableHead>
-                <TableHead className="text-center">Posição</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRankings.map((ranking) => {
-                const trend = getPositionTrend(ranking);
-                return (
-                  <TableRow key={ranking.id}>
-                    <TableCell className="font-medium">{ranking.keyword}</TableCell>
-                    <TableCell className="capitalize">{ranking.search_engine}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {getDeviceIcon(ranking.device)}
-                        <span className="capitalize">{ranking.device}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="capitalize">{ranking.location}</TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className={trend.color}>
-                          {trend.icon}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox 
+                      checked={selectedKeywords.length === filteredRankings.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                  {visibleColumns.intent && <TableHead className="w-[50px]">Int.</TableHead>}
+                  <TableHead>Palavra-chave</TableHead>
+                  {visibleColumns.previousPosition && <TableHead className="text-center">Anterior</TableHead>}
+                  <TableHead className="text-center">Atual</TableHead>
+                  <TableHead className="text-center">Dif.</TableHead>
+                  <TableHead className="text-center">Alt. Tráfego</TableHead>
+                  {visibleColumns.volume && <TableHead className="text-center">Volume</TableHead>}
+                  {visibleColumns.difficulty && <TableHead className="text-center">KD %</TableHead>}
+                  {visibleColumns.cpc && <TableHead className="text-center">CPC</TableHead>}
+                  {visibleColumns.url && <TableHead>URL</TableHead>}
+                  {visibleColumns.updated && <TableHead className="text-right">Atualizado</TableHead>}
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRankings.map((ranking) => {
+                  const trend = getPositionTrend(ranking);
+                  const trafficChange = calculateTrafficChange(ranking);
+                  const kd = getKeywordDifficulty(ranking);
+                  const metadata = ranking.metadata as any;
+                  
+                  return (
+                    <TableRow key={ranking.id}>
+                      <TableCell>
+                        <Checkbox 
+                          checked={selectedKeywords.includes(ranking.id)}
+                          onCheckedChange={() => toggleSelectKeyword(ranking.id)}
+                        />
+                      </TableCell>
+                      {visibleColumns.intent && (
+                        <TableCell>
+                          <KeywordIntentBadge keyword={ranking.keyword} />
+                        </TableCell>
+                      )}
+                      <TableCell className="font-medium">{ranking.keyword}</TableCell>
+                      {visibleColumns.previousPosition && (
+                        <TableCell className="text-center">
+                          <Badge variant="outline">
+                            {ranking.previous_position ? `#${ranking.previous_position}` : "N/R"}
+                          </Badge>
+                        </TableCell>
+                      )}
+                      <TableCell className="text-center">
+                        <Badge variant={getPositionBadgeVariant(ranking.current_position)}>
+                          {ranking.current_position ? `#${ranking.current_position}` : "N/R"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <div className={trend.color}>
+                            {trend.icon}
+                          </div>
+                          {trend.change !== "0" && (
+                            <span className={`text-xs font-medium ${trend.color}`}>
+                              {trend.change}
+                            </span>
+                          )}
                         </div>
-                        {trend.change !== "0" && (
-                          <span className={`text-xs font-medium ${trend.color}`}>
-                            {trend.change}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className={trafficChange > 0 ? "text-green-600 font-medium" : trafficChange < 0 ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                          {trafficChange > 0 ? '+' : ''}{trafficChange}
+                        </span>
+                      </TableCell>
+                      {visibleColumns.volume && (
+                        <TableCell className="text-center">
+                          {metadata?.search_volume || '-'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.difficulty && (
+                        <TableCell className="text-center">
+                          <span className={`font-medium ${getDifficultyColor(kd)}`}>
+                            {kd}%
                           </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={getPositionBadgeVariant(ranking.current_position)}>
-                        {ranking.current_position ? `#${ranking.current_position}` : "N/R"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteKeyword(ranking.id, ranking.keyword)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                        </TableCell>
+                      )}
+                      {visibleColumns.cpc && (
+                        <TableCell className="text-center">
+                          ${metadata?.cpc?.toFixed(2) || '0.00'}
+                        </TableCell>
+                      )}
+                      {visibleColumns.url && (
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatUrl(ranking.url)}
+                        </TableCell>
+                      )}
+                      {visibleColumns.updated && (
+                        <TableCell className="text-right text-sm text-muted-foreground">
+                          <div className="flex items-center justify-end gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatDistanceToNow(new Date(ranking.updated_at), { 
+                              addSuffix: true,
+                              locale: ptBR 
+                            })}
+                          </div>
+                        </TableCell>
+                      )}
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteKeyword(ranking.id, ranking.keyword)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>
