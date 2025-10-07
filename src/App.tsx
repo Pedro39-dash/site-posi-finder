@@ -27,6 +27,12 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Wrapper for Comparison to force re-render on project change
+const ComparisonWithKey = () => {
+  const { activeProject } = useProject();
+  return <Comparison key={activeProject?.id || 'no-project'} />;
+};
+
 // Layout component with integrated onboarding and project management
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading: authLoading } = useAuth();
@@ -133,7 +139,7 @@ const App = () => (
                     <Route path="/comparison" element={
                       <ProtectedRoute>
                         <AppLayout>
-                          <Comparison />
+                          <ComparisonWithKey />
                         </AppLayout>
                       </ProtectedRoute>
                     } />
