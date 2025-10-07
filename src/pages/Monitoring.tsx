@@ -18,6 +18,7 @@ import { KeywordPositionChart } from '@/components/monitoring/analytics/KeywordP
 import { PositionTrendsSection } from '@/components/monitoring/analytics/PositionTrendsSection';
 import { KeywordMetricsSummary } from '@/components/monitoring/KeywordMetricsSummary';
 import { KeywordPositionDistributionChart } from '@/components/monitoring/KeywordPositionDistributionChart';
+import { PositionChangeTrendChart } from '@/components/monitoring/analytics/PositionChangeTrendChart';
 import { DetailedSummaryCards } from '@/components/monitoring/analytics/DetailedSummaryCards';
 import { QuickWinsCards } from '@/components/monitoring/insights/QuickWinsCards';
 import { AdvancedFiltersPanel } from '@/components/monitoring/filters/AdvancedFiltersPanel';
@@ -320,6 +321,10 @@ const Monitoring = () => {
                 />
                 <KeywordPositionDistributionChart 
                   rankings={rankings}
+                  isLoading={isLoading}
+                />
+                <PositionChangeTrendChart
+                  projectId={activeProject.id}
                   isLoading={isLoading}
                 />
               </>
