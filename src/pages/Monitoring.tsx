@@ -315,6 +315,7 @@ const Monitoring = () => {
               <>
                 <KeywordMetricsSummary 
                   rankings={rankings}
+                  projectId={activeProject.id}
                   isLoading={isLoading}
                 />
                 <KeywordPositionDistributionChart 

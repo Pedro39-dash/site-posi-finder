@@ -2,10 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { SparklineChart } from "./analytics/SparklineChart";
 import { KeywordRanking } from "@/services/rankingService";
-import { useMemo } from "react";
+import { MonitoringAnalyticsService } from "@/services/monitoringAnalyticsService";
+import { useMemo, useState, useEffect } from "react";
 
 interface KeywordMetricsSummaryProps {
   rankings: KeywordRanking[];
+  projectId: string;
   isLoading?: boolean;
 }
 
@@ -19,46 +21,70 @@ const getCTRByPosition = (position: number): number => {
   return 0.01;
 };
 
-export const KeywordMetricsSummary = ({ rankings, isLoading = false }: KeywordMetricsSummaryProps) => {
-  const metrics = useMemo(() => {
-    const totalKeywords = rankings.length;
-    
-    // Estimativa de tráfego baseada em posições
-    const estimatedTraffic = rankings.reduce((total, ranking) => {
-      if (!ranking.current_position) return total;
+export const KeywordMetricsSummary = ({ rankings, projectId, isLoading = false }: KeywordMetricsSummaryProps) => {
+  const [realMetrics, setRealMetrics] = useState<any>(null);
+  const [dailyData, setDailyData] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadRealMetrics = async () => {
+      if (!projectId) return;
       
-      // Assumir volume de busca médio de 1000/mês por keyword
-      const searchVolume = 1000;
-      const ctr = getCTRByPosition(ranking.current_position);
-      return total + (searchVolume * ctr);
-    }, 0);
+      try {
+        // Buscar métricas reais (últimos 30 dias vs 30 dias anteriores)
+        const metricsData = await MonitoringAnalyticsService.getKeywordMetrics(projectId, 30);
+        setRealMetrics(metricsData);
+        
+        // Buscar dados diários para sparklines (últimos 7 dias)
+        const dailyMetricsData = await MonitoringAnalyticsService.getDailyMetrics(projectId, 7);
+        setDailyData(dailyMetricsData);
+      } catch (error) {
+        console.error('Erro ao carregar métricas reais:', error);
+      }
+    };
     
-    // Dados para sparkline (últimos 7 dias - simulado)
-    const keywordSparklineData = Array.from({ length: 7 }, (_, i) => ({
-      value: Math.floor(totalKeywords * (0.9 + Math.random() * 0.2))
+    loadRealMetrics();
+  }, [projectId]);
+
+  const metrics = useMemo(() => {
+    if (!realMetrics) {
+      return {
+        totalKeywords: 0,
+        estimatedTraffic: 0,
+        keywordSparklineData: [],
+        trafficSparklineData: [],
+        keywordTrend: 'neutral',
+        trafficTrend: 'neutral',
+        keywordChange: '0',
+        trafficChange: '0'
+      };
+    }
+
+    // Determinar tendências baseadas nas mudanças reais
+    const keywordTrend = realMetrics.changePercentageKeywords > 0 ? 'up' : 
+                        realMetrics.changePercentageKeywords < 0 ? 'down' : 'neutral';
+    const trafficTrend = realMetrics.changePercentageTraffic > 0 ? 'up' : 
+                        realMetrics.changePercentageTraffic < 0 ? 'down' : 'neutral';
+    
+    // Preparar dados de sparkline dos últimos 7 dias
+    const keywordSparklineData = dailyData.map(day => ({
+      value: day.totalKeywords
     }));
     
-    const trafficSparklineData = Array.from({ length: 7 }, (_, i) => ({
-      value: Math.floor(estimatedTraffic * (0.85 + Math.random() * 0.3))
+    const trafficSparklineData = dailyData.map(day => ({
+      value: day.estimatedTraffic
     }));
-    
-    // Calcular tendência (simulado - comparação com período anterior)
-    const keywordTrend = Math.random() > 0.5 ? 'up' : 'down';
-    const trafficTrend = Math.random() > 0.5 ? 'up' : 'down';
-    const keywordChange = (Math.random() * 10).toFixed(1);
-    const trafficChange = (Math.random() * 15).toFixed(1);
     
     return {
-      totalKeywords,
-      estimatedTraffic: Math.round(estimatedTraffic),
+      totalKeywords: realMetrics.totalKeywords,
+      estimatedTraffic: Math.round(realMetrics.estimatedTraffic),
       keywordSparklineData,
       trafficSparklineData,
       keywordTrend,
       trafficTrend,
-      keywordChange,
-      trafficChange
+      keywordChange: Math.abs(realMetrics.changePercentageKeywords).toFixed(1),
+      trafficChange: Math.abs(realMetrics.changePercentageTraffic).toFixed(1)
     };
-  }, [rankings]);
+  }, [realMetrics, dailyData]);
 
   if (isLoading) {
     return (
