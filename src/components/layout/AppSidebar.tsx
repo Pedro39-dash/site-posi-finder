@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { TrendingUp, Home, Zap, HelpCircle, BarChart, Settings, ChevronDown, Plus, Globe, Check } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
-import { useProject } from "@/hooks/useProject";
+import { useActiveProject } from "@/contexts/ActiveProjectContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -67,7 +67,7 @@ interface AppSidebarProps {
 export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps = {}) {
   const location = useLocation();
   const { isAdmin, isClient, isLoading: roleLoading } = useRole();
-  const { activeProject, projects, setActiveProject } = useProject();
+  const { activeProject, projects, setActiveProject } = useActiveProject();
   const [isChangingProject, setIsChangingProject] = useState(false);
   
   const navSections = getNavigationItems(isAdmin, isClient);
