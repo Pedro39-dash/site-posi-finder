@@ -5,6 +5,8 @@ import CompetitiveResultsDisplay from "@/components/comparison/CompetitiveResult
 import { HookErrorBoundary } from "@/components/comparison/HookErrorBoundary";
 import { KeywordFilterProvider } from "@/contexts/KeywordFilterContext";
 import { useProject } from "@/hooks/useProject";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RefreshCw } from "lucide-react";
 
 type AnalysisState = 'form' | 'results';
 
@@ -13,14 +15,24 @@ const Comparison = () => {
   
   // Main state management
   const [state, setState] = useState<AnalysisState>('form');
+  const [isChangingProject, setIsChangingProject] = useState(false);
   
   // Real analysis state
   const [analysisId, setAnalysisId] = useState<string | null>(null);
 
   // Reset state when active project changes
   useEffect(() => {
-    setState('form');
-    setAnalysisId(null);
+    if (activeProject?.id) {
+      console.log('🔄 Comparison: Projeto ativo mudou para:', activeProject.name);
+      console.log('📌 Resetando estado da página Comparison');
+      
+      setIsChangingProject(true);
+      setState('form');
+      setAnalysisId(null);
+      
+      // Remove indicator after brief delay
+      setTimeout(() => setIsChangingProject(false), 500);
+    }
   }, [activeProject?.id]);
 
   // Handler functions
@@ -59,6 +71,16 @@ const Comparison = () => {
             {state === 'results' && "Resultados da análise competitiva"}
           </p>
         </div>
+
+        {/* Project change indicator */}
+        {isChangingProject && (
+          <Alert className="mb-6">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <AlertDescription>
+              Carregando dados do projeto {activeProject?.name}...
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Direct Analysis Form */}
         {state === 'form' && (

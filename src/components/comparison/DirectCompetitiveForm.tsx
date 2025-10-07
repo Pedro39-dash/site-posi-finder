@@ -44,6 +44,28 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     keywords?: string;
   }>({});
 
+  // Reset form when active project changes
+  useEffect(() => {
+    console.log('🔄 DirectCompetitiveForm: Projeto mudou, resetando formulário');
+    
+    // Reset user input flags to allow auto-fill
+    hasUserInputRef.current = {
+      domain: false,
+      competitors: false,
+      keywords: false
+    };
+    
+    // Clear all form states
+    setClientDomain('');
+    setCompetitors([]);
+    setCompetitorInput('');
+    setSelectedKeywords([]);
+    setKeywordInput('');
+    setCurrentKeywordInput('');
+    setErrors({});
+  }, [activeProject?.id]);
+
+  // Auto-fill with project data after reset
   useEffect(() => {
     if (activeProject) {
       // Only auto-fill if user hasn't manually entered data
