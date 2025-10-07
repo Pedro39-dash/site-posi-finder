@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,41 +28,31 @@ const queryClient = new QueryClient();
 
 // Wrapper for Comparison to force re-render on project change
 const ComparisonWithKey = ({ activeProject }: { activeProject: any }) => {
-  const [renderKey, setRenderKey] = useState(0);
-  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
-  
-  useEffect(() => {
-    // Detecta mudança real no ID do projeto
-    if (activeProject?.id && activeProject?.id !== currentProjectId) {
-      console.log('🔑 ComparisonWithKey: activeProject mudou', {
-        de: currentProjectId,
-        para: activeProject?.id,
-        name: activeProject?.name,
-        novoRenderKey: renderKey + 1
-      });
-      
-      setCurrentProjectId(activeProject?.id);
-      setRenderKey(prev => prev + 1);
-    }
-  }, [activeProject?.id, currentProjectId]);
-  
   console.log('🎨 ComparisonWithKey render:', {
     projectId: activeProject?.id,
     projectName: activeProject?.name,
-    currentProjectId,
-    renderKey,
-    key: `${activeProject?.id}-${renderKey}`
+    timestamp: Date.now()
   });
   
-  return <Comparison 
-    key={`${activeProject?.id}-${renderKey}`} 
-    activeProject={activeProject}
-  />;
+  // Use useMemo to ensure stable reference
+  const memoizedComparison = useMemo(() => {
+    console.log('🔄 ComparisonWithKey: Creating new Comparison instance for project:', activeProject?.id);
+    return <Comparison activeProject={activeProject} />;
+  }, [activeProject?.id]);
+  
+  return memoizedComparison;
 };
 
 // Wrapper to provide activeProject for key-based remounting
 const AppLayoutWrapper = ({ children }: { children: React.ReactNode | ((activeProject: any) => React.ReactNode) }) => {
   const { activeProject } = useProject();
+  
+  console.log('🏗️ AppLayoutWrapper render:', {
+    projectId: activeProject?.id,
+    projectName: activeProject?.name,
+    timestamp: Date.now()
+  });
+  
   return <AppLayout key={activeProject?.id} activeProject={activeProject}>{children}</AppLayout>;
 };
 
@@ -171,7 +161,14 @@ const App = () => (
                     <Route path="/comparison" element={
                       <ProtectedRoute>
                         <AppLayoutWrapper>
-                          {(activeProject) => <ComparisonWithKey activeProject={activeProject} />}
+                          {(activeProject) => {
+                            console.log('🔄 Render prop /comparison chamado com activeProject:', {
+                              id: activeProject?.id,
+                              name: activeProject?.name,
+                              timestamp: Date.now()
+                            });
+                            return <ComparisonWithKey activeProject={activeProject} />;
+                          }}
                         </AppLayoutWrapper>
                       </ProtectedRoute>
                     } />
