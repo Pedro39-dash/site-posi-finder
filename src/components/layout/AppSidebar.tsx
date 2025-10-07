@@ -1,7 +1,14 @@
-import { TrendingUp, Home, Zap, HelpCircle, BarChart } from "lucide-react";
+import { TrendingUp, Home, Zap, HelpCircle, BarChart, Settings, ChevronDown, Plus, Globe } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
 import { useProject } from "@/hooks/useProject";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -51,10 +58,15 @@ const getNavigationItems = (isAdmin: boolean, isClient: boolean) => ({
   ]
 });
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  onEditProject?: () => void;
+  onCreateProject?: () => void;
+}
+
+export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps = {}) {
   const location = useLocation();
   const { isAdmin, isClient, isLoading: roleLoading } = useRole();
-  const { activeProject } = useProject();
+  const { activeProject, projects, setActiveProject } = useProject();
   
   const navSections = getNavigationItems(isAdmin, isClient);
 
@@ -78,16 +90,83 @@ export function AppSidebar() {
       className="w-72 border-r h-full bg-zinc-950"
       collapsible="none"
     >
-      <SidebarHeader className="border-b px-4 py-6">
+      <SidebarHeader className="border-b px-4 py-4">
         {activeProject ? (
-          <div className="flex flex-col space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight">Projeto Selecionado</h2>
-            <p className="text-sm bg-zinc-900 p-2 rounded-sm">{activeProject.domain}</p>
+          <div className="space-y-3">
+            {/* Projeto Ativo - Clicável para trocar */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-between h-auto py-2 px-3 hover:bg-zinc-800"
+                >
+                  <div className="flex flex-col items-start flex-1 min-w-0">
+                    <span className="text-xs text-muted-foreground">Projeto Ativo</span>
+                    <span className="text-sm font-semibold truncate w-full text-left">
+                      {activeProject.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate w-full text-left">
+                      {activeProject.domain}
+                    </span>
+                  </div>
+                  <ChevronDown className="h-4 w-4 ml-2 flex-shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 bg-popover">
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                  Trocar Projeto
+                </div>
+                {projects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.id}
+                    onClick={() => setActiveProject(project.id)}
+                    className={project.id === activeProject.id ? "bg-accent" : ""}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium">{project.name}</span>
+                      <span className="text-xs text-muted-foreground">{project.domain}</span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Botões de Ação */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={onEditProject}
+              >
+                <Settings className="h-3 w-3" />
+                Editar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={onCreateProject}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight">Nenhum Projeto</h2>
-            <p className="text-sm text-muted-foreground">Selecione um projeto</p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-center py-6 px-3 bg-zinc-900 rounded-md border border-dashed border-zinc-700">
+              <div className="text-center">
+                <Globe className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm font-medium mb-1">Nenhum Projeto</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Crie seu primeiro projeto
+                </p>
+                <Button size="sm" onClick={onCreateProject} className="w-full">
+                  <Plus className="h-3 w-3 mr-2" />
+                  Criar Projeto
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </SidebarHeader>

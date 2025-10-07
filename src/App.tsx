@@ -30,7 +30,7 @@ const queryClient = new QueryClient();
 // Layout component with integrated onboarding and project management
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading: authLoading } = useAuth();
-  const { projects, isLoading: projectsLoading } = useProject();
+  const { projects, activeProject, isLoading: projectsLoading } = useProject();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
 
@@ -49,6 +49,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     setShowProjectModal(true);
   };
 
+  const handleEditProject = () => {
+    if (activeProject) {
+      setShowProjectModal(true);
+    }
+  };
+
   if (authLoading || projectsLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -65,7 +71,10 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
         
         {/* Content area with fixed sidebar - remaining height */}
         <div className="flex w-full" style={{ height: 'calc(100vh - var(--topbar-height))' }}>
-          <AppSidebar />
+          <AppSidebar 
+            onEditProject={handleEditProject}
+            onCreateProject={handleCreateProject}
+          />
           <main className="flex-1 overflow-auto bg-zinc-950">
             {children}
           </main>
@@ -81,6 +90,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       <ProjectModal 
         open={showProjectModal}
         onClose={() => setShowProjectModal(false)}
+        projectId={activeProject?.id}
       />
     </SidebarProvider>
   );
