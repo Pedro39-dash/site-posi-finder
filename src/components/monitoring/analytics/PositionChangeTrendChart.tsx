@@ -86,25 +86,39 @@ export const PositionChangeTrendChart = ({ projectId, isLoading = false }: Posit
 
   if (isLoading || loading) {
     return (
-      <Card className="p-6">
-        <Skeleton className="h-8 w-64 mb-4" />
-        <Skeleton className="h-[300px] w-full mb-4" />
-        <Skeleton className="h-[200px] w-full" />
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <Card className="p-6">
+            <Skeleton className="h-8 w-64 mb-4" />
+            <Skeleton className="h-[300px] w-full mb-4" />
+            <Skeleton className="h-[200px] w-full" />
+          </Card>
+        </div>
+        <div className="lg:col-span-1">
+          <TopPagesCompact data={[]} isLoading={true} />
+        </div>
+      </div>
     );
   }
 
   if (trendData.length === 0) {
     return (
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Tendência de alterações na posição</h3>
-        <div className="flex items-center justify-center h-[400px] text-muted-foreground">
-          <div className="text-center">
-            <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>Sem dados de tendência disponíveis</p>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Tendência de alterações na posição</h3>
+            <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+              <div className="text-center">
+                <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Sem dados de tendência disponíveis</p>
+              </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+        <div className="lg:col-span-1">
+          <TopPagesCompact data={topPages} isLoading={loading} />
+        </div>
+      </div>
     );
   }
 
