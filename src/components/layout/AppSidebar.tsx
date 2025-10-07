@@ -1,4 +1,4 @@
-import { TrendingUp, Home, Zap, HelpCircle, BarChart, Settings, ChevronDown, Plus, Globe } from "lucide-react";
+import { TrendingUp, Home, Zap, HelpCircle, BarChart, Settings, ChevronDown, Plus, Globe, Check } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
 import { useProject } from "@/hooks/useProject";
@@ -112,22 +112,40 @@ export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps =
                   <ChevronDown className="h-4 w-4 ml-2 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 bg-popover">
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  Trocar Projeto
+              <DropdownMenuContent align="start" className="w-64 bg-popover z-50">
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground flex justify-between items-center">
+                  <span>Trocar Projeto</span>
+                  <span className="bg-primary/20 px-2 py-0.5 rounded text-primary">
+                    {projects.length}
+                  </span>
                 </div>
-                {projects.map((project) => (
-                  <DropdownMenuItem
-                    key={project.id}
-                    onClick={() => setActiveProject(project.id)}
-                    className={project.id === activeProject.id ? "bg-accent" : ""}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium">{project.name}</span>
-                      <span className="text-xs text-muted-foreground">{project.domain}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
+                
+                {projects.length === 1 ? (
+                  <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                    Você tem apenas 1 projeto.
+                    <br />
+                    Crie mais projetos para alternar.
+                  </div>
+                ) : (
+                  projects.map((project) => (
+                    <DropdownMenuItem
+                      key={project.id}
+                      onClick={() => setActiveProject(project.id)}
+                      className={cn(
+                        "cursor-pointer",
+                        project.id === activeProject.id ? "bg-accent" : ""
+                      )}
+                    >
+                      <div className="flex flex-col flex-1">
+                        <span className="font-medium">{project.name}</span>
+                        <span className="text-xs text-muted-foreground">{project.domain}</span>
+                      </div>
+                      {project.id === activeProject.id && (
+                        <Check className="h-4 w-4 ml-2 text-primary flex-shrink-0" />
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
 

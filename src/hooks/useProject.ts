@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ProjectService, Project } from '@/services/projectService';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export const useProject = () => {
   const { user } = useAuth();
@@ -20,14 +21,16 @@ export const useProject = () => {
       const { success, projects: userProjects } = await ProjectService.getUserProjects();
       
       if (success && userProjects) {
+        console.log('✅ Projetos carregados:', userProjects.length, 'projetos');
         setProjects(userProjects);
         
         // Find active project
         const active = userProjects.find(p => p.is_active);
         setActiveProject(active || null);
+        console.log('📌 Projeto ativo:', active?.name || 'Nenhum');
       }
     } catch (error) {
-      console.error('Error loading projects:', error);
+      console.error('❌ Error loading projects:', error);
     } finally {
       setIsLoading(false);
     }
@@ -44,25 +47,42 @@ export const useProject = () => {
     focus_keywords?: string[];
     competitor_domains?: string[];
   }) => {
+    console.log('🚀 Criando projeto:', projectData);
     const result = await ProjectService.createProject(projectData);
     if (result.success) {
+      console.log('✅ Projeto criado com sucesso:', result.project);
+      toast.success(`Projeto "${result.project?.name}" criado com sucesso!`);
       await loadProjects();
+    } else {
+      console.error('❌ Erro ao criar projeto:', result.error);
+      toast.error(result.error || 'Erro ao criar projeto');
     }
     return result;
   };
 
   const updateProject = async (projectId: string, updates: Partial<Project>) => {
+    console.log('📝 Atualizando projeto:', projectId, updates);
     const result = await ProjectService.updateProject(projectId, updates);
     if (result.success) {
+      console.log('✅ Projeto atualizado com sucesso');
+      toast.success('Projeto atualizado com sucesso!');
       await loadProjects();
+    } else {
+      console.error('❌ Erro ao atualizar projeto:', result.error);
+      toast.error(result.error || 'Erro ao atualizar projeto');
     }
     return result;
   };
 
   const setActiveProjectById = async (projectId: string) => {
+    console.log('🔄 Alterando projeto ativo para:', projectId);
     const result = await ProjectService.setActiveProject(projectId);
     if (result.success) {
+      console.log('✅ Projeto ativo alterado com sucesso');
       await loadProjects();
+    } else {
+      console.error('❌ Erro ao alterar projeto ativo:', result.error);
+      toast.error(result.error || 'Erro ao alterar projeto');
     }
     return result;
   };

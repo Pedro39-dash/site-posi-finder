@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,40 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [competitorDomains, setCompetitorDomains] = useState('');
 
   const isEdit = Boolean(projectId);
+
+  // Load project data when editing
+  useEffect(() => {
+    const loadProject = async () => {
+      if (!projectId || !open) {
+        // Reset form when creating new project
+        setProjectName('');
+        setWebsiteUrl('');
+        setMarketSegment('');
+        setFocusKeywords('');
+        setCompetitorDomains('');
+        return;
+      }
+      
+      setIsLoading(true);
+      console.log('🔍 Carregando projeto para edição:', projectId);
+      const { success, project } = await ProjectService.getProject(projectId);
+      
+      if (success && project) {
+        console.log('✅ Projeto carregado:', project);
+        setProjectName(project.name);
+        setWebsiteUrl(project.domain);
+        setMarketSegment(project.market_segment || '');
+        setFocusKeywords(project.focus_keywords?.join(', ') || '');
+        setCompetitorDomains(project.competitor_domains?.join(', ') || '');
+      } else {
+        console.error('❌ Erro ao carregar projeto');
+        toast.error('Erro ao carregar dados do projeto');
+      }
+      setIsLoading(false);
+    };
+    
+    loadProject();
+  }, [projectId, open]);
 
   const handleSubmit = async () => {
     if (!projectName || !websiteUrl) {
