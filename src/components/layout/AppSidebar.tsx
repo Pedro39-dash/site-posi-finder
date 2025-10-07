@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { TrendingUp, Home, Zap, HelpCircle, BarChart, Settings, ChevronDown, Plus, Globe, Check } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
