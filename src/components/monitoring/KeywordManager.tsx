@@ -25,6 +25,16 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
   const [device, setDevice] = useState("desktop");
   const [location, setLocation] = useState("brazil");
 
+  // Filtro de segurança: garantir que apenas keywords do projeto atual sejam exibidas
+  const filteredRankings = rankings.filter(r => r.project_id === projectId);
+  
+  console.log('🔍 [KeywordManager] Filtering rankings:', {
+    projectId,
+    totalRankings: rankings.length,
+    filteredRankings: filteredRankings.length,
+    rankings: filteredRankings.map(r => ({ keyword: r.keyword, project: r.project_id }))
+  });
+
   const handleAddKeyword = async () => {
     if (!newKeyword.trim()) return;
 
@@ -129,7 +139,7 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Gerenciar Keywords ({rankings.length})</CardTitle>
+          <CardTitle>Gerenciar Keywords ({filteredRankings.length})</CardTitle>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -206,7 +216,7 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
         </div>
       </CardHeader>
       <CardContent>
-        {rankings.length === 0 ? (
+        {filteredRankings.length === 0 ? (
           <div className="text-center py-12">
             <TrendingUp className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhuma Keyword Monitorada</h3>
@@ -232,7 +242,7 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rankings.map((ranking) => {
+              {filteredRankings.map((ranking) => {
                 const trend = getPositionTrend(ranking);
                 return (
                   <TableRow key={ranking.id}>

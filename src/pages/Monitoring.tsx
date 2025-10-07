@@ -122,9 +122,21 @@ const Monitoring = () => {
 
   const loadRankings = async () => {
     if (!activeProject) return;
+    
+    const currentProjectId = activeProject.id;
+    console.log('🔍 [loadRankings] Loading rankings for project:', currentProjectId);
+    
     try {
-      const result = await RankingService.getProjectRankings(activeProject.id);
+      const result = await RankingService.getProjectRankings(currentProjectId);
+      
+      // Verificar se ainda estamos no mesmo projeto após a resposta da API
+      if (activeProject?.id !== currentProjectId) {
+        console.log('⚠️ [loadRankings] Project changed during API call, ignoring results');
+        return;
+      }
+      
       if (result.success) {
+        console.log('✅ [loadRankings] Loaded rankings:', result.rankings?.length || 0);
         setRankings(result.rankings || []);
       }
     } catch (error) {
@@ -150,21 +162,30 @@ const Monitoring = () => {
   };
 
   useEffect(() => {
-    // Limpar dados antigos quando o projeto muda
+    console.log('🔄 [Monitoring] Project changed:', activeProject?.id);
+    
+    // Limpar IMEDIATAMENTE todos os dados antigos quando o projeto muda
     setSessions([]);
     setRankings([]);
     setSuggestions([]);
     setKeywordMetrics({});
     setPositionDistribution([]);
+    setKeywordDetails([]);
+    setPageMetrics([]);
     
-    if (activeProject) {
-      loadSessions();
-      loadAnalytics();
-      loadTables();
-      loadQuickWins();
-      loadRankings();
-      loadSuggestions();
+    // Early return se não houver projeto ativo
+    if (!activeProject) {
+      console.log('⚠️ [Monitoring] No active project, skipping data load');
+      return;
     }
+    
+    // Carregar dados do novo projeto
+    loadSessions();
+    loadAnalytics();
+    loadTables();
+    loadQuickWins();
+    loadRankings();
+    loadSuggestions();
   }, [activeProject?.id, selectedPeriod]);
 
   const handleSetupComplete = () => {
