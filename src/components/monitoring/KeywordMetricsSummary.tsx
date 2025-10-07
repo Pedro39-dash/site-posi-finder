@@ -21,29 +21,61 @@ const getCTRByPosition = (position: number): number => {
   return 0.01;
 };
 
+// Função para calcular métricas usando rankings atuais (fallback)
+  const calculateFallbackMetrics = (rankings: KeywordRanking[]) => {
+    const totalKeywords = rankings.length;
+    
+    // Estimar tráfego baseado em posições atuais
+    const estimatedTraffic = rankings.reduce((total, ranking) => {
+      if (!ranking.current_position) return total;
+      const searchVolume = 1000; // Volume padrão
+      const ctr = getCTRByPosition(ranking.current_position);
+      return total + (searchVolume * ctr);
+    }, 0);
+    
+    return {
+      totalKeywords,
+      estimatedTraffic,
+      previousTotalKeywords: totalKeywords,
+      previousEstimatedTraffic: estimatedTraffic,
+      changePercentageKeywords: 0,
+      changePercentageTraffic: 0
+    };
+  };
+
 export const KeywordMetricsSummary = ({ rankings, projectId, isLoading = false }: KeywordMetricsSummaryProps) => {
   const [realMetrics, setRealMetrics] = useState<any>(null);
   const [dailyData, setDailyData] = useState<any[]>([]);
 
   useEffect(() => {
-    const loadRealMetrics = async () => {
+    const loadMetrics = async () => {
       if (!projectId) return;
       
       try {
-        // Buscar métricas reais (últimos 30 dias vs 30 dias anteriores)
+        // Tentar buscar métricas do histórico
         const metricsData = await MonitoringAnalyticsService.getKeywordMetrics(projectId, 30);
-        setRealMetrics(metricsData);
-        
-        // Buscar dados diários para sparklines (últimos 7 dias)
         const dailyMetricsData = await MonitoringAnalyticsService.getDailyMetrics(projectId, 7);
-        setDailyData(dailyMetricsData);
+        
+        // Se não houver dados históricos, usar fallback
+        if (metricsData.totalKeywords === 0 && rankings.length > 0) {
+          const fallbackMetrics = calculateFallbackMetrics(rankings);
+          setRealMetrics(fallbackMetrics);
+          setDailyData([]);
+        } else {
+          setRealMetrics(metricsData);
+          setDailyData(dailyMetricsData);
+        }
       } catch (error) {
-        console.error('Erro ao carregar métricas reais:', error);
+        console.error('Erro ao carregar métricas, usando fallback:', error);
+        // Em caso de erro, usar fallback
+        const fallbackMetrics = calculateFallbackMetrics(rankings);
+        setRealMetrics(fallbackMetrics);
+        setDailyData([]);
       }
     };
     
-    loadRealMetrics();
-  }, [projectId]);
+    loadMetrics();
+  }, [projectId, rankings]);
 
   const metrics = useMemo(() => {
     if (!realMetrics) {
@@ -52,8 +84,8 @@ export const KeywordMetricsSummary = ({ rankings, projectId, isLoading = false }
         estimatedTraffic: 0,
         keywordSparklineData: [],
         trafficSparklineData: [],
-        keywordTrend: 'neutral',
-        trafficTrend: 'neutral',
+        keywordTrend: 'neutral' as const,
+        trafficTrend: 'neutral' as const,
         keywordChange: '0',
         trafficChange: '0'
       };
@@ -65,14 +97,24 @@ export const KeywordMetricsSummary = ({ rankings, projectId, isLoading = false }
     const trafficTrend = realMetrics.changePercentageTraffic > 0 ? 'up' : 
                         realMetrics.changePercentageTraffic < 0 ? 'down' : 'neutral';
     
-    // Preparar dados de sparkline dos últimos 7 dias
-    const keywordSparklineData = dailyData.map(day => ({
-      value: day.totalKeywords
-    }));
+    // Preparar dados de sparkline
+    let keywordSparklineData = [];
+    let trafficSparklineData = [];
     
-    const trafficSparklineData = dailyData.map(day => ({
-      value: day.estimatedTraffic
-    }));
+    if (dailyData.length > 0) {
+      // Usar dados históricos reais
+      keywordSparklineData = dailyData.map(day => ({
+        value: day.totalKeywords
+      }));
+      
+      trafficSparklineData = dailyData.map(day => ({
+        value: day.estimatedTraffic
+      }));
+    } else {
+      // Usar dados estáticos (sem histórico)
+      keywordSparklineData = Array(7).fill({ value: realMetrics.totalKeywords });
+      trafficSparklineData = Array(7).fill({ value: realMetrics.estimatedTraffic });
+    }
     
     return {
       totalKeywords: realMetrics.totalKeywords,
