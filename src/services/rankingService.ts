@@ -118,6 +118,56 @@ export class RankingService {
     }
   }
 
+  static async syncProjectKeywords(
+    projectId: string,
+    keywords: string[]
+  ): Promise<{
+    success: boolean;
+    added: number;
+    skipped: number;
+    error?: string;
+  }> {
+    try {
+      // 1. Buscar keywords já monitoradas
+      const existing = await this.getProjectRankings(projectId);
+      const existingKeywords = new Set(
+        existing.rankings?.map(r => r.keyword.toLowerCase()) || []
+      );
+      
+      // 2. Filtrar apenas as NOVAS keywords
+      const newKeywords = keywords.filter(
+        k => k.trim() && !existingKeywords.has(k.trim().toLowerCase())
+      );
+      
+      // 3. Adicionar ao monitoramento
+      let addedCount = 0;
+      for (const keyword of newKeywords) {
+        const result = await this.addKeywordToTracking({
+          projectId,
+          keyword: keyword.trim(),
+          searchEngine: 'google',
+          location: 'brazil',
+          device: 'desktop'
+        });
+        if (result.success) addedCount++;
+      }
+      
+      return {
+        success: true,
+        added: addedCount,
+        skipped: keywords.length - newKeywords.length
+      };
+    } catch (error) {
+      console.error('Error syncing project keywords:', error);
+      return {
+        success: false,
+        added: 0,
+        skipped: 0,
+        error: error.message
+      };
+    }
+  }
+
   static async deleteKeyword(keywordId: string): Promise<{
     success: boolean;
     error?: string;

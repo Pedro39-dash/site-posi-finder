@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { useProject } from '@/hooks/useProject';
 import { ProjectService } from '@/services/projectService';
+import { RankingService } from '@/services/rankingService';
 import { toast } from 'sonner';
 
 interface ProjectModalProps {
@@ -126,6 +127,28 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       }
 
       if (result.success) {
+        // ✅ Sincronizar keywords automaticamente com monitoramento
+        if (keywordsArray.length > 0) {
+          console.log('🔄 Sincronizando keywords com monitoramento...');
+          const syncResult = await RankingService.syncProjectKeywords(
+            result.project?.id || projectId!,
+            keywordsArray
+          );
+          
+          if (syncResult.success) {
+            console.log('✅ Keywords sincronizadas:', {
+              added: syncResult.added,
+              skipped: syncResult.skipped
+            });
+            
+            if (syncResult.added > 0) {
+              toast.success(
+                `${syncResult.added} keyword(s) adicionada(s) ao monitoramento!`
+              );
+            }
+          }
+        }
+        
         toast.success(isEdit ? 'Projeto atualizado!' : 'Projeto criado!');
         handleClose();
       } else {
