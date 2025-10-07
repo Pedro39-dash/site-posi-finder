@@ -42,7 +42,16 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    // Delay de segurança para garantir que o estado foi completamente atualizado
+    // Se já tem projetos, nunca mostrar onboarding
+    if (projects.length > 0) {
+      if (!hasCheckedOnboarding) {
+        console.log('⏭️ Skipping onboarding: user has projects');
+        setHasCheckedOnboarding(true);
+      }
+      return;
+    }
+
+    // Delay de segurança aumentado para garantir que o estado foi completamente atualizado
     const timeoutId = setTimeout(() => {
       if (hasCheckedOnboarding) {
         return;
@@ -76,7 +85,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       }
       
       setHasCheckedOnboarding(true);
-    }, 100); // 100ms safety delay
+    }, 300); // 300ms safety delay - increased for reliability
 
     return () => clearTimeout(timeoutId);
   }, [user, authLoading, projectsLoading, projects.length, activeProject, hasCheckedOnboarding, isOnboardingInProgress]);

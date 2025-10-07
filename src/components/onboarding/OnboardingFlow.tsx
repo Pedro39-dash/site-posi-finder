@@ -90,6 +90,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       if (result.success) {
         toast.success('Projeto criado com sucesso!');
         await refreshProjects();
+        localStorage.setItem('onboarding_completed', 'true');
         onComplete();
       } else {
         toast.error(result.error || 'Erro ao criar projeto');
@@ -101,12 +102,26 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     }
   };
 
+  const handleSkip = () => {
+    console.log('⏭️ Skipping onboarding');
+    localStorage.setItem('onboarding_completed', 'true');
+    onComplete();
+  };
+
   const isStep1Valid = websiteUrl.length > 0;
   const isStep2Valid = projectName.length > 0 && marketSegment.length > 0;
 
   return (
-    <Dialog open={open}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen && !isLoading) {
+        handleSkip();
+      }
+    }}>
+      <DialogContent className="sm:max-w-md" onEscapeKeyDown={(e) => {
+        if (!isLoading) {
+          handleSkip();
+        }
+      }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             🎯 Bem-vindo ao SEO Dashboard!
@@ -131,13 +146,23 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </p>
             </div>
 
-            <Button 
-              onClick={handleNext} 
-              disabled={!isStep1Valid}
-              className="w-full"
-            >
-              Próximo
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button 
+                onClick={handleNext} 
+                disabled={!isStep1Valid}
+                className="w-full"
+              >
+                Próximo
+              </Button>
+              <Button 
+                onClick={handleSkip}
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+              >
+                Já tenho projetos configurados
+              </Button>
+            </div>
           </div>
         )}
 
