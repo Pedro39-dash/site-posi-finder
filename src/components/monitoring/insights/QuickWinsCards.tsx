@@ -29,7 +29,64 @@ export const QuickWinsCards = ({ data, isLoading, onViewDetails }: QuickWinsCard
     );
   }
 
-  if (!data) return null;
+  // Mock data temporário para visualização
+  const mockData: QuickWinsData = {
+    quickWins: [
+      { 
+        keyword: 'bmw i7 preço', 
+        keywordRankingId: 'mock-1',
+        currentPosition: 5, 
+        potentialPosition: 3,
+        estimatedTrafficGain: 150,
+        url: 'bmwi7.com.br/preco'
+      },
+      { 
+        keyword: 'bmw i7 2026', 
+        keywordRankingId: 'mock-2',
+        currentPosition: 8, 
+        potentialPosition: 3,
+        estimatedTrafficGain: 80,
+        url: 'bmwi7.com.br/2026'
+      },
+    ],
+    atRisk: [
+      { 
+        keyword: 'bmw i7', 
+        keywordRankingId: 'mock-3',
+        previousPosition: 3, 
+        currentPosition: 7, 
+        decline: 4,
+        url: 'bmwi7.com.br/'
+      },
+    ],
+    featuredSnippets: [
+      { 
+        keyword: 'o que é bmw i7', 
+        keywordRankingId: 'mock-4',
+        currentPosition: 4,
+        hasQuestion: true,
+        url: 'bmwi7.com.br/sobre'
+      },
+      { 
+        keyword: 'como funciona bmw i7 elétrico', 
+        keywordRankingId: 'mock-5',
+        currentPosition: 6,
+        hasQuestion: true,
+        url: 'bmwi7.com.br/eletrico'
+      },
+    ],
+    cannibalization: [
+      { 
+        keyword: 'bmw i7', 
+        urls: ['bmwi7.com.br/', 'bmwi7.com.br/modelos'],
+        positions: [5, 8],
+        keywordRankingIds: ['mock-6', 'mock-7']
+      },
+    ],
+    totalOpportunities: 6,
+  };
+
+  const displayData = data || mockData;
 
   const cards = [
     {
@@ -37,44 +94,44 @@ export const QuickWinsCards = ({ data, isLoading, onViewDetails }: QuickWinsCard
       title: 'Quick Wins',
       description: 'Palavras-chave próximas do Top 3',
       icon: TrendingUp,
-      count: data.quickWins.length,
+      count: displayData.quickWins.length,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
-      visible: data.quickWins.length > 0
+      visible: displayData.quickWins.length > 0
     },
     {
       id: 'at-risk' as const,
       title: 'Em Risco',
       description: 'Keywords com quedas significativas',
       icon: AlertTriangle,
-      count: data.atRisk.length,
+      count: displayData.atRisk.length,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
       borderColor: 'border-orange-200',
-      visible: data.atRisk.length > 0
+      visible: displayData.atRisk.length > 0
     },
     {
       id: 'featured-snippet' as const,
       title: 'Featured Snippets',
       description: 'Oportunidades de destaque',
       icon: Award,
-      count: data.featuredSnippets.length,
+      count: displayData.featuredSnippets.length,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
-      visible: data.featuredSnippets.length > 0
+      visible: displayData.featuredSnippets.length > 0
     },
     {
       id: 'cannibalization' as const,
       title: 'Cannibalização',
       description: 'URLs competindo entre si',
       icon: Copy,
-      count: data.cannibalization.length,
+      count: displayData.cannibalization.length,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       borderColor: 'border-purple-200',
-      visible: data.cannibalization.length > 0
+      visible: displayData.cannibalization.length > 0
     }
   ];
 
@@ -112,7 +169,7 @@ export const QuickWinsCards = ({ data, isLoading, onViewDetails }: QuickWinsCard
           </p>
         </div>
         <Badge variant="secondary" className="text-base px-3 py-1">
-          {data.totalOpportunities} {data.totalOpportunities === 1 ? 'oportunidade' : 'oportunidades'}
+          {displayData.totalOpportunities} {displayData.totalOpportunities === 1 ? 'oportunidade' : 'oportunidades'}
         </Badge>
       </div>
 
