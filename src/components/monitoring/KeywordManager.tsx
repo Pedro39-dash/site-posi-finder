@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,15 +26,35 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
   const [device, setDevice] = useState("desktop");
   const [location, setLocation] = useState("brazil");
 
-  // Filtro de segurança: garantir que apenas keywords do projeto atual sejam exibidas
-  const filteredRankings = rankings.filter(r => r.project_id === projectId);
-  
-  console.log('🔍 [KeywordManager] Filtering rankings:', {
-    projectId,
-    totalRankings: rankings.length,
-    filteredRankings: filteredRankings.length,
-    rankings: filteredRankings.map(r => ({ keyword: r.keyword, project: r.project_id }))
-  });
+  // Proteção: se não há projectId válido, mostrar skeleton de carregamento
+  if (!projectId || projectId === '') {
+    console.warn('⚠️ [KeywordManager] projectId inválido:', projectId);
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-8 w-[200px]" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[200px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Filtro de segurança com useMemo: garantir que apenas keywords do projeto atual sejam exibidas
+  const filteredRankings = useMemo(() => {
+    const filtered = rankings.filter(r => r.project_id === projectId);
+    
+    console.log('🔍 [KeywordManager] Filtrando rankings:', {
+      projectId,
+      totalRankings: rankings.length,
+      filteredCount: filtered.length,
+      allProjectIds: [...new Set(rankings.map(r => r.project_id))],
+      filteredKeywords: filtered.map(r => ({ keyword: r.keyword, project_id: r.project_id }))
+    });
+    
+    return filtered;
+  }, [rankings, projectId]);
 
   const handleAddKeyword = async () => {
     if (!newKeyword.trim()) return;

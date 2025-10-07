@@ -162,24 +162,34 @@ const Monitoring = () => {
   };
 
   useEffect(() => {
-    console.log('🔄 [Monitoring] Project changed:', activeProject?.id);
+    console.log('🔄 [Monitoring] useEffect triggered:', {
+      activeProjectId: activeProject?.id,
+      activeProjectName: activeProject?.name,
+      timestamp: Date.now()
+    });
     
-    // Limpar IMEDIATAMENTE todos os dados antigos quando o projeto muda
+    // LIMPEZA SÍNCRONA E IMEDIATA: limpar TODOS os dados antigos ANTES de qualquer operação
+    console.log('🧹 [Monitoring] Limpando dados do projeto anterior');
     setSessions([]);
     setRankings([]);
     setSuggestions([]);
     setKeywordMetrics({});
     setPositionDistribution([]);
+    setDailyMetrics([]);
+    setTrendData([]);
+    setSummaryStats({});
     setKeywordDetails([]);
     setPageMetrics([]);
+    setQuickWinsData(null);
     
     // Early return se não houver projeto ativo
-    if (!activeProject) {
+    if (!activeProject || !activeProject.id) {
       console.log('⚠️ [Monitoring] No active project, skipping data load');
       return;
     }
     
     // Carregar dados do novo projeto
+    console.log('📥 [Monitoring] Carregando dados para projeto:', activeProject.id);
     loadSessions();
     loadAnalytics();
     loadTables();
