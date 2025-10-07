@@ -33,15 +33,27 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | undefined>(undefined);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
 
   useEffect(() => {
-    // Check if user needs onboarding (first time user with no projects)
-    if (user && !authLoading && !projectsLoading && projects.length === 0) {
+    // Only check once after data is loaded
+    if (hasCheckedOnboarding || authLoading || projectsLoading) {
+      return;
+    }
+
+    // Check if onboarding was already completed
+    const onboardingCompleted = localStorage.getItem('onboarding_completed');
+    
+    // Show onboarding only for first-time users with no projects
+    if (user && !onboardingCompleted && projects.length === 0) {
       setShowOnboarding(true);
     }
-  }, [user, authLoading, projectsLoading, projects]);
+    
+    setHasCheckedOnboarding(true);
+  }, [user, authLoading, projectsLoading, projects, hasCheckedOnboarding]);
 
   const handleOnboardingComplete = () => {
+    localStorage.setItem('onboarding_completed', 'true');
     setShowOnboarding(false);
   };
 
