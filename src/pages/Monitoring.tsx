@@ -5,12 +5,16 @@ import { KeywordManager } from '@/components/monitoring/KeywordManager';
 import { KeywordMetricsSummary } from '@/components/monitoring/KeywordMetricsSummary';
 import { KeywordPositionDistributionChart } from '@/components/monitoring/KeywordPositionDistributionChart';
 import { PositionChangeTrendChart } from '@/components/monitoring/analytics/PositionChangeTrendChart';
+import { QuickWinsCards } from '@/components/monitoring/insights/QuickWinsCards';
 import { useProject } from '@/hooks/useProject';
+import { quickWinsService, QuickWinsData } from '@/services/quickWinsService';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
   const { activeProject } = useProject();
   const [isLoading, setIsLoading] = useState(true);
+  const [quickWinsData, setQuickWinsData] = useState<QuickWinsData | null>(null);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
 
   const loadRankings = async () => {
     if (!activeProject) {
@@ -56,6 +60,20 @@ const Monitoring = () => {
     }
   };
 
+  const loadQuickWins = async () => {
+    if (!activeProject) return;
+    
+    setIsLoadingInsights(true);
+    try {
+      const data = await quickWinsService.getQuickWinsData(activeProject.id);
+      setQuickWinsData(data);
+    } catch (error) {
+      console.error('❌ [loadQuickWins] Error:', error);
+    } finally {
+      setIsLoadingInsights(false);
+    }
+  };
+
   useEffect(() => {
     console.log('🔄 [Monitoring] useEffect triggered:', {
       activeProjectId: activeProject?.id,
@@ -66,6 +84,7 @@ const Monitoring = () => {
     // LIMPEZA SÍNCRONA E IMEDIATA: limpar dados antigos ANTES de qualquer operação
     console.log('🧹 [Monitoring] Limpando dados do projeto anterior');
     setRankings([]);
+    setQuickWinsData(null);
     
     // Early return se não houver projeto ativo
     if (!activeProject || !activeProject.id) {
@@ -77,6 +96,7 @@ const Monitoring = () => {
     // Carregar dados do novo projeto
     console.log('📥 [Monitoring] Carregando dados para projeto:', activeProject.id);
     loadRankings();
+    loadQuickWins();
   }, [activeProject?.id]);
 
   return (
@@ -116,6 +136,16 @@ const Monitoring = () => {
               projectId={activeProject?.id || ''}
               onRankingsUpdate={loadRankings}
             />
+
+            {/* Insights Automáticos */}
+            {activeProject && (
+              <div className="mt-8">
+                <QuickWinsCards 
+                  data={quickWinsData}
+                  isLoading={isLoadingInsights}
+                />
+              </div>
+            )}
           </main>
         </div>
       </div>
