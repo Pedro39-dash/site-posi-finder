@@ -121,26 +121,43 @@ const Monitoring = () => {
   };
 
   const loadRankings = async () => {
-    if (!activeProject) return;
+    if (!activeProject) {
+      console.log('⚠️ [loadRankings] No active project');
+      return;
+    }
     
     const currentProjectId = activeProject.id;
-    console.log('🔍 [loadRankings] Loading rankings for project:', currentProjectId);
+    console.log('🔄 [loadRankings] Iniciando carregamento:', {
+      projectId: currentProjectId,
+      projectName: activeProject.name,
+      timestamp: Date.now()
+    });
     
     try {
       const result = await RankingService.getProjectRankings(currentProjectId);
       
-      // Verificar se ainda estamos no mesmo projeto após a resposta da API
+      // Log DETALHADO do resultado da API
+      console.log('📥 [loadRankings] Resposta da API:', {
+        success: result.success,
+        count: result.rankings?.length || 0,
+        rankings: result.rankings?.map(r => ({
+          keyword: r.keyword,
+          project_id: r.project_id
+        }))
+      });
+      
+      // Verificar se ainda estamos no mesmo projeto
       if (activeProject?.id !== currentProjectId) {
         console.log('⚠️ [loadRankings] Project changed during API call, ignoring results');
         return;
       }
       
       if (result.success) {
-        console.log('✅ [loadRankings] Loaded rankings:', result.rankings?.length || 0);
+        console.log('✅ [loadRankings] Atualizando estado com', result.rankings?.length || 0, 'rankings');
         setRankings(result.rankings || []);
       }
     } catch (error) {
-      console.error('Error loading rankings:', error);
+      console.error('❌ [loadRankings] Error:', error);
     }
   };
 
@@ -293,6 +310,7 @@ const Monitoring = () => {
 
             {/* Gerenciamento de Keywords */}
             <KeywordManager
+              key={activeProject?.id}
               rankings={rankings}
               projectId={activeProject?.id || ''}
               onRankingsUpdate={loadRankings}

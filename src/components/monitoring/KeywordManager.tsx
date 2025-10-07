@@ -28,19 +28,43 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
 
   // ✅ useMemo DEVE vir ANTES de qualquer return condicional
   const filteredRankings = useMemo(() => {
-    // Proteção interna: se não há projectId, retornar array vazio
+    const timestamp = Date.now();
+    
+    // Log detalhado de TODOS os rankings recebidos
+    console.log('🔍 [KeywordManager] useMemo executado:', {
+      timestamp,
+      projectId,
+      totalRankings: rankings.length,
+      allRankings: rankings.map(r => ({
+        id: r.id,
+        keyword: r.keyword,
+        project_id: r.project_id,
+        matches: r.project_id === projectId
+      }))
+    });
+    
+    // Proteção: se não há projectId válido, retornar array vazio
     if (!projectId || projectId === '') {
+      console.warn('⚠️ [KeywordManager] projectId inválido');
       return [];
     }
     
-    const filtered = rankings.filter(r => r.project_id === projectId);
+    // Filtrar com verificação STRICT
+    const filtered = rankings.filter(r => {
+      const matches = r.project_id === projectId;
+      if (!matches) {
+        console.warn('⚠️ [KeywordManager] Keyword ignorada (project_id não corresponde):', {
+          keyword: r.keyword,
+          rankingProjectId: r.project_id,
+          expectedProjectId: projectId
+        });
+      }
+      return matches;
+    });
     
-    console.log('🔍 [KeywordManager] Filtrando rankings:', {
-      projectId,
-      totalRankings: rankings.length,
+    console.log('✅ [KeywordManager] Rankings filtrados:', {
       filteredCount: filtered.length,
-      allProjectIds: [...new Set(rankings.map(r => r.project_id))],
-      filteredKeywords: filtered.map(r => ({ keyword: r.keyword, project_id: r.project_id }))
+      keywords: filtered.map(r => r.keyword)
     });
     
     return filtered;
