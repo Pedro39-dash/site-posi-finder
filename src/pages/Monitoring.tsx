@@ -16,6 +16,8 @@ import { KeywordManager } from '@/components/monitoring/KeywordManager';
 import { MonitoringSummaryCards } from '@/components/monitoring/analytics/MonitoringSummaryCards';
 import { KeywordPositionChart } from '@/components/monitoring/analytics/KeywordPositionChart';
 import { PositionTrendsSection } from '@/components/monitoring/analytics/PositionTrendsSection';
+import { KeywordMetricsSummary } from '@/components/monitoring/KeywordMetricsSummary';
+import { KeywordPositionDistributionChart } from '@/components/monitoring/KeywordPositionDistributionChart';
 import { DetailedSummaryCards } from '@/components/monitoring/analytics/DetailedSummaryCards';
 import { QuickWinsCards } from '@/components/monitoring/insights/QuickWinsCards';
 import { AdvancedFiltersPanel } from '@/components/monitoring/filters/AdvancedFiltersPanel';
@@ -307,6 +309,20 @@ const Monitoring = () => {
                 {isCheckingRankings ? 'Verificando...' : 'Verificar Posições Agora'}
               </Button>
             </div>
+
+            {/* Métricas de Keywords */}
+            {activeProject && (
+              <>
+                <KeywordMetricsSummary 
+                  rankings={rankings}
+                  isLoading={isLoading}
+                />
+                <KeywordPositionDistributionChart 
+                  rankings={rankings}
+                  isLoading={isLoading}
+                />
+              </>
+            )}
 
             {/* Gerenciamento de Keywords */}
             <KeywordManager
