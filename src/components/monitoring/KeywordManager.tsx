@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { RankingService, KeywordRanking } from "@/services/rankingService";
 import { useSimulatedData } from "@/hooks/useSimulatedData";
-import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2, Download, Settings2, Tag, Clock, X, FlaskConical } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2, Download, Settings2, Clock, FlaskConical } from "lucide-react";
 import { KeywordIntentBadge } from "./KeywordIntentBadge";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -42,7 +42,7 @@ export const KeywordManager = ({
   const [searchEngine, setSearchEngine] = useState("google");
   const [device, setDevice] = useState("desktop");
   const [location, setLocation] = useState("brazil");
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  
   const [visibleColumns, setVisibleColumns] = useState({
     chart: true,
     intent: true,
@@ -87,16 +87,6 @@ export const KeywordManager = ({
     const searchVolume = (ranking.metadata as any)?.search_volume || 1000;
     return Math.round(searchVolume * ctr);
   };
-  const toggleSelectAll = () => {
-    if (selectedKeywords.length === filteredRankings.length) {
-      setSelectedKeywords([]);
-    } else {
-      setSelectedKeywords(filteredRankings.map(r => r.id));
-    }
-  };
-  const toggleSelectKeyword = (id: string) => {
-    setSelectedKeywords(prev => prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]);
-  };
   const toggleChartSelection = (keyword: string) => {
     if (selectedForChart.includes(keyword)) {
       onChartSelectionChange(selectedForChart.filter(k => k !== keyword));
@@ -110,27 +100,6 @@ export const KeywordManager = ({
         return;
       }
       onChartSelectionChange([...selectedForChart, keyword]);
-    }
-  };
-  const handleBulkDelete = async () => {
-    const count = selectedKeywords.length;
-    if (!confirm(`Tem certeza que deseja remover ${count} keyword(s)?`)) return;
-    try {
-      for (const id of selectedKeywords) {
-        await RankingService.deleteKeyword(id);
-      }
-      toast({
-        title: "Keywords Removidas",
-        description: `${count} keyword(s) foram removidas com sucesso`
-      });
-      setSelectedKeywords([]);
-      onRankingsUpdate();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Falha ao remover keywords",
-        variant: "destructive"
-      });
     }
   };
   const exportToCSV = () => {
@@ -348,21 +317,6 @@ export const KeywordManager = ({
             </AlertDescription>
           </Alert>}
 
-        {selectedKeywords.length > 0 && <div className="flex items-center gap-2 mb-4 p-4 bg-muted rounded-lg">
-            <span className="font-medium">{selectedKeywords.length} selecionada(s)</span>
-            <Button variant="outline" size="sm" onClick={() => setSelectedKeywords([])}>
-              <X className="h-4 w-4 mr-1" />
-              Limpar
-            </Button>
-            <Button variant="outline" size="sm">
-              <Tag className="h-4 w-4 mr-1" />
-              Adicionar tag
-            </Button>
-            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-              <Trash2 className="h-4 w-4 mr-1" />
-              Remover
-            </Button>
-          </div>}
 
         {filteredRankings.length === 0 ? <div className="text-center py-12">
             <TrendingUp className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
@@ -381,9 +335,6 @@ export const KeywordManager = ({
                   {visibleColumns.chart && <TableHead className="w-12 text-center">
                       <TrendingUp className="h-4 w-4 mx-auto" />
                     </TableHead>}
-                  <TableHead className="w-[40px]">
-                    <Checkbox checked={selectedKeywords.length === filteredRankings.length} onCheckedChange={toggleSelectAll} />
-                  </TableHead>
                   {visibleColumns.intent && <TableHead className="w-[50px]">Int.</TableHead>}
                   <TableHead>Palavra-chave</TableHead>
                   {visibleColumns.previousPosition && <TableHead className="text-center">Posição Anterior</TableHead>}
@@ -402,9 +353,6 @@ export const KeywordManager = ({
                       {visibleColumns.chart && <TableCell className="text-center">
                           <Checkbox checked={selectedForChart.includes(ranking.keyword)} onCheckedChange={() => toggleChartSelection(ranking.keyword)} />
                         </TableCell>}
-                      <TableCell>
-                        <Checkbox checked={selectedKeywords.includes(ranking.id)} onCheckedChange={() => toggleSelectKeyword(ranking.id)} />
-                      </TableCell>
                       {visibleColumns.intent && <TableCell>
                           <KeywordIntentBadge keyword={ranking.keyword} />
                         </TableCell>}
