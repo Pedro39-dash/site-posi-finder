@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type PeriodOption = '7d' | '30d' | '90d' | '180d' | '365d';
+export type PeriodOption = '24h' | '7d' | '28d' | '90d' | '180d' | '365d' | '16m';
 
 interface PeriodSelectorProps {
   value: PeriodOption;
@@ -10,11 +10,13 @@ interface PeriodSelectorProps {
 
 export const PeriodSelector = ({ value, onChange }: PeriodSelectorProps) => {
   const periods: { value: PeriodOption; label: string }[] = [
+    { value: '24h', label: '24 horas' },
     { value: '7d', label: '7 dias' },
-    { value: '30d', label: '30 dias' },
+    { value: '28d', label: '28 dias' },
     { value: '90d', label: '3 meses' },
     { value: '180d', label: '6 meses' },
-    { value: '365d', label: '1 ano' },
+    { value: '365d', label: '12 meses' },
+    { value: '16m', label: '16 meses' },
   ];
 
   return (

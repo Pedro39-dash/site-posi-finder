@@ -56,11 +56,13 @@ export default function KeywordPositionHistoryChart({
       // Convert PeriodOption to days
       let days = 7; // default
       switch (periodProp) {
+        case '24h': days = 1; break;
         case '7d': days = 7; break;
-        case '30d': days = 30; break;
+        case '28d': days = 28; break;
         case '90d': days = 90; break;
         case '180d': days = 180; break;
         case '365d': days = 365; break;
+        case '16m': days = 480; break;
       }
       
       const result = await fetchRankingHistory(projectId, selectedKeywords, days);
@@ -146,16 +148,16 @@ export default function KeywordPositionHistoryChart({
         let formattedDate: string;
         
         // Map PeriodOption to grouping logic
-        if (periodProp === '7d') {
-          // Group by day for 7 days
+        if (periodProp === '24h' || periodProp === '7d') {
+          // Group by day for 24h and 7 days
           groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
-        } else if (periodProp === '30d' || periodProp === '90d') {
-          // Group by day for 30 and 90 days
+        } else if (periodProp === '28d' || periodProp === '90d') {
+          // Group by day for 28 and 90 days
           groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
-        } else if (periodProp === '180d' || periodProp === '365d') {
-          // Group by week for 180 and 365 days
+        } else if (periodProp === '180d' || periodProp === '365d' || periodProp === '16m') {
+          // Group by week for 180, 365 days and 16 months
           const weekNumber = Math.floor(parsedDate.getTime() / (7 * 24 * 60 * 60 * 1000));
           groupKey = `week-${weekNumber}`;
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });

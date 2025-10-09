@@ -454,11 +454,13 @@ export type Database = {
           id: string
           impressions: number | null
           keyword: string
+          last_seen_at: string | null
           location: string | null
           metadata: Json | null
           previous_position: number | null
           project_id: string
           search_engine: string
+          tracking_status: string | null
           updated_at: string
           url: string | null
         }
@@ -472,11 +474,13 @@ export type Database = {
           id?: string
           impressions?: number | null
           keyword: string
+          last_seen_at?: string | null
           location?: string | null
           metadata?: Json | null
           previous_position?: number | null
           project_id: string
           search_engine?: string
+          tracking_status?: string | null
           updated_at?: string
           url?: string | null
         }
@@ -490,11 +494,13 @@ export type Database = {
           id?: string
           impressions?: number | null
           keyword?: string
+          last_seen_at?: string | null
           location?: string | null
           metadata?: Json | null
           previous_position?: number | null
           project_id?: string
           search_engine?: string
+          tracking_status?: string | null
           updated_at?: string
           url?: string | null
         }

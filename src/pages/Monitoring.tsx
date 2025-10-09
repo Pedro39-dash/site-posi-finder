@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { GSCKeywordImportModal } from '@/components/monitoring/GSCKeywordImportModal';
 import { useToast } from '@/hooks/use-toast';
 import { PeriodSelector, PeriodOption } from '@/components/monitoring/filters/PeriodSelector';
+import { KeywordStatusNotifications } from '@/components/notifications/KeywordStatusNotifications';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
@@ -24,7 +25,7 @@ const Monitoring = () => {
   const [showIntegrationPrompt, setShowIntegrationPrompt] = useState(false);
   const [showGSCImportModal, setShowGSCImportModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('30d');
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('28d');
   const { toast } = useToast();
 
   const loadRankings = async () => {
@@ -112,14 +113,20 @@ const Monitoring = () => {
     setIsSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-search-console', {
-        body: { projectId: activeProject.id }
+        body: { 
+          projectId: activeProject.id,
+          period: selectedPeriod 
+        }
       });
 
       if (error) throw error;
 
+      const inactive = data.inactive || 0;
+      const synced = data.synced || 0;
+      
       toast({
-        title: "Sincronização iniciada",
-        description: `${data.synced || 0} de ${data.total || 0} keywords sincronizadas com sucesso`,
+        title: "Sincronização concluída",
+        description: `${synced} keywords ativas${inactive > 0 ? `, ${inactive} inativas` : ''}`,
       });
 
       // Reload rankings after sync
@@ -195,6 +202,7 @@ const Monitoring = () => {
   return (
     <>
       <Helmet><title>Monitoramento SEO</title></Helmet>
+      {activeProject && <KeywordStatusNotifications projectId={activeProject.id} />}
       <div className="min-h-screen bg-background lg:pl-80">
         <div className="pt-16 lg:pt-0">
           <main className="container mx-auto px-4 py-8">

@@ -6,16 +6,18 @@ import { useSimulatedData } from "@/hooks/useSimulatedData";
  */
 function applySimulatedPositions(
   realKeywords: KeywordRanking[], 
-  period: string = '30d'
+  period: string = '28d'
 ): KeywordRanking[] {
   // Calcular fator de variação baseado no período
   const getVariationFactor = (period: string): number => {
     switch(period) {
+      case '24h': return 2;   // Variação máxima de ±2 posições
       case '7d': return 5;    // Variação máxima de ±5 posições
-      case '30d': return 10;  // Variação máxima de ±10 posições
+      case '28d': return 10;  // Variação máxima de ±10 posições
       case '90d': return 20;  // Variação máxima de ±20 posições
       case '180d': return 30; // Variação máxima de ±30 posições
       case '365d': return 50; // Variação máxima de ±50 posições
+      case '16m': return 60;  // Variação máxima de ±60 posições
       default: return 10;
     }
   };
@@ -123,6 +125,8 @@ export interface KeywordRanking {
   created_at: string;
   updated_at: string;
   data_source?: string;
+  tracking_status?: string; // Database returns string, not literal type
+  last_seen_at?: string;
   metadata?: any;
 }
 
@@ -192,7 +196,7 @@ export class RankingService {
           console.log('🧪 Modo simulado ativo: aplicando posições simuladas às keywords reais', { period });
           return {
             success: true,
-            rankings: applySimulatedPositions(realKeywords, period || '30d')
+            rankings: applySimulatedPositions(realKeywords, period || '28d')
           };
         }
         // Se não há keywords, gerar keywords simuladas completas (fallback)

@@ -17,7 +17,7 @@ serve(async (req) => {
   );
 
   try {
-    const { projectId, limit = 100 } = await req.json();
+    const { projectId, limit = 100, period = '28d' } = await req.json();
 
     console.log(`[import-gsc-keywords] Starting for project: ${projectId}`);
 
@@ -80,9 +80,18 @@ serve(async (req) => {
       existingKeywords?.map(k => k.keyword.toLowerCase()) || []
     );
 
-    // Fetch top queries from GSC (last 30 days)
+    // Calculate date range based on period
+    const periodToDays = (p: string): number => {
+      const map: Record<string, number> = {
+        '24h': 1, '7d': 7, '28d': 28, '90d': 90,
+        '180d': 180, '365d': 365, '16m': 480
+      };
+      return map[p] || 28;
+    };
+    
+    const days = periodToDays(period);
     const endDate = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
       .toISOString().split('T')[0];
 
     const gscResponse = await fetch(

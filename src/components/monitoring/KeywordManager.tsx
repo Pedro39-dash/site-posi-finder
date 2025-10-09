@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { RankingService, KeywordRanking } from "@/services/rankingService";
 import { useSimulatedData } from "@/hooks/useSimulatedData";
-import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2, Download, Settings2, Clock, FlaskConical } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2, Download, Settings2, Clock, FlaskConical, Info } from "lucide-react";
 import { KeywordIntentBadge } from "./KeywordIntentBadge";
 import { PeriodSelector, PeriodOption } from "./filters/PeriodSelector";
 import { formatDistanceToNow } from "date-fns";
@@ -61,6 +61,17 @@ export const KeywordManager = ({
     }
     return rankings.filter(r => r.project_id === projectId);
   }, [rankings, projectId]);
+  
+  // Separar keywords ativas e inativas
+  const activeRankings = useMemo(() => 
+    filteredRankings.filter(r => !r.tracking_status || r.tracking_status === 'active'),
+    [filteredRankings]
+  );
+  
+  const inactiveRankings = useMemo(() => 
+    filteredRankings.filter(r => r.tracking_status === 'inactive' || r.tracking_status === 'missing'),
+    [filteredRankings]
+  );
   if (!projectId || projectId === '') {
     return <Card>
         <CardHeader>
@@ -240,7 +251,10 @@ export const KeywordManager = ({
   return <Card>
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <CardTitle>Gerenciar Keywords ({filteredRankings.length})</CardTitle>
+          <CardTitle>
+            Gerenciar Keywords ({activeRankings.length} ativas
+            {inactiveRankings.length > 0 && ` • ${inactiveRankings.length} inativas`})
+          </CardTitle>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
@@ -332,96 +346,179 @@ export const KeywordManager = ({
               <Plus className="h-4 w-4 mr-2" />
               Adicionar Primeira Keyword
             </Button>
-          </div> : <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {visibleColumns.chart && <TableHead className="w-12 text-center">
-                      <TrendingUp className="h-4 w-4 mx-auto" />
-                    </TableHead>}
-                  {visibleColumns.intent && <TableHead className="w-[50px]">Int.</TableHead>}
-                  <TableHead>Palavra-chave</TableHead>
-                  {visibleColumns.previousPosition && <TableHead className="text-center">Posição Anterior</TableHead>}
-                  <TableHead className="text-center">Posição Atual</TableHead>
-                  <TableHead className="text-center">Diferença</TableHead>
-                  {visibleColumns.estimatedTraffic && <TableHead className="text-center">Tráfego Est.</TableHead>}
-                  {visibleColumns.url && <TableHead>URL</TableHead>}
-                  {visibleColumns.updated && <TableHead className="text-right">Atualizado</TableHead>}
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRankings.map(ranking => {
-              const trend = getPositionTrend(ranking);
-              return <TableRow key={ranking.id}>
-                      {visibleColumns.chart && <TableCell className="text-center">
-                          <Checkbox checked={selectedForChart.includes(ranking.keyword)} onCheckedChange={() => toggleChartSelection(ranking.keyword)} />
-                        </TableCell>}
-                      {visibleColumns.intent && <TableCell>
-                          <KeywordIntentBadge keyword={ranking.keyword} />
-                        </TableCell>}
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {ranking.keyword}
-                          {ranking.data_source === 'search_console' && <Badge variant="outline" className="text-xs">
-                              GSC
-                            </Badge>}
-                        </div>
-                      </TableCell>
-                      {visibleColumns.previousPosition && <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Badge variant="outline">
-                              {ranking.previous_position ? `#${ranking.previous_position}` : "N/R"}
-                            </Badge>
-                            {isSimulatedMode && ranking.data_source === 'simulated_overlay' && <Badge variant="outline" className="text-[10px] px-1 h-4 border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400">
-                                SIM
-                              </Badge>}
-                          </div>
-                        </TableCell>}
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Badge variant={getPositionBadgeVariant(ranking.current_position)}>
-                            {ranking.current_position ? `#${ranking.current_position}` : "N/R"}
-                          </Badge>
-                          {isSimulatedMode && ranking.data_source === 'simulated_overlay' && <Badge variant="outline" className="text-[10px] px-1 h-4 border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400">
-                              SIM
-                            </Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <div className={trend.color}>
-                            {trend.icon}
-                          </div>
-                          {trend.change !== "0" && <span className={`text-xs font-medium ${trend.color}`}>
-                              {trend.change}
-                            </span>}
-                        </div>
-                      </TableCell>
-                      {visibleColumns.estimatedTraffic && <TableCell className="text-center font-medium">
-                          {calculateEstimatedTraffic(ranking).toLocaleString('pt-BR')}
-                        </TableCell>}
-                      {visibleColumns.url && <TableCell className="text-sm text-muted-foreground">
-                          {formatUrl(ranking.url)}
-                        </TableCell>}
-                      {visibleColumns.updated && <TableCell className="text-right text-sm text-muted-foreground">
-                          <div className="flex items-center justify-end gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(ranking.updated_at), {
-                      addSuffix: true,
-                      locale: ptBR
-                    })}
-                          </div>
-                        </TableCell>}
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteKeyword(ranking.id, ranking.keyword)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>;
-            })}
-              </TableBody>
-            </Table>
+          </div> : <div className="space-y-6">
+            {/* SEÇÃO: Keywords Ativas */}
+            {activeRankings.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  Keywords Ativas
+                  <Badge variant="secondary">{activeRankings.length}</Badge>
+                </h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {visibleColumns.chart && <TableHead className="w-12 text-center">
+                            <TrendingUp className="h-4 w-4 mx-auto" />
+                          </TableHead>}
+                        {visibleColumns.intent && <TableHead className="w-[50px]">Int.</TableHead>}
+                        <TableHead>Palavra-chave</TableHead>
+                        {visibleColumns.previousPosition && <TableHead className="text-center">Posição Anterior</TableHead>}
+                        <TableHead className="text-center">Posição Atual</TableHead>
+                        <TableHead className="text-center">Diferença</TableHead>
+                        {visibleColumns.estimatedTraffic && <TableHead className="text-center">Tráfego Est.</TableHead>}
+                        {visibleColumns.url && <TableHead>URL</TableHead>}
+                        {visibleColumns.updated && <TableHead className="text-right">Atualizado</TableHead>}
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {activeRankings.map(ranking => {
+                        const trend = getPositionTrend(ranking);
+                        return <TableRow key={ranking.id}>
+                            {visibleColumns.chart && <TableCell className="text-center">
+                                <Checkbox checked={selectedForChart.includes(ranking.keyword)} onCheckedChange={() => toggleChartSelection(ranking.keyword)} />
+                              </TableCell>}
+                            {visibleColumns.intent && <TableCell>
+                                <KeywordIntentBadge keyword={ranking.keyword} />
+                              </TableCell>}
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {ranking.keyword}
+                                {ranking.data_source === 'search_console' && <Badge variant="outline" className="text-xs">
+                                    GSC
+                                  </Badge>}
+                              </div>
+                            </TableCell>
+                            {visibleColumns.previousPosition && <TableCell className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Badge variant="outline">
+                                    {ranking.previous_position ? `#${ranking.previous_position}` : "N/R"}
+                                  </Badge>
+                                  {isSimulatedMode && ranking.data_source === 'simulated_overlay' && <Badge variant="outline" className="text-[10px] px-1 h-4 border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400">
+                                      SIM
+                                    </Badge>}
+                                </div>
+                              </TableCell>}
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Badge variant={getPositionBadgeVariant(ranking.current_position)}>
+                                  {ranking.current_position ? `#${ranking.current_position}` : "N/R"}
+                                </Badge>
+                                {isSimulatedMode && ranking.data_source === 'simulated_overlay' && <Badge variant="outline" className="text-[10px] px-1 h-4 border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400">
+                                    SIM
+                                  </Badge>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <div className={trend.color}>
+                                  {trend.icon}
+                                </div>
+                                {trend.change !== "0" && <span className={`text-xs font-medium ${trend.color}`}>
+                                    {trend.change}
+                                  </span>}
+                              </div>
+                            </TableCell>
+                            {visibleColumns.estimatedTraffic && <TableCell className="text-center font-medium">
+                                {calculateEstimatedTraffic(ranking).toLocaleString('pt-BR')}
+                              </TableCell>}
+                            {visibleColumns.url && <TableCell className="text-sm text-muted-foreground">
+                                {formatUrl(ranking.url)}
+                              </TableCell>}
+                            {visibleColumns.updated && <TableCell className="text-right text-sm text-muted-foreground">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {formatDistanceToNow(new Date(ranking.updated_at), {
+                                    addSuffix: true,
+                                    locale: ptBR
+                                  })}
+                                </div>
+                              </TableCell>}
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteKeyword(ranking.id, ranking.keyword)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>;
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* SEÇÃO: Keywords Inativas */}
+            {inactiveRankings.length > 0 && (
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  Keywords Inativas
+                  <Badge variant="destructive">{inactiveRankings.length}</Badge>
+                </h3>
+                <Alert className="mb-4 border-orange-500/30 bg-orange-500/10">
+                  <Info className="h-4 w-4 text-orange-500" />
+                  <AlertDescription className="text-orange-700 dark:text-orange-300">
+                    Essas keywords não aparecem no Google Search Console no período selecionado. 
+                    Verifique se o conteúdo ainda existe ou se precisam de otimização.
+                  </AlertDescription>
+                </Alert>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Palavra-chave</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-center">Última Posição</TableHead>
+                        <TableHead className="text-right">Última Vez Vista</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {inactiveRankings.map(ranking => {
+                        const metadata = ranking.metadata as any;
+                        const daysMissing = metadata?.days_missing || 0;
+                        const missingSince = metadata?.missing_since 
+                          ? formatDistanceToNow(new Date(metadata.missing_since), { addSuffix: true, locale: ptBR })
+                          : 'N/A';
+                        
+                        return <TableRow key={ranking.id} className="opacity-60 hover:opacity-100 transition-opacity">
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {ranking.keyword}
+                                <Badge variant="outline" className="text-[10px] border-orange-500 text-orange-700 dark:text-orange-400">
+                                  INATIVA
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant={ranking.tracking_status === 'missing' ? 'destructive' : 'outline'}>
+                                {ranking.tracking_status === 'missing' 
+                                  ? `Ausente ${daysMissing}d` 
+                                  : 'Sem dados no período'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline">
+                                {ranking.current_position ? `#${ranking.current_position}` : 'N/A'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right text-sm text-muted-foreground">
+                              {ranking.last_seen_at 
+                                ? formatDistanceToNow(new Date(ranking.last_seen_at), { addSuffix: true, locale: ptBR })
+                                : missingSince}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteKeyword(ranking.id, ranking.keyword)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>;
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </div>}
       </CardContent>
     </Card>;
