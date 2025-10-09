@@ -161,44 +161,14 @@ export function calculateDaysSpan(dataPoints: { date: string }[]): number {
 }
 
 /**
- * Merge real historical data with projected data for smooth visualization
+ * @deprecated This function is no longer used. Projections removed to show only real data.
+ * Kept for backwards compatibility.
  */
 export function mergeRealAndProjectedData(
   realData: { date: string; position: number }[],
   currentPosition: number,
   totalDays: number
 ): { date: string; position: number; isReal: boolean }[] {
-  const today = new Date();
-  const result: { date: string; position: number; isReal: boolean }[] = [];
-
-  // Create a map of real data by date
-  const realDataMap = new Map(
-    realData.map(d => [d.date, d.position])
-  );
-
-  // Generate all days
-  for (let i = totalDays - 1; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toLocaleDateString('pt-BR');
-
-    if (realDataMap.has(dateStr)) {
-      // Use real data
-      result.push({
-        date: dateStr,
-        position: realDataMap.get(dateStr)!,
-        isReal: true
-      });
-    } else {
-      // Generate projected data with small variation
-      const variation = Math.sin(i * 0.2) * 1.5;
-      result.push({
-        date: dateStr,
-        position: Math.max(1, Math.min(100, Math.round(currentPosition + variation))),
-        isReal: false
-      });
-    }
-  }
-
-  return result;
+  console.warn('[DEPRECATED] mergeRealAndProjectedData is deprecated. Use real data only.');
+  return realData.map(d => ({ ...d, isReal: true }));
 }

@@ -9,9 +9,10 @@ import IntegrationStatusBanner from '@/components/integrations/IntegrationStatus
 import { IntegrationService, ProjectIntegration } from '@/services/integrationService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Info, Download } from 'lucide-react';
+import { Info, Download, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { GSCKeywordImportModal } from '@/components/monitoring/GSCKeywordImportModal';
+import { useToast } from '@/hooks/use-toast';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
@@ -21,6 +22,8 @@ const Monitoring = () => {
   const [selectedForChart, setSelectedForChart] = useState<string[]>([]);
   const [showIntegrationPrompt, setShowIntegrationPrompt] = useState(false);
   const [showGSCImportModal, setShowGSCImportModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const { toast } = useToast();
 
   const loadRankings = async () => {
     if (!activeProject) {
@@ -90,6 +93,46 @@ const Monitoring = () => {
     }
   };
 
+  const handleManualSync = async () => {
+    if (!activeProject?.id) return;
+
+    const hasGSC = IntegrationService.hasIntegration(integrations, 'search_console');
+    if (!hasGSC) {
+      toast({
+        title: "Integração necessária",
+        description: "Conecte o Google Search Console para sincronizar dados históricos",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-search-console', {
+        body: { projectId: activeProject.id }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sincronização iniciada",
+        description: `${data.synced || 0} de ${data.total || 0} keywords sincronizadas com sucesso`,
+      });
+
+      // Reload rankings after sync
+      await loadRankings();
+    } catch (error) {
+      console.error('Erro na sincronização:', error);
+      toast({
+        title: "Erro na sincronização",
+        description: "Falha ao sincronizar dados do Search Console",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     console.log('🔄 [Monitoring] useEffect triggered:', {
       activeProjectId: activeProject?.id,
@@ -156,16 +199,27 @@ const Monitoring = () => {
               <p className="text-muted-foreground">Acompanhe suas posições nos mecanismos de busca</p>
             </div>
 
-            {/* Botão de Importação do GSC */}
+            {/* Botões de Sincronização do GSC */}
             {activeProject && IntegrationService.hasIntegration(integrations, 'search_console') && (
-              <Button 
-                onClick={() => setShowGSCImportModal(true)}
-                variant="outline"
-                className="w-full mb-4"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Importar Keywords do Search Console
-              </Button>
+              <div className="flex gap-2 mb-4">
+                <Button 
+                  onClick={() => setShowGSCImportModal(true)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Importar Keywords
+                </Button>
+                <Button 
+                  onClick={handleManualSync}
+                  variant="outline"
+                  disabled={isSyncing || rankings.length === 0}
+                  className="flex-1"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                  {isSyncing ? 'Sincronizando...' : 'Sincronizar Histórico'}
+                </Button>
+              </div>
             )}
 
             {/* Banner de Integração */}

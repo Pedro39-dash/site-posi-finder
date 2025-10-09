@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { CompetitorKeyword } from '@/services/competitorAnalysisService';
 import { useMemo, useEffect, useState } from 'react';
-import { fetchRankingHistory, getHistoryMaturity, mergeRealAndProjectedData, calculateDaysSpan } from '@/services/rankingHistoryService';
+import { fetchRankingHistory, getHistoryMaturity, calculateDaysSpan } from '@/services/rankingHistoryService';
 import { useProject } from '@/hooks/useProject';
 import HistoryMaturityBadge from './HistoryMaturityBadge';
 
@@ -77,14 +77,12 @@ const PositionTrendChart = ({ targetDomain, keywords = [], period = 30 }: Positi
         }))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      // Merge with projected data for smooth visualization
-      const mergedData = mergeRealAndProjectedData(realDataPoints, realAvgPosition, period);
-
-      trendData = mergedData.map((point, i) => ({
+      // Use real data only (no projections)
+      trendData = realDataPoints.map((point, i) => ({
         day: period <= 30 ? `Dia ${i + 1}` : period <= 60 ? `${Math.ceil((i + 1)/2)*2}` : `${Math.ceil((i + 1)/3)*3}`,
         dayNumber: i + 1,
         yourPosition: point.position,
-        isReal: point.isReal,
+        isReal: true,
         // Competitor positions - use estimated positions around target
         competitor1: Math.max(1, Math.min(100, Math.round(point.position - 5 + Math.sin(i * 0.15) * 1.2))),
         competitor2: Math.max(1, Math.min(100, Math.round(point.position + 3 + Math.cos(i * 0.18) * 1.8))),
@@ -234,9 +232,9 @@ const PositionTrendChart = ({ targetDomain, keywords = [], period = 30 }: Positi
         </div>
         <div className="mt-4 text-xs text-muted-foreground">
           {hasHistoricalData ? (
-            <p>💡 <strong>Dados reais:</strong> Pontos sólidos = dados reais coletados. Pontos vazios = projeção. Continue fazendo análises para enriquecer o histórico!</p>
+            <p>💡 <strong>Dados reais:</strong> Gráfico baseado em dados históricos coletados do Search Console.</p>
           ) : (
-            <p>⚠️ <strong>Primeira análise:</strong> Este gráfico mostra uma projeção inicial. Faça novas análises nos próximos dias para construir seu histórico real de posições!</p>
+            <p>⚠️ <strong>Sem dados históricos:</strong> Sincronize com o Google Search Console para visualizar o histórico de posições.</p>
           )}
         </div>
       </CardContent>
