@@ -9,8 +9,9 @@ import IntegrationStatusBanner from '@/components/integrations/IntegrationStatus
 import { IntegrationService, ProjectIntegration } from '@/services/integrationService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Info } from 'lucide-react';
+import { Info, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { GSCKeywordImportModal } from '@/components/monitoring/GSCKeywordImportModal';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
@@ -19,6 +20,7 @@ const Monitoring = () => {
   const [integrations, setIntegrations] = useState<ProjectIntegration[]>([]);
   const [selectedForChart, setSelectedForChart] = useState<string[]>([]);
   const [showIntegrationPrompt, setShowIntegrationPrompt] = useState(false);
+  const [showGSCImportModal, setShowGSCImportModal] = useState(false);
 
   const loadRankings = async () => {
     if (!activeProject) {
@@ -119,6 +121,30 @@ const Monitoring = () => {
     }
   }, [rankings, integrations]);
 
+  // Auto-open GSC import modal on first connection
+  useEffect(() => {
+    const checkFirstGSCConnection = async () => {
+      if (!activeProject?.id) return;
+
+      const hasGSC = IntegrationService.hasIntegration(integrations, 'search_console');
+      const hasKeywords = rankings.length > 0;
+
+      // If GSC is connected and no keywords exist, auto-open modal
+      if (hasGSC && !hasKeywords) {
+        const lastShown = localStorage.getItem(`gsc-import-shown-${activeProject.id}`);
+        
+        if (!lastShown) {
+          setTimeout(() => {
+            setShowGSCImportModal(true);
+            localStorage.setItem(`gsc-import-shown-${activeProject.id}`, 'true');
+          }, 1000);
+        }
+      }
+    };
+
+    checkFirstGSCConnection();
+  }, [activeProject, integrations, rankings]);
+
   return (
     <>
       <Helmet><title>Monitoramento SEO</title></Helmet>
@@ -129,6 +155,18 @@ const Monitoring = () => {
               <h1 className="text-4xl font-bold mb-2">Monitoramento de Rankings</h1>
               <p className="text-muted-foreground">Acompanhe suas posições nos mecanismos de busca</p>
             </div>
+
+            {/* Botão de Importação do GSC */}
+            {activeProject && IntegrationService.hasIntegration(integrations, 'search_console') && (
+              <Button 
+                onClick={() => setShowGSCImportModal(true)}
+                variant="outline"
+                className="w-full mb-4"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Importar Keywords do Search Console
+              </Button>
+            )}
 
             {/* Banner de Integração */}
             {activeProject && (
@@ -192,6 +230,18 @@ const Monitoring = () => {
         onRankingsUpdate={loadRankings}
         selectedForChart={selectedForChart}
         onChartSelectionChange={setSelectedForChart}
+      />
+
+      {/* Modal de Importação GSC */}
+      <GSCKeywordImportModal
+        isOpen={showGSCImportModal}
+        onClose={() => setShowGSCImportModal(false)}
+        projectId={activeProject?.id || ''}
+        onImportComplete={() => {
+          loadRankings();
+          setShowGSCImportModal(false);
+        }}
+        autoSelectTop50={rankings.length === 0}
       />
           </main>
         </div>

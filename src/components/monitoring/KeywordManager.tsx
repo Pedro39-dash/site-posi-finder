@@ -472,7 +472,16 @@ export const KeywordManager = ({
                           <KeywordIntentBadge keyword={ranking.keyword} />
                         </TableCell>
                       )}
-                      <TableCell className="font-medium">{ranking.keyword}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {ranking.keyword}
+                          {ranking.data_source === 'search_console' && (
+                            <Badge variant="outline" className="text-xs">
+                              GSC
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       {visibleColumns.previousPosition && (
                         <TableCell className="text-center">
                           <Badge variant="outline">

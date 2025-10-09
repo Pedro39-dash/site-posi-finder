@@ -12,6 +12,7 @@ export interface KeywordRanking {
   device: string;
   created_at: string;
   updated_at: string;
+  data_source?: string;
   metadata?: any;
 }
 
