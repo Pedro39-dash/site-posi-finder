@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { RankingService, KeywordRanking } from '@/services/rankingService';
 import { KeywordManager } from '@/components/monitoring/KeywordManager';
 import { KeywordMetricsSummary } from '@/components/monitoring/KeywordMetricsSummary';
-import { KeywordPositionDistributionChart } from '@/components/monitoring/KeywordPositionDistributionChart';
+import KeywordPositionHistoryChart from '@/components/monitoring/KeywordPositionHistoryChart';
 import { useProject } from '@/hooks/useProject';
 import IntegrationStatusBanner from '@/components/integrations/IntegrationStatusBanner';
 import { IntegrationService, ProjectIntegration } from '@/services/integrationService';
@@ -13,6 +13,7 @@ const Monitoring = () => {
   const { activeProject } = useProject();
   const [isLoading, setIsLoading] = useState(true);
   const [integrations, setIntegrations] = useState<ProjectIntegration[]>([]);
+  const [selectedForChart, setSelectedForChart] = useState<string[]>([]);
 
   const loadRankings = async () => {
     if (!activeProject) {
@@ -119,20 +120,23 @@ const Monitoring = () => {
                   projectId={activeProject.id}
                   isLoading={isLoading}
                 />
-                <KeywordPositionDistributionChart 
-                  rankings={rankings}
+                <KeywordPositionHistoryChart 
+                  selectedKeywords={selectedForChart}
+                  projectId={activeProject.id}
                   isLoading={isLoading}
                 />
               </>
             )}
 
             {/* Gerenciamento de Keywords */}
-            <KeywordManager
-              key={activeProject?.id}
-              rankings={rankings}
-              projectId={activeProject?.id || ''}
-              onRankingsUpdate={loadRankings}
-            />
+      <KeywordManager
+        key={activeProject?.id}
+        rankings={rankings}
+        projectId={activeProject?.id || ''}
+        onRankingsUpdate={loadRankings}
+        selectedForChart={selectedForChart}
+        onChartSelectionChange={setSelectedForChart}
+      />
           </main>
         </div>
       </div>

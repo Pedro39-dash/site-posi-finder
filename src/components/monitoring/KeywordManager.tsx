@@ -22,9 +22,17 @@ interface KeywordManagerProps {
   rankings: KeywordRanking[];
   projectId: string;
   onRankingsUpdate: () => void;
+  selectedForChart: string[];
+  onChartSelectionChange: (keywords: string[]) => void;
 }
 
-export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: KeywordManagerProps) => {
+export const KeywordManager = ({ 
+  rankings, 
+  projectId, 
+  onRankingsUpdate,
+  selectedForChart,
+  onChartSelectionChange 
+}: KeywordManagerProps) => {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAddingKeyword, setIsAddingKeyword] = useState(false);
@@ -34,6 +42,7 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
   const [location, setLocation] = useState("brazil");
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [visibleColumns, setVisibleColumns] = useState({
+    chart: true,
     intent: true,
     previousPosition: true,
     estimatedTraffic: true,
@@ -88,6 +97,22 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
     setSelectedKeywords(prev => 
       prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]
     );
+  };
+
+  const toggleChartSelection = (keyword: string) => {
+    if (selectedForChart.includes(keyword)) {
+      onChartSelectionChange(selectedForChart.filter(k => k !== keyword));
+    } else {
+      if (selectedForChart.length >= 5) {
+        toast({
+          title: "Limite atingido",
+          description: "Você pode selecionar no máximo 5 palavras-chave para o gráfico",
+          variant: "destructive"
+        });
+        return;
+      }
+      onChartSelectionChange([...selectedForChart, keyword]);
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -400,6 +425,11 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
             <Table>
               <TableHeader>
                 <TableRow>
+                  {visibleColumns.chart && (
+                    <TableHead className="w-12 text-center">
+                      <TrendingUp className="h-4 w-4 mx-auto" />
+                    </TableHead>
+                  )}
                   <TableHead className="w-[40px]">
                     <Checkbox 
                       checked={selectedKeywords.length === filteredRankings.length}
@@ -423,6 +453,14 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
                   
                   return (
                     <TableRow key={ranking.id}>
+                      {visibleColumns.chart && (
+                        <TableCell className="text-center">
+                          <Checkbox
+                            checked={selectedForChart.includes(ranking.keyword)}
+                            onCheckedChange={() => toggleChartSelection(ranking.keyword)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Checkbox 
                           checked={selectedKeywords.includes(ranking.id)}
