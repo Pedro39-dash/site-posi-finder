@@ -125,6 +125,9 @@ serve(async (req) => {
           token_expires_at: expiresAt,
           account_email: userInfo.email,
           sync_status: 'active',
+          is_active: true,
+        }, {
+          onConflict: 'project_id,integration_type'
         });
 
       if (error) throw error;
