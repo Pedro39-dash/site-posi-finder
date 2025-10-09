@@ -388,6 +388,10 @@ export const KeywordManager = ({
                                 {ranking.data_source === 'search_console' && <Badge variant="outline" className="text-xs">
                                     GSC
                                   </Badge>}
+                                {ranking.data_source === 'manual' && <Badge variant="outline" className="text-xs">
+                                    <Settings2 className="h-3 w-3 mr-1" />
+                                    Manual
+                                  </Badge>}
                               </div>
                             </TableCell>
                             {visibleColumns.previousPosition && <TableCell className="text-center">

@@ -61,19 +61,44 @@ serve(async (req) => {
       }
     }
 
-    // Get project keywords
+    // Get project keywords (excluir keywords manuais da sincronização GSC)
     const { data: keywords, error: keywordsError } = await supabase
       .from('keyword_rankings')
-      .select('id, keyword')
-      .eq('project_id', projectId);
+      .select('id, keyword, data_source, metadata')
+      .eq('project_id', projectId)
+      .neq('data_source', 'manual'); // Excluir keywords manuais
 
     if (keywordsError) throw keywordsError;
 
-    if (!keywords || keywords.length === 0) {
-      throw new Error('No keywords found for project');
+    // Log keywords manuais ignoradas
+    const { data: manualKeywords } = await supabase
+      .from('keyword_rankings')
+      .select('keyword')
+      .eq('project_id', projectId)
+      .eq('data_source', 'manual');
+
+    if (manualKeywords && manualKeywords.length > 0) {
+      console.log(`ℹ️ Skipping ${manualKeywords.length} manual keywords:`, 
+        manualKeywords.map(k => k.keyword).join(', '));
     }
 
-    console.log(`Found ${keywords.length} keywords to sync`);
+    if (!keywords || keywords.length === 0) {
+      console.log('No GSC keywords found for sync');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          synced: 0,
+          inactive: 0,
+          total: 0,
+          message: 'No GSC keywords to sync'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    console.log(`Found ${keywords.length} GSC keywords to sync`);
 
     // Calculate date range based on period
     const periodToDays = (p: string): number => {
