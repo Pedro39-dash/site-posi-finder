@@ -89,8 +89,13 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     { ttl: 5 * 60 * 1000, enableAutoRefresh: false }
   );
 
+  // Keep all keywords available for the selector (unfiltered)
+  const allKeywords = useMemo(() => {
+    return rawAnalysisData?.keywords || [];
+  }, [rawAnalysisData?.keywords]);
+
   // Filtrar dados localmente por palavra-chave (sem invalidar cache)
-  const analysisData = useMemo(() => {
+  const filteredAnalysisData = useMemo(() => {
     if (!rawAnalysisData) return null;
     if (!selectedKeyword) return rawAnalysisData;
     
@@ -122,7 +127,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   }, [filterActions]);
 
   // Keywords estáveis para evitar re-renders usando o hook customizado
-  const stableKeywords = useStableKeywords(analysisData?.keywords);
+  const stableKeywords = useStableKeywords(filteredAnalysisData?.keywords);
 
   // Destructure filters for stable dependencies - use primitives only
   const searchTerm = filters.search;
@@ -132,7 +137,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   
   // Handler for reverifying positions
   const handleReverifyPositions = useCallback(async () => {
-    if (!analysisData?.keywords?.length) {
+    if (!filteredAnalysisData?.keywords?.length) {
       toast.error('Nenhuma palavra-chave encontrada para reverificar');
       return;
     }
@@ -140,8 +145,8 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     setReverifyLoading(true);
     
     try {
-      const keywords = analysisData.keywords.slice(0, 3);
-      const targetDomain = analysisData.analysis?.target_domain;
+      const keywords = filteredAnalysisData.keywords.slice(0, 3);
+      const targetDomain = filteredAnalysisData.analysis?.target_domain;
       
       if (!targetDomain) {
         toast.error('Domínio alvo não encontrado');
@@ -182,7 +187,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     } finally {
       setReverifyLoading(false);
     }
-  }, [analysisData, analysisId, refresh]);
+  }, [filteredAnalysisData, analysisId, refresh]);
   
   // Keywords filtradas e ordenadas com dependências completamente estáveis
   const filteredAndSortedKeywords = useMemo(() => {
@@ -230,7 +235,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   const filteredKeywords = filteredAndSortedKeywords;
 
   // Handler para reverificar palavra-chave - memoized with stable dependencies
-  const targetDomain = useMemo(() => analysisData?.analysis?.target_domain || '', [analysisData?.analysis?.target_domain]);
+  const targetDomain = useMemo(() => filteredAnalysisData?.analysis?.target_domain || '', [filteredAnalysisData?.analysis?.target_domain]);
   
   const handleReverifyKeyword = useCallback(async (keyword: CompetitorKeyword) => {
     setReverifyingKeywords(prev => [...prev, keyword.keyword]);
@@ -255,10 +260,10 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
 
   // Handler para reverificar todas as palavras-chave
   const handleReverifyAll = useCallback(async () => {
-    if (!analysisData?.keywords || reverifyingAll) return;
+    if (!filteredAnalysisData?.keywords || reverifyingAll) return;
     
     setReverifyingAll(true);
-    const keywords = analysisData.keywords;
+    const keywords = filteredAnalysisData.keywords;
     let successCount = 0;
     let errorCount = 0;
     
@@ -307,15 +312,15 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     }
     
     setReverifyingAll(false);
-  }, [analysisData?.keywords, analysisId, targetDomain, reverifyingAll, invalidate, refresh]);
+  }, [filteredAnalysisData?.keywords, analysisId, targetDomain, reverifyingAll, invalidate, refresh]);
 
   // Calcular métricas - null-safe
   const getMetrics = useMemo(() => {
-    if (!analysisData?.keywords || !Array.isArray(analysisData.keywords) || analysisData.keywords.length === 0) {
+    if (!filteredAnalysisData?.keywords || !Array.isArray(filteredAnalysisData.keywords) || filteredAnalysisData.keywords.length === 0) {
       return { firstPageKeywords: 0, opportunities: 0, avgPosition: 'N/A', competitorGaps: 0 };
     }
     
-    const keywords = analysisData.keywords;
+    const keywords = filteredAnalysisData.keywords;
     const positionsWithValues = keywords.filter(k => k?.target_domain_position && k.target_domain_position > 0);
     
     const firstPageKeywords = keywords.filter(k => k?.target_domain_position && k.target_domain_position <= 10).length;
@@ -335,7 +340,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
       avgPosition,
       competitorGaps
     };
-  }, [analysisData?.keywords]);
+  }, [filteredAnalysisData?.keywords]);
 
   // Paginação memoizada
   const paginationData = useMemo(() => {
@@ -352,27 +357,27 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
   }, [filteredKeywords, paginationData.startIndex, paginationData.endIndex]);
 
   // Determine what to render - NO EARLY RETURNS, only JSX conditionals
-  console.log('CompetitiveResultsDisplay render state:', { loading, error, hasData: !!analysisData, status: analysisData?.analysis?.status });
+  console.log('CompetitiveResultsDisplay render state:', { loading, error, hasData: !!filteredAnalysisData, status: filteredAnalysisData?.analysis?.status });
 
   // Get all domains for the header - null-safe (showing 10 ahead + 10 behind)
   const allDomains = useMemo(() => {
-    if (!analysisData?.analysis?.target_domain || !analysisData?.competitors || !analysisData?.keywords) {
+    if (!filteredAnalysisData?.analysis?.target_domain || !filteredAnalysisData?.competitors || !filteredAnalysisData?.keywords) {
       return [];
     }
     
     // Get filtered competitors (10 ahead + 10 behind)
     const filteredCompetitors = getTop10CompetitorsAroundTarget(
-      analysisData.competitors, 
-      analysisData.keywords, 
-      analysisData.analysis.target_domain
+      filteredAnalysisData.competitors, 
+      filteredAnalysisData.keywords, 
+      filteredAnalysisData.analysis.target_domain
     );
     
     // Always include target domain + filtered competitors
-    const targetDomain = analysisData.analysis.target_domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    const targetDomain = filteredAnalysisData.analysis.target_domain.replace(/^https?:\/\//, '').replace(/^www\./, '');
     const competitorDomains = filteredCompetitors.map(c => c.domain);
     
     return [targetDomain, ...competitorDomains];
-  }, [analysisData?.analysis?.target_domain, analysisData?.competitors, analysisData?.keywords]);
+  }, [filteredAnalysisData?.analysis?.target_domain, filteredAnalysisData?.competitors, filteredAnalysisData?.keywords]);
 
   // Initialize selected domains when analysis data changes
   useEffect(() => {
@@ -435,14 +440,14 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
         )}
 
         {/* No Data State */}
-        {!loading && !error && !analysisData && (
+        {!loading && !error && !filteredAnalysisData && (
           <Alert>
             <AlertDescription>Análise não encontrada.</AlertDescription>
           </Alert>
         )}
 
         {/* Analysis In Progress State */}
-        {!loading && !error && analysisData && analysisData.analysis?.status !== 'completed' && (
+        {!loading && !error && filteredAnalysisData && filteredAnalysisData.analysis?.status !== 'completed' && (
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={onBackToForm}>
@@ -460,7 +465,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
         )}
 
         {/* Success State - Complete Analysis */}
-        {!loading && !error && analysisData && analysisData.analysis?.status === 'completed' && (
+        {!loading && !error && filteredAnalysisData && filteredAnalysisData.analysis?.status === 'completed' && (
           <div className="space-y-6">
             {/* New Header Design */}
             <div className="space-y-4">
@@ -530,7 +535,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">URL Analisada</p>
-                      <p className="font-medium break-all">{analysisData?.analysis?.target_domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'N/A'}</p>
+                      <p className="font-medium break-all">{filteredAnalysisData?.analysis?.target_domain?.replace(/^https?:\/\//, '').replace(/^www\./, '') || 'N/A'}</p>
                     </div>
                     <div>
                        <p className="text-muted-foreground">Posição Média</p>
@@ -566,11 +571,11 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                                    {/* Show manual position correction for keywords without position */}
                                    {keywords.filter(k => !k.target_domain_position).slice(0, 1).map(keyword => (
                                      <ManualPositionCorrection
-                                       key={keyword.id}
-                                       analysisId={analysisId}
-                                       keyword={keyword.keyword}
-                                       targetDomain={analysisData?.analysis?.target_domain || ''}
-                                       currentPosition={keyword.target_domain_position}
+                        key={keyword.id}
+                        analysisId={analysisId}
+                        keyword={keyword.keyword}
+                        targetDomain={filteredAnalysisData?.analysis?.target_domain || ''}
+                        currentPosition={keyword.target_domain_position}
                                        onPositionUpdated={(newPosition) => {
                                          // Trigger a refresh of the analysis data
                                          refresh();
@@ -606,16 +611,16 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                        <p className="text-muted-foreground">Palavra-chave Analisada</p>
                        <p className="font-medium">{selectedKeyword ? selectedKeyword.keyword : stableKeywords.length > 0 ? stableKeywords[0]?.keyword : 'N/A'}</p>
                      </div>
-                    <div>
-                      <p className="text-muted-foreground">Concorrentes Encontrados</p>
-                      <p className="font-medium">{analysisData?.competitors?.length || 0}</p>
-                    </div>
+                     <div>
+                       <p className="text-muted-foreground">Concorrentes Encontrados</p>
+                       <p className="font-medium">{filteredAnalysisData?.competitors?.length || 0}</p>
+                     </div>
                   </div>
                 </CardContent>
               </Card>
               
             {/* Keyword Filter Section */}
-            <KeywordSelector keywords={analysisData?.keywords || []} />
+            <KeywordSelector keywords={allKeywords} />
 
             {/* Domain Selection Panel */}
             {allDomains.length > 0 && (
@@ -623,9 +628,9 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 domains={allDomains}
                 selectedDomains={selectedDomains}
                 onSelectionChange={setSelectedDomains}
-                targetDomain={analysisData?.analysis?.target_domain || ''}
+                targetDomain={filteredAnalysisData?.analysis?.target_domain || ''}
                 maxSelection={10}
-                competitors={analysisData?.competitors || []}
+                competitors={filteredAnalysisData?.competitors || []}
               />
             )}
             </div>
@@ -634,25 +639,25 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
             <div className="space-y-6">
               {/* Position Variation Chart - filtered by selected keyword */}
               <PositionVariationChart
-                competitors={analysisData?.competitors || []}
-                keywords={analysisData?.keywords || []}
+                competitors={filteredAnalysisData?.competitors || []}
+                keywords={filteredAnalysisData?.keywords || []}
                 selectedDomains={selectedDomains}
-                targetDomain={analysisData?.analysis?.target_domain || ''}
+                targetDomain={filteredAnalysisData?.analysis?.target_domain || ''}
                 period={selectedPeriod}
               />
 
               {/* Competitor Table */}
               <CompetitorTable 
-                competitors={analysisData?.competitors || []}
-                keywords={analysisData?.keywords || []}
-                targetDomain={analysisData?.analysis?.target_domain || ''}
+                competitors={filteredAnalysisData?.competitors || []}
+                keywords={filteredAnalysisData?.keywords || []}
+                targetDomain={filteredAnalysisData?.analysis?.target_domain || ''}
               />
             </div>
 
             {/* Share of Voice Block - 100% width */}
             <div className="w-full">
               <ErrorBoundary>
-                <CompetitiveVisualization analysisData={analysisData} />
+                <CompetitiveVisualization analysisData={filteredAnalysisData} />
               </ErrorBoundary>
             </div>
 
@@ -660,8 +665,8 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
             <div className="w-full">
               <ErrorBoundary>
                 <StrategicOpportunities 
-                  keywords={analysisData?.keywords || []}
-                  targetDomain={analysisData?.analysis?.target_domain || ''}
+                  keywords={filteredAnalysisData?.keywords || []}
+                  targetDomain={filteredAnalysisData?.analysis?.target_domain || ''}
                   analysisId={analysisId}
                 />
               </ErrorBoundary>
@@ -673,7 +678,7 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
                 keyword={selectedKeyword}
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
-                targetDomain={analysisData?.analysis?.target_domain || ''}
+                targetDomain={filteredAnalysisData?.analysis?.target_domain || ''}
               />
             )}
           </div>
