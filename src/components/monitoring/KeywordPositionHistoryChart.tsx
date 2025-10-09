@@ -114,36 +114,55 @@ export default function KeywordPositionHistoryChart({
   const chartData = useMemo(() => {
     if (historicalData.length === 0) return [];
 
-    // Create a map of all unique dates
+    // Create a map with intelligent grouping by period
     const dateMap = new Map<string, any>();
     
     historicalData.forEach(keywordData => {
       if (!visibleKeywords.has(keywordData.keyword)) return;
       
       keywordData.dataPoints.forEach(point => {
-        // Parse date and format based on period
-        const [day, month, year] = point.date.split('/');
-        const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        const parsedDate = new Date(point.date);
+        let groupKey: string;
+        let formattedDate: string;
         
-        let formattedDate = point.date;
         if (period === 'day') {
+          // Group by hour for daily view
+          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}-${parsedDate.getHours()}`;
           formattedDate = format(parsedDate, 'HH:mm', { locale: ptBR });
         } else if (period === 'week') {
+          // Group by day for weekly view
+          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
         } else if (period === 'month') {
+          // Group by day for monthly view
+          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
         } else {
+          // Group by month for yearly view
+          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}`;
           formattedDate = format(parsedDate, 'MMM/yy', { locale: ptBR });
         }
         
-        if (!dateMap.has(formattedDate)) {
-          dateMap.set(formattedDate, { date: formattedDate, sortKey: parsedDate.getTime() });
+        if (!dateMap.has(groupKey)) {
+          dateMap.set(groupKey, { 
+            date: formattedDate, 
+            sortKey: parsedDate.getTime(),
+            groupKey 
+          });
         }
-        dateMap.get(formattedDate)![keywordData.keyword] = point.position;
+        
+        // Use the most recent position for each group
+        const existing = dateMap.get(groupKey)![keywordData.keyword];
+        if (!existing || parsedDate.getTime() > (dateMap.get(groupKey)!.latestTime || 0)) {
+          dateMap.get(groupKey)![keywordData.keyword] = point.position;
+          dateMap.get(groupKey)!.latestTime = parsedDate.getTime();
+        }
       });
     });
 
-    return Array.from(dateMap.values()).sort((a, b) => a.sortKey - b.sortKey);
+    return Array.from(dateMap.values())
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ sortKey, groupKey, latestTime, ...rest }) => rest);
   }, [historicalData, visibleKeywords, period]);
 
   const toggleKeywordVisibility = (keyword: string) => {

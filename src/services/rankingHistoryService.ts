@@ -84,7 +84,7 @@ export async function fetchRankingHistory(
       }
 
       groupedData.get(keyword)!.dataPoints.push({
-        date: new Date(record.recorded_at).toLocaleDateString('pt-BR'),
+        date: record.recorded_at, // Preserve full ISO timestamp
         position: record.position,
         change: record.change_from_previous || 0,
         metadata: record.metadata || {}
