@@ -8,11 +8,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { RankingService, KeywordRanking } from "@/services/rankingService";
+import { useSimulatedData } from "@/hooks/useSimulatedData";
 import { 
   Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, 
-  Globe, Trash2, Download, Settings2, Tag, Clock, X 
+  Globe, Trash2, Download, Settings2, Tag, Clock, X, FlaskConical 
 } from "lucide-react";
 import { KeywordIntentBadge } from "./KeywordIntentBadge";
 import { formatDistanceToNow } from "date-fns";
@@ -34,6 +36,7 @@ export const KeywordManager = ({
   onChartSelectionChange 
 }: KeywordManagerProps) => {
   const { toast } = useToast();
+  const { isSimulatedMode } = useSimulatedData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAddingKeyword, setIsAddingKeyword] = useState(false);
   const [newKeyword, setNewKeyword] = useState("");
@@ -382,6 +385,15 @@ export const KeywordManager = ({
         </div>
       </CardHeader>
       <CardContent>
+        {isSimulatedMode && (
+          <Alert className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+            <FlaskConical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              <strong>Modo Teste Ativo:</strong> Os dados exibidos são simulados para demonstração.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {selectedKeywords.length > 0 && (
           <div className="flex items-center gap-2 mb-4 p-4 bg-muted rounded-lg">
             <span className="font-medium">{selectedKeywords.length} selecionada(s)</span>

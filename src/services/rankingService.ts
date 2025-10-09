@@ -1,4 +1,58 @@
 import { supabase } from "@/integrations/supabase/client";
+import { useSimulatedData } from "@/hooks/useSimulatedData";
+
+/**
+ * Gera dados simulados de keywords para testes e demonstrações
+ */
+function generateSimulatedKeywords(projectId: string): KeywordRanking[] {
+  const simulatedKeywords = [
+    // Keywords informacionais
+    { keyword: 'o que é SEO', position: 3, previousPosition: 5, volume: 8100, device: 'desktop' },
+    { keyword: 'como fazer marketing digital', position: 7, previousPosition: 12, volume: 5400, device: 'desktop' },
+    { keyword: 'otimização de sites', position: 15, previousPosition: 18, volume: 2900, device: 'mobile' },
+    { keyword: 'estratégias de conteúdo', position: 22, previousPosition: 19, volume: 1600, device: 'desktop' },
+    { keyword: 'análise de palavras-chave', position: 11, previousPosition: 11, volume: 1900, device: 'desktop' },
+    
+    // Keywords transacionais
+    { keyword: 'consultoria SEO preço', position: 4, previousPosition: 6, volume: 3200, device: 'desktop' },
+    { keyword: 'agência de marketing digital', position: 9, previousPosition: 7, volume: 6500, device: 'mobile' },
+    { keyword: 'ferramenta de análise SEO', position: 12, previousPosition: 15, volume: 2100, device: 'desktop' },
+    
+    // Keywords locais
+    { keyword: 'SEO São Paulo', position: 2, previousPosition: 3, volume: 1200, device: 'mobile' },
+    { keyword: 'marketing digital Rio de Janeiro', position: 6, previousPosition: 8, volume: 980, device: 'desktop' },
+    
+    // Keywords long-tail
+    { keyword: 'como melhorar posicionamento google 2025', position: 18, previousPosition: 25, volume: 590, device: 'desktop' },
+    { keyword: 'melhores práticas SEO técnico', position: 14, previousPosition: 14, volume: 720, device: 'desktop' },
+    { keyword: 'backlinks de qualidade como conseguir', position: 31, previousPosition: 28, volume: 430, device: 'mobile' },
+    
+    // Keywords em alta
+    { keyword: 'IA para SEO', position: 8, previousPosition: 45, volume: 4200, device: 'desktop' },
+    { keyword: 'Google Search Generative Experience', position: 19, previousPosition: null, volume: 2800, device: 'desktop' },
+  ];
+
+  return simulatedKeywords.map((kw, index) => ({
+    id: `sim-${index}`,
+    project_id: projectId,
+    keyword: kw.keyword,
+    current_position: kw.position,
+    previous_position: kw.previousPosition,
+    url: `https://example.com/${kw.keyword.replace(/\s+/g, '-')}`,
+    search_engine: 'google',
+    location: 'brazil',
+    device: kw.device as string,
+    created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - Math.random() * 2 * 60 * 60 * 1000).toISOString(),
+    data_source: 'simulated',
+    metadata: {
+      search_volume: kw.volume,
+      difficulty: Math.floor(Math.random() * 60) + 20,
+      trend: kw.previousPosition && kw.position < kw.previousPosition ? 'up' : 
+             kw.previousPosition && kw.position > kw.previousPosition ? 'down' : 'stable'
+    }
+  }));
+}
 
 export interface KeywordRanking {
   id: string;
@@ -59,6 +113,18 @@ export class RankingService {
     error?: string;
   }> {
     try {
+      // Verificar se o modo simulado está ativo
+      const { isSimulatedMode } = useSimulatedData.getState();
+      
+      if (isSimulatedMode) {
+        console.log('🧪 Modo simulado ativo: retornando keywords simuladas');
+        return {
+          success: true,
+          rankings: generateSimulatedKeywords(projectId)
+        };
+      }
+
+      // Buscar dados reais do banco
       const { data, error } = await supabase
         .from('keyword_rankings')
         .select('*')
