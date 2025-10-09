@@ -928,7 +928,15 @@ export type Database = {
           position?: number
           recorded_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_ranking_history_keyword_ranking"
+            columns: ["keyword_ranking_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_rankings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
