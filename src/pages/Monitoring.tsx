@@ -4,7 +4,6 @@ import { RankingService, KeywordRanking } from '@/services/rankingService';
 import { KeywordManager } from '@/components/monitoring/KeywordManager';
 import { KeywordMetricsSummary } from '@/components/monitoring/KeywordMetricsSummary';
 import { KeywordPositionDistributionChart } from '@/components/monitoring/KeywordPositionDistributionChart';
-import { PositionChangeTrendChart } from '@/components/monitoring/analytics/PositionChangeTrendChart';
 import { QuickWinsCards } from '@/components/monitoring/insights/QuickWinsCards';
 import { useProject } from '@/hooks/useProject';
 import { quickWinsService, QuickWinsData } from '@/services/quickWinsService';
@@ -141,10 +140,6 @@ const Monitoring = () => {
                 />
                 <KeywordPositionDistributionChart 
                   rankings={rankings}
-                  isLoading={isLoading}
-                />
-                <PositionChangeTrendChart
-                  projectId={activeProject.id}
                   isLoading={isLoading}
                 />
               </>
