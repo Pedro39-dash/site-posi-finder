@@ -11,10 +11,13 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSimulatedData } from "@/hooks/useSimulatedData";
 
+import { PeriodSelector, PeriodOption } from "./filters/PeriodSelector";
+
 interface KeywordPositionHistoryChartProps {
   selectedKeywords: string[];
   projectId: string;
   isLoading?: boolean;
+  period: PeriodOption;
 }
 
 // Vibrant colors for better visibility
@@ -32,9 +35,9 @@ const KEYWORD_COLORS = [
 export default function KeywordPositionHistoryChart({
   selectedKeywords,
   projectId,
-  isLoading = false
+  isLoading = false,
+  period: periodProp
 }: KeywordPositionHistoryChartProps) {
-  const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year'>('week');
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [visibleKeywords, setVisibleKeywords] = useState<Set<string>>(new Set());
@@ -49,7 +52,17 @@ export default function KeywordPositionHistoryChart({
 
     const loadHistory = async () => {
       setIsLoadingHistory(true);
-      const days = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 365;
+      
+      // Convert PeriodOption to days
+      let days = 7; // default
+      switch (periodProp) {
+        case '7d': days = 7; break;
+        case '30d': days = 30; break;
+        case '90d': days = 90; break;
+        case '180d': days = 180; break;
+        case '365d': days = 365; break;
+      }
+      
       const result = await fetchRankingHistory(projectId, selectedKeywords, days);
       
       if (result.success && result.data) {
@@ -63,7 +76,7 @@ export default function KeywordPositionHistoryChart({
     };
 
     loadHistory();
-  }, [projectId, selectedKeywords, period]);
+  }, [projectId, selectedKeywords, periodProp]);
 
   // Calculate maturity status with data source detection
   const maturityStatus = useMemo(() => {
@@ -132,22 +145,24 @@ export default function KeywordPositionHistoryChart({
         let groupKey: string;
         let formattedDate: string;
         
-        if (period === 'day') {
-          // Group by hour for daily view
-          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}-${parsedDate.getHours()}`;
-          formattedDate = format(parsedDate, 'HH:mm', { locale: ptBR });
-        } else if (period === 'week') {
-          // Group by day for weekly view
+        // Map PeriodOption to grouping logic
+        if (periodProp === '7d') {
+          // Group by day for 7 days
           groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
-        } else if (period === 'month') {
-          // Group by day for monthly view
+        } else if (periodProp === '30d' || periodProp === '90d') {
+          // Group by day for 30 and 90 days
           groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
+          formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
+        } else if (periodProp === '180d' || periodProp === '365d') {
+          // Group by week for 180 and 365 days
+          const weekNumber = Math.floor(parsedDate.getTime() / (7 * 24 * 60 * 60 * 1000));
+          groupKey = `week-${weekNumber}`;
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
         } else {
-          // Group by month for yearly view
-          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}`;
-          formattedDate = format(parsedDate, 'MMM/yy', { locale: ptBR });
+          // Default: group by day
+          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
+          formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
         }
         
         if (!dateMap.has(groupKey)) {
@@ -170,7 +185,7 @@ export default function KeywordPositionHistoryChart({
     return Array.from(dateMap.values())
       .sort((a, b) => a.sortKey - b.sortKey)
       .map(({ sortKey, groupKey, latestTime, ...rest }) => rest);
-  }, [historicalData, visibleKeywords, period]);
+  }, [historicalData, visibleKeywords, periodProp]);
 
   const toggleKeywordVisibility = (keyword: string) => {
     setVisibleKeywords(prev => {
@@ -304,29 +319,6 @@ export default function KeywordPositionHistoryChart({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Período:</span>
-            <ToggleGroup 
-              type="single" 
-              value={period} 
-              onValueChange={(v) => v && setPeriod(v as 'day' | 'week' | 'month' | 'year')}
-              className="justify-start"
-            >
-              <ToggleGroupItem value="day" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                Dia
-              </ToggleGroupItem>
-              <ToggleGroupItem value="week" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                Semana
-              </ToggleGroupItem>
-              <ToggleGroupItem value="month" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                Mês
-              </ToggleGroupItem>
-              <ToggleGroupItem value="year" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                Ano
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-
           <div className="flex flex-row gap-4">
             {/* Gráfico */}
             <div className="flex-1 h-96">

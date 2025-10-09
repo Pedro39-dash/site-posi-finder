@@ -17,19 +17,22 @@ import { KeywordIntentBadge } from "./KeywordIntentBadge";
 import { PeriodSelector, PeriodOption } from "./filters/PeriodSelector";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
 interface KeywordManagerProps {
   rankings: KeywordRanking[];
   projectId: string;
   onRankingsUpdate: () => void;
   selectedForChart: string[];
   onChartSelectionChange: (keywords: string[]) => void;
+  period: PeriodOption;
 }
 export const KeywordManager = ({
   rankings,
   projectId,
   onRankingsUpdate,
   selectedForChart,
-  onChartSelectionChange
+  onChartSelectionChange,
+  period
 }: KeywordManagerProps) => {
   const {
     toast
@@ -43,7 +46,6 @@ export const KeywordManager = ({
   const [searchEngine, setSearchEngine] = useState("google");
   const [device, setDevice] = useState("desktop");
   const [location, setLocation] = useState("brazil");
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('30d');
   
   const [visibleColumns, setVisibleColumns] = useState({
     chart: true,
@@ -238,10 +240,7 @@ export const KeywordManager = ({
   return <Card>
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex flex-col gap-2">
-            <CardTitle>Gerenciar Keywords ({filteredRankings.length})</CardTitle>
-            <PeriodSelector value={selectedPeriod} onChange={setSelectedPeriod} />
-          </div>
+          <CardTitle>Gerenciar Keywords ({filteredRankings.length})</CardTitle>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />

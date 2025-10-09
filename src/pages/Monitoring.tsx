@@ -13,6 +13,7 @@ import { Info, Download, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { GSCKeywordImportModal } from '@/components/monitoring/GSCKeywordImportModal';
 import { useToast } from '@/hooks/use-toast';
+import { PeriodSelector, PeriodOption } from '@/components/monitoring/filters/PeriodSelector';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
@@ -23,6 +24,7 @@ const Monitoring = () => {
   const [showIntegrationPrompt, setShowIntegrationPrompt] = useState(false);
   const [showGSCImportModal, setShowGSCImportModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('30d');
   const { toast } = useToast();
 
   const loadRankings = async () => {
@@ -268,10 +270,17 @@ const Monitoring = () => {
                   projectId={activeProject.id}
                   isLoading={isLoading}
                 />
+                
+                {/* Seletor de Período */}
+                <div className="mb-4">
+                  <PeriodSelector value={selectedPeriod} onChange={setSelectedPeriod} />
+                </div>
+
                 <KeywordPositionHistoryChart 
                   selectedKeywords={selectedForChart}
                   projectId={activeProject.id}
                   isLoading={isLoading}
+                  period={selectedPeriod}
                 />
               </>
             )}
@@ -284,6 +293,7 @@ const Monitoring = () => {
         onRankingsUpdate={loadRankings}
         selectedForChart={selectedForChart}
         onChartSelectionChange={setSelectedForChart}
+        period={selectedPeriod}
       />
 
       {/* Modal de Importação GSC */}
