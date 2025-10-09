@@ -6,6 +6,12 @@ export interface RankingHistoryPoint {
   position: number;
   recorded_at: string;
   change_from_previous: number;
+  metadata?: {
+    data_source?: 'search_console' | 'serpapi' | 'manual';
+    impressions?: number;
+    clicks?: number;
+    ctr?: number;
+  };
 }
 
 export interface HistoricalData {
@@ -14,6 +20,12 @@ export interface HistoricalData {
     date: string;
     position: number;
     change: number;
+    metadata?: {
+      data_source?: 'search_console' | 'serpapi' | 'manual';
+      impressions?: number;
+      clicks?: number;
+      ctr?: number;
+    };
   }[];
 }
 
@@ -44,6 +56,7 @@ export async function fetchRankingHistory(
         position,
         recorded_at,
         change_from_previous,
+        metadata,
         keyword_rankings!inner(keyword, project_id)
       `)
       .eq('keyword_rankings.project_id', projectId)
@@ -73,7 +86,8 @@ export async function fetchRankingHistory(
       groupedData.get(keyword)!.dataPoints.push({
         date: new Date(record.recorded_at).toLocaleDateString('pt-BR'),
         position: record.position,
-        change: record.change_from_previous || 0
+        change: record.change_from_previous || 0,
+        metadata: record.metadata || {}
       });
     });
 

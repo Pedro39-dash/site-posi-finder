@@ -75,9 +75,9 @@ serve(async (req) => {
 
     console.log(`Found ${keywords.length} keywords to sync`);
 
-    // Fetch data from GSC for each keyword
+    // Fetch data from GSC for each keyword (16 months for historical data)
     const endDate = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - 480 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const updates = [];
 
@@ -94,7 +94,7 @@ serve(async (req) => {
             body: JSON.stringify({
               startDate,
               endDate,
-              dimensions: ['query', 'page'],
+              dimensions: ['query', 'page', 'date'],
               dimensionFilterGroups: [{
                 filters: [{
                   dimension: 'query',
@@ -102,7 +102,7 @@ serve(async (req) => {
                   expression: kw.keyword,
                 }],
               }],
-              rowLimit: 1,
+              rowLimit: 500,
             }),
           }
         );
@@ -115,16 +115,47 @@ serve(async (req) => {
         const gscData = await gscResponse.json();
         
         if (gscData.rows && gscData.rows.length > 0) {
-          const row = gscData.rows[0];
+          // Update current position with most recent data
+          const latestRow = gscData.rows[gscData.rows.length - 1];
           updates.push({
             id: kw.id,
-            current_position: Math.round(row.position),
-            impressions: row.impressions,
-            clicks: row.clicks,
-            ctr: row.ctr,
-            url: row.keys[1], // page URL
+            current_position: Math.round(latestRow.position),
+            impressions: latestRow.impressions,
+            clicks: latestRow.clicks,
+            ctr: latestRow.ctr,
+            url: latestRow.keys[1],
             data_source: 'search_console',
           });
+
+          // Insert historical data into ranking_history
+          const historyEntries = gscData.rows.map((row: any, index: number) => ({
+            keyword_ranking_id: kw.id,
+            position: Math.round(row.position),
+            recorded_at: row.keys[2], // date dimension
+            change_from_previous: index > 0 ? Math.round(row.position) - Math.round(gscData.rows[index - 1].position) : 0,
+            metadata: {
+              impressions: row.impressions,
+              clicks: row.clicks,
+              ctr: row.ctr,
+              data_source: 'search_console'
+            }
+          }));
+
+          // Insert history entries in batch
+          for (const entry of historyEntries) {
+            try {
+              await supabase
+                .from('ranking_history')
+                .upsert(entry, { 
+                  onConflict: 'keyword_ranking_id,recorded_at',
+                  ignoreDuplicates: true 
+                });
+            } catch (histError) {
+              console.error('Error inserting history entry:', histError);
+            }
+          }
+
+          console.log(`Inserted ${historyEntries.length} historical records for "${kw.keyword}"`);
         }
       } catch (error) {
         console.error(`Error fetching GSC data for "${kw.keyword}":`, error);

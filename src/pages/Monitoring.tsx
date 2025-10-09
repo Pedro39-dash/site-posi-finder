@@ -7,6 +7,10 @@ import KeywordPositionHistoryChart from '@/components/monitoring/KeywordPosition
 import { useProject } from '@/hooks/useProject';
 import IntegrationStatusBanner from '@/components/integrations/IntegrationStatusBanner';
 import { IntegrationService, ProjectIntegration } from '@/services/integrationService';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Info } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
@@ -14,6 +18,7 @@ const Monitoring = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [integrations, setIntegrations] = useState<ProjectIntegration[]>([]);
   const [selectedForChart, setSelectedForChart] = useState<string[]>([]);
+  const [showIntegrationPrompt, setShowIntegrationPrompt] = useState(false);
 
   const loadRankings = async () => {
     if (!activeProject) {
@@ -68,6 +73,21 @@ const Monitoring = () => {
     }
   };
 
+  const checkHistoryStatus = async () => {
+    if (!activeProject?.id || rankings.length === 0) return;
+
+    const { count } = await supabase
+      .from('ranking_history')
+      .select('*', { count: 'exact', head: true })
+      .in('keyword_ranking_id', rankings.map(r => r.id));
+
+    const hasGSC = IntegrationService.hasIntegration(integrations, 'search_console');
+
+    if ((count || 0) < 7 && !hasGSC && rankings.length > 0) {
+      setShowIntegrationPrompt(true);
+    }
+  };
+
   useEffect(() => {
     console.log('🔄 [Monitoring] useEffect triggered:', {
       activeProjectId: activeProject?.id,
@@ -93,6 +113,12 @@ const Monitoring = () => {
     loadIntegrations();
   }, [activeProject?.id]);
 
+  useEffect(() => {
+    if (rankings.length > 0 && integrations.length > 0) {
+      checkHistoryStatus();
+    }
+  }, [rankings, integrations]);
+
   return (
     <>
       <Helmet><title>Monitoramento SEO</title></Helmet>
@@ -106,10 +132,40 @@ const Monitoring = () => {
 
             {/* Banner de Integração */}
             {activeProject && (
-              <IntegrationStatusBanner 
-                projectId={activeProject.id}
-                integrations={integrations}
-              />
+              <>
+                <IntegrationStatusBanner 
+                  projectId={activeProject.id}
+                  integrations={integrations}
+                />
+
+                {showIntegrationPrompt && (
+                  <Alert className="mb-6">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Maximize seu histórico de dados</AlertTitle>
+                    <AlertDescription>
+                      <p className="mb-3">
+                        Conecte o Google Search Console para importar até <strong>16 meses</strong> de dados históricos.
+                        Sem a integração, construiremos o histórico a partir de hoje usando SerpAPI.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          onClick={() => IntegrationService.startOAuthFlow(activeProject.id, 'search_console')}
+                        >
+                          Conectar Search Console
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setShowIntegrationPrompt(false)}
+                        >
+                          Continuar sem integração
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
             )}
 
             {/* Métricas de Keywords */}

@@ -56,7 +56,7 @@ export default function KeywordPositionHistoryChart({
     loadHistory();
   }, [projectId, selectedKeywords, period]);
 
-  // Calculate maturity status
+  // Calculate maturity status with data source detection
   const maturityStatus = useMemo(() => {
     if (historicalData.length === 0) return null;
     
@@ -64,7 +64,48 @@ export default function KeywordPositionHistoryChart({
     if (allDataPoints.length === 0) return null;
     
     const daysSpan = calculateDaysSpan(allDataPoints);
-    return getHistoryMaturity(allDataPoints.length, daysSpan);
+    
+    // Detect data sources
+    const sources = new Set<string>();
+    allDataPoints.forEach(dp => {
+      if (dp.metadata?.data_source) {
+        sources.add(dp.metadata.data_source);
+      }
+    });
+
+    const hasGSC = sources.has('search_console');
+    const hasSerpAPI = sources.has('serpapi');
+    
+    let message = '';
+    let status: 'complete' | 'consolidating' | 'building' = 'building';
+    let icon = '🔵';
+
+    if (daysSpan >= 300 && allDataPoints.length >= 60) {
+      status = 'complete';
+      icon = '✅';
+      message = hasGSC ? 'Histórico completo - Search Console' : 'Histórico completo';
+    } else if (daysSpan >= 60 && allDataPoints.length >= 20) {
+      status = 'consolidating';
+      icon = '🟢';
+      message = hasGSC ? 'Histórico consolidado - GSC + SerpAPI' : 'Histórico consolidado';
+    } else if (daysSpan >= 7) {
+      status = 'building';
+      icon = '🔵';
+      message = hasSerpAPI ? `Construindo histórico (${daysSpan} dias - SerpAPI)` : `Construindo histórico (${daysSpan} dias)`;
+    } else {
+      status = 'building';
+      icon = '⚪';
+      message = 'Histórico limitado';
+    }
+
+    return {
+      status,
+      daysOfData: daysSpan,
+      totalDataPoints: allDataPoints.length,
+      message,
+      icon,
+      sources: Array.from(sources)
+    };
   }, [historicalData]);
 
   // Transform data for Recharts
@@ -168,17 +209,21 @@ export default function KeywordPositionHistoryChart({
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1">
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
               Evolução de Rankings
             </CardTitle>
             <CardDescription>
-              Histórico de posições das palavras-chave selecionadas
+              Histórico de posições das palavras-chave selecionadas ao longo do tempo
             </CardDescription>
           </div>
           {maturityStatus && (
-            <Badge variant={maturityStatus.status === 'complete' ? 'default' : 'secondary'}>
+            <Badge variant={
+              maturityStatus.status === 'complete' ? 'default' : 
+              maturityStatus.status === 'consolidating' ? 'secondary' : 
+              'outline'
+            }>
               {maturityStatus.icon} {maturityStatus.message}
             </Badge>
           )}
