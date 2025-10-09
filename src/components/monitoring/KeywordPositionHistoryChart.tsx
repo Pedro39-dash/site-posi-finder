@@ -327,13 +327,16 @@ export default function KeywordPositionHistoryChart({
             </ToggleGroup>
           </div>
 
-          {chartData.length === 0 ? (
-            <div className="flex items-center justify-center h-[350px] text-muted-foreground">
-              Ainda não há histórico disponível para as palavras-chave selecionadas
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={chartData} margin={{ top: 10, right: 180, left: 20, bottom: 5 }}>
+          <div className="flex flex-row gap-4">
+            {/* Gráfico */}
+            <div className="flex-1 h-96">
+              {chartData.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  Ainda não há histórico disponível para as palavras-chave selecionadas
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid 
                   strokeDasharray="3 3" 
                   stroke="hsl(var(--border))"
@@ -388,13 +391,14 @@ export default function KeywordPositionHistoryChart({
                     />
                   )
                 ))}
-              </LineChart>
-            </ResponsiveContainer>
-          )}
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
 
-          {/* Legendas empilhadas no topo direito */}
-          {chartData.length > 0 && (
-            <div className="absolute top-0 right-0 flex flex-col gap-2" style={{ marginTop: '10px', marginRight: '10px' }}>
+            {/* Legendas ao lado do gráfico */}
+            {chartData.length > 0 && (
+              <div className="flex-shrink-0 w-48 flex flex-col gap-2 justify-center">
               {historicalData.map((keywordData, index) => {
                 if (!visibleKeywords.has(keywordData.keyword)) return null;
                 
@@ -419,11 +423,12 @@ export default function KeywordPositionHistoryChart({
                     <Badge variant="outline" className="text-xs">
                       {lastPosition}ª
                     </Badge>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div className="text-sm text-muted-foreground">
             <p className="font-medium mb-1">Dica:</p>

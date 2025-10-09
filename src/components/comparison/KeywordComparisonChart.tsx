@@ -186,9 +186,11 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
       </CardHeader>
       
       <CardContent>
-        <div className="h-96">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData.data} margin={{ top: 10, right: 180, left: 20, bottom: 5 }}>
+        <div className="flex flex-row gap-4">
+          {/* Gráfico */}
+          <div className="flex-1 h-96">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData.data} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis 
                 dataKey="date" 
@@ -226,13 +228,13 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
                   activeDot={{ r: 5, fill: getKeywordColor(index) }}
                 />
               ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
 
-        {/* Legendas empilhadas no topo direito */}
-        {chartData.data.length > 0 && (
-          <div className="absolute top-0 right-0 flex flex-col gap-2" style={{ marginTop: '10px', marginRight: '10px' }}>
+          {/* Legendas ao lado do gráfico */}
+          {chartData.data.length > 0 && (
+            <div className="flex-shrink-0 w-48 flex flex-col gap-2 justify-center">
             {visibleKeywords.map((keyword, index) => {
               const lastDataPoint = chartData.data[chartData.data.length - 1];
               const lastPosition = lastDataPoint?.[keyword.keyword];
@@ -255,11 +257,12 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
                   <Badge variant="outline" className="text-xs">
                     {lastPosition}ª
                   </Badge>
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         
         <div className="mt-4 text-sm text-muted-foreground">
           {chartData.hasHistoricalData ? (
