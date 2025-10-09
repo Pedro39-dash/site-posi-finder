@@ -392,49 +392,36 @@ export default function KeywordPositionHistoryChart({
             </ResponsiveContainer>
           )}
 
-          {/* Legendas customizadas alinhadas ao último ponto */}
+          {/* Legendas empilhadas no topo direito */}
           {chartData.length > 0 && (
-            <div className="relative h-0">
-              <div className="absolute top-0 right-0" style={{ transform: 'translateY(-400px)' }}>
-                {historicalData.map((keywordData, index) => {
-                  if (!visibleKeywords.has(keywordData.keyword)) return null;
-                  
-                  // Pegar a última posição da keyword
-                  const lastDataPoint = chartData[chartData.length - 1];
-                  const lastPosition = lastDataPoint?.[keywordData.keyword];
-                  
-                  if (!lastPosition || typeof lastPosition !== 'number') return null;
-                  
-                  // Calcular Y position (400px de altura, posição invertida, domínio 1-100)
-                  const yPercent = ((lastPosition - 1) / 99) * 100;
-                  const yPosition = (400 * yPercent) / 100;
-                  
-                  return (
-                    <button
-                      key={keywordData.keyword}
-                      onClick={() => toggleKeywordVisibility(keywordData.keyword)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-all bg-secondary/80 hover:bg-secondary shadow-sm mb-2"
-                      style={{ 
-                        position: 'absolute',
-                        top: `${yPosition}px`,
-                        left: '20px',
-                        transform: 'translateY(-50%)'
-                      }}
-                    >
-                      <div 
-                        className="w-3 h-3 rounded-full border-2 border-background" 
-                        style={{ backgroundColor: KEYWORD_COLORS[index % KEYWORD_COLORS.length] }}
-                      />
-                      <span className="text-sm font-medium whitespace-nowrap">
-                        {keywordData.keyword}
-                      </span>
-                      <Badge variant="outline" className="text-xs">
-                        {lastPosition}ª
-                      </Badge>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="absolute top-0 right-0 flex flex-col gap-2" style={{ marginTop: '10px', marginRight: '10px' }}>
+              {historicalData.map((keywordData, index) => {
+                if (!visibleKeywords.has(keywordData.keyword)) return null;
+                
+                const lastDataPoint = chartData[chartData.length - 1];
+                const lastPosition = lastDataPoint?.[keywordData.keyword];
+                
+                if (!lastPosition || typeof lastPosition !== 'number') return null;
+                
+                return (
+                  <button
+                    key={keywordData.keyword}
+                    onClick={() => toggleKeywordVisibility(keywordData.keyword)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-all bg-secondary/80 hover:bg-secondary shadow-sm"
+                  >
+                    <div 
+                      className="w-3 h-3 rounded-full border-2 border-background" 
+                      style={{ backgroundColor: KEYWORD_COLORS[index % KEYWORD_COLORS.length] }}
+                    />
+                    <span className="text-sm font-medium whitespace-nowrap">
+                      {keywordData.keyword}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {lastPosition}ª
+                    </Badge>
+                  </button>
+                );
+              })}
             </div>
           )}
 
