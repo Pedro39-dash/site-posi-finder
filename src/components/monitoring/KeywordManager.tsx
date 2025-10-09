@@ -389,7 +389,7 @@ export const KeywordManager = ({
           <Alert className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
             <FlaskConical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <AlertDescription className="text-amber-800 dark:text-amber-200">
-              <strong>Modo Teste Ativo:</strong> Os dados exibidos são simulados para demonstração.
+              <strong>Modo Teste Ativo:</strong> Os dados de posicionamento (posição, volume, tendência) são simulados. As keywords exibidas são suas keywords reais.
             </AlertDescription>
           </Alert>
         )}
@@ -496,15 +496,29 @@ export const KeywordManager = ({
                       </TableCell>
                       {visibleColumns.previousPosition && (
                         <TableCell className="text-center">
-                          <Badge variant="outline">
-                            {ranking.previous_position ? `#${ranking.previous_position}` : "N/R"}
-                          </Badge>
+                          <div className="flex items-center justify-center gap-1">
+                            <Badge variant="outline">
+                              {ranking.previous_position ? `#${ranking.previous_position}` : "N/R"}
+                            </Badge>
+                            {isSimulatedMode && ranking.data_source === 'simulated_overlay' && (
+                              <Badge variant="outline" className="text-[10px] px-1 h-4 border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400">
+                                SIM
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                       )}
                       <TableCell className="text-center">
-                        <Badge variant={getPositionBadgeVariant(ranking.current_position)}>
-                          {ranking.current_position ? `#${ranking.current_position}` : "N/R"}
-                        </Badge>
+                        <div className="flex items-center justify-center gap-1">
+                          <Badge variant={getPositionBadgeVariant(ranking.current_position)}>
+                            {ranking.current_position ? `#${ranking.current_position}` : "N/R"}
+                          </Badge>
+                          {isSimulatedMode && ranking.data_source === 'simulated_overlay' && (
+                            <Badge variant="outline" className="text-[10px] px-1 h-4 border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400">
+                              SIM
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">

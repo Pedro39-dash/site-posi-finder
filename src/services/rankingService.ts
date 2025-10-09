@@ -2,7 +2,38 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSimulatedData } from "@/hooks/useSimulatedData";
 
 /**
- * Gera dados simulados de keywords para testes e demonstrações
+ * Aplica dados de posicionamento simulados às keywords reais
+ */
+function applySimulatedPositions(realKeywords: KeywordRanking[]): KeywordRanking[] {
+  return realKeywords.map(keyword => {
+    // Gerar posição atual simulada (1-50)
+    const simulatedPosition = Math.floor(Math.random() * 50) + 1;
+    
+    // Gerar posição anterior com variação realista (-10 a +10)
+    const variation = Math.floor(Math.random() * 21) - 10;
+    const simulatedPreviousPosition = Math.max(1, Math.min(100, simulatedPosition + variation));
+    
+    // Gerar volume de busca simulado
+    const simulatedVolume = Math.floor(Math.random() * 8000) + 500;
+    
+    return {
+      ...keyword, // Manter todos os dados originais (id, keyword, url, etc.)
+      current_position: simulatedPosition,
+      previous_position: simulatedPreviousPosition,
+      data_source: 'simulated_overlay', // Flag para indicar simulação
+      metadata: {
+        ...keyword.metadata,
+        search_volume: simulatedVolume,
+        difficulty: Math.floor(Math.random() * 60) + 20,
+        trend: simulatedPosition < simulatedPreviousPosition ? 'up' : 
+               simulatedPosition > simulatedPreviousPosition ? 'down' : 'stable'
+      }
+    };
+  });
+}
+
+/**
+ * Gera keywords simuladas completas para demonstração (fallback quando não há keywords reais)
  */
 function generateSimulatedKeywords(projectId: string): KeywordRanking[] {
   const simulatedKeywords = [
@@ -113,18 +144,9 @@ export class RankingService {
     error?: string;
   }> {
     try {
-      // Verificar se o modo simulado está ativo
       const { isSimulatedMode } = useSimulatedData.getState();
       
-      if (isSimulatedMode) {
-        console.log('🧪 Modo simulado ativo: retornando keywords simuladas');
-        return {
-          success: true,
-          rankings: generateSimulatedKeywords(projectId)
-        };
-      }
-
-      // Buscar dados reais do banco
+      // SEMPRE buscar keywords reais primeiro
       const { data, error } = await supabase
         .from('keyword_rankings')
         .select('*')
@@ -132,10 +154,31 @@ export class RankingService {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
+      
+      const realKeywords = data || [];
+      
+      // Se modo simulado está ativo
+      if (isSimulatedMode) {
+        // Se há keywords reais, aplicar posições simuladas nelas
+        if (realKeywords.length > 0) {
+          console.log('🧪 Modo simulado ativo: aplicando posições simuladas às keywords reais');
+          return {
+            success: true,
+            rankings: applySimulatedPositions(realKeywords)
+          };
+        }
+        // Se não há keywords, gerar keywords simuladas completas (fallback)
+        console.log('🧪 Modo simulado ativo: gerando keywords de exemplo (sem keywords reais)');
+        return {
+          success: true,
+          rankings: generateSimulatedKeywords(projectId)
+        };
+      }
+      
+      // Modo normal: retornar dados reais
       return {
         success: true,
-        rankings: data || []
+        rankings: realKeywords
       };
     } catch (error) {
       console.error('Error fetching project rankings:', error);
