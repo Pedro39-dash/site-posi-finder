@@ -143,19 +143,18 @@ serve(async (req) => {
 
           // Insert history entries in batch
           for (const entry of historyEntries) {
-            try {
-              await supabase
-                .from('ranking_history')
-                .upsert(entry, { 
-                  onConflict: 'keyword_ranking_id,recorded_at',
-                  ignoreDuplicates: true 
-                });
-            } catch (histError) {
-              console.error('Error inserting history entry:', histError);
+            const { error } = await supabase
+              .from('ranking_history')
+              .upsert(entry, { 
+                ignoreDuplicates: true 
+              });
+            
+            if (error) {
+              console.error(`Failed to insert history for ${entry.recorded_at}:`, error);
             }
           }
 
-          console.log(`Inserted ${historyEntries.length} historical records for "${kw.keyword}"`);
+          console.log(`Processed ${historyEntries.length} historical records for "${kw.keyword}"`);
         }
       } catch (error) {
         console.error(`Error fetching GSC data for "${kw.keyword}":`, error);
