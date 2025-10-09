@@ -195,8 +195,8 @@ export function GSCKeywordImportModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[85vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>📊 Importar Keywords do Search Console</DialogTitle>
           <DialogDescription>
             Selecione as palavras-chave que deseja monitorar. Histórico de 16 meses será importado automaticamente.
@@ -209,9 +209,9 @@ export function GSCKeywordImportModal({
             <span className="ml-3 text-muted-foreground">Buscando keywords do Search Console...</span>
           </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-4 flex-1 min-h-0">
             {/* Filter Controls */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 flex-shrink-0">
               <Input
                 placeholder="Pesquisar keywords..."
                 value={searchTerm}
@@ -231,7 +231,7 @@ export function GSCKeywordImportModal({
             </div>
 
             {/* Bulk Actions */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 flex-shrink-0">
               <Button variant="outline" size="sm" onClick={selectTop50}>
                 Top 50
               </Button>
@@ -247,54 +247,56 @@ export function GSCKeywordImportModal({
             </div>
 
             {/* Keywords Table */}
-            <ScrollArea className="h-[400px] border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
-                    </TableHead>
-                    <TableHead>Keyword</TableHead>
-                    <TableHead>Posição</TableHead>
-                    <TableHead>Impressões</TableHead>
-                    <TableHead>Cliques</TableHead>
-                    <TableHead>CTR</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAndSortedKeywords.length === 0 ? (
+            <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+              <ScrollArea className="h-full">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        Nenhuma keyword encontrada
-                      </TableCell>
+                      <TableHead className="w-12">
+                        <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+                      </TableHead>
+                      <TableHead>Keyword</TableHead>
+                      <TableHead>Posição</TableHead>
+                      <TableHead>Impressões</TableHead>
+                      <TableHead>Cliques</TableHead>
+                      <TableHead>CTR</TableHead>
                     </TableRow>
-                  ) : (
-                    filteredAndSortedKeywords.map((kw, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>
-                          <Checkbox
-                            checked={kw.selected}
-                            onCheckedChange={() => toggleKeyword(kw.keyword)}
-                          />
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAndSortedKeywords.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          Nenhuma keyword encontrada
                         </TableCell>
-                        <TableCell className="font-medium">{kw.keyword}</TableCell>
-                        <TableCell>
-                          <Badge variant={getPositionVariant(kw.position)}>
-                            #{kw.position}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{kw.impressions.toLocaleString()}</TableCell>
-                        <TableCell>{kw.clicks}</TableCell>
-                        <TableCell>{(kw.ctr * 100).toFixed(2)}%</TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                    ) : (
+                      filteredAndSortedKeywords.map((kw, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <Checkbox
+                              checked={kw.selected}
+                              onCheckedChange={() => toggleKeyword(kw.keyword)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{kw.keyword}</TableCell>
+                          <TableCell>
+                            <Badge variant={getPositionVariant(kw.position)}>
+                              #{kw.position}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{kw.impressions.toLocaleString()}</TableCell>
+                          <TableCell>{kw.clicks}</TableCell>
+                          <TableCell>{(kw.ctr * 100).toFixed(2)}%</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between pt-4 border-t">
+            <div className="flex items-center justify-between pt-4 border-t flex-shrink-0 bg-background">
               <span className="text-sm text-muted-foreground">
                 {selectedCount} de {keywords.length} keywords selecionadas
               </span>
@@ -314,7 +316,7 @@ export function GSCKeywordImportModal({
                 </Button>
               </div>
             </div>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>
