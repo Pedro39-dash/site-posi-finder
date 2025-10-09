@@ -142,7 +142,83 @@ serve(async (req) => {
       });
     }
 
-    // Step 3: Refresh token
+    // Step 3: List Search Console properties
+    if (path === 'list-properties') {
+      const { integrationId } = await req.json();
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get integration with access token
+      const { data: integration, error: intError } = await supabase
+        .from('project_integrations')
+        .select('access_token, project_id')
+        .eq('id', integrationId)
+        .single();
+
+      if (intError || !integration) {
+        throw new Error('Integration not found');
+      }
+
+      // Verify project ownership
+      const { data: project } = await supabase
+        .from('projects')
+        .select('user_id')
+        .eq('id', integration.project_id)
+        .single();
+
+      if (project?.user_id !== user.id) {
+        throw new Error('Unauthorized');
+      }
+
+      // List Search Console sites
+      const response = await fetch('https://www.googleapis.com/webmasters/v3/sites', {
+        headers: {
+          'Authorization': `Bearer ${integration.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch properties');
+      }
+
+      const data = await response.json();
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        properties: data.siteEntry || [] 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Step 4: Save selected property
+    if (path === 'save-property') {
+      const { integrationId, propertyId } = await req.json();
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Update integration with property_id
+      const { error: updateError } = await supabase
+        .from('project_integrations')
+        .update({ property_id: propertyId })
+        .eq('id', integrationId);
+
+      if (updateError) {
+        throw new Error('Failed to save property');
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Step 5: Refresh token
     if (path === 'refresh') {
       const { integrationId } = await req.json();
 

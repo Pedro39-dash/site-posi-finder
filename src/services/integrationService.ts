@@ -77,6 +77,36 @@ export class IntegrationService {
     return { success: true };
   }
 
+  static async listSearchConsoleProperties(integrationId: string) {
+    try {
+      const { data, error } = await supabase.functions.invoke('google-oauth/list-properties', {
+        body: { integrationId },
+      });
+
+      if (error) throw error;
+
+      return { success: true, properties: data.properties };
+    } catch (error: any) {
+      console.error('Error listing properties:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  static async saveSearchConsoleProperty(integrationId: string, propertyId: string) {
+    try {
+      const { data, error } = await supabase.functions.invoke('google-oauth/save-property', {
+        body: { integrationId, propertyId },
+      });
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error saving property:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   static async syncIntegration(projectId: string, integrationType: 'search_console' | 'analytics') {
     try {
       const functionName = integrationType === 'search_console' 

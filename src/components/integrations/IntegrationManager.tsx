@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { RefreshCw, X, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import GoogleAuthButton from "./GoogleAuthButton";
+import PropertySelector from "./PropertySelector";
 import { IntegrationService, ProjectIntegration } from "@/services/integrationService";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -129,11 +130,28 @@ const IntegrationManager = ({ projectId }: IntegrationManagerProps) => {
           </div>
 
           {gscIntegration && gscIntegration.is_active ? (
-            <div className="space-y-2 rounded-lg border p-3">
+            <div className="space-y-3 rounded-lg border p-3">
               <div className="flex items-center gap-2 text-sm">
                 {getStatusIcon(gscIntegration.sync_status)}
                 <span className="font-medium">{gscIntegration.account_email}</span>
               </div>
+              
+              {gscIntegration.property_id ? (
+                <div className="text-xs text-muted-foreground">
+                  Propriedade: <span className="font-medium">{gscIntegration.property_id}</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-orange-600">
+                    ⚠️ Selecione uma propriedade para sincronizar dados
+                  </p>
+                  <PropertySelector
+                    integrationId={gscIntegration.id}
+                    currentPropertyId={gscIntegration.property_id}
+                    onPropertySaved={loadIntegrations}
+                  />
+                </div>
+              )}
               
               {gscIntegration.last_sync_at && (
                 <p className="text-xs text-muted-foreground">
@@ -149,7 +167,8 @@ const IntegrationManager = ({ projectId }: IntegrationManagerProps) => {
                   size="sm"
                   variant="outline"
                   onClick={() => handleSync('search_console')}
-                  disabled={syncingType === 'search_console'}
+                  disabled={syncingType === 'search_console' || !gscIntegration.property_id}
+                  title={!gscIntegration.property_id ? 'Selecione uma propriedade primeiro' : ''}
                 >
                   <RefreshCw className={`h-3 w-3 mr-1 ${syncingType === 'search_console' ? 'animate-spin' : ''}`} />
                   Sincronizar
