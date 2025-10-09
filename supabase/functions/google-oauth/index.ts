@@ -70,8 +70,13 @@ serve(async (req) => {
 
       const { projectId, integrationType, userId } = JSON.parse(atob(state));
       
-      // Validate that the project belongs to the user
-      const { data: project, error: projectError } = await supabase
+      // Validate that the project belongs to the user using service role
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { data: project, error: projectError } = await supabaseAdmin
         .from('projects')
         .select('id')
         .eq('id', projectId)
@@ -110,7 +115,7 @@ serve(async (req) => {
       // Store integration (userId already validated from state)
       const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
       
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('project_integrations')
         .upsert({
           project_id: projectId,
