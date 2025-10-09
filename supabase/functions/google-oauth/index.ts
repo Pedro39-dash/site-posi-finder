@@ -31,7 +31,7 @@ serve(async (req) => {
 
     // Step 1: Generate authorization URL
     if (path === 'authorize') {
-      const { projectId, integrationType } = await req.json();
+      const { projectId, integrationType, returnUrl } = await req.json();
       
       // Get user ID from JWT
       const { data: { user } } = await supabase.auth.getUser();
@@ -43,7 +43,7 @@ serve(async (req) => {
         ? ['https://www.googleapis.com/auth/webmasters.readonly']
         : ['https://www.googleapis.com/auth/analytics.readonly'];
 
-      const state = btoa(JSON.stringify({ projectId, integrationType, userId: user.id }));
+      const state = btoa(JSON.stringify({ projectId, integrationType, userId: user.id, returnUrl }));
       
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${GOOGLE_CLIENT_ID}&` +
@@ -68,7 +68,7 @@ serve(async (req) => {
         throw new Error('Missing code or state parameter');
       }
 
-      const { projectId, integrationType, userId } = JSON.parse(atob(state));
+      const { projectId, integrationType, userId, returnUrl } = JSON.parse(atob(state));
       
       // Validate that the project belongs to the user using service role
       const supabaseAdmin = createClient(
@@ -137,7 +137,7 @@ serve(async (req) => {
         status: 302,
         headers: {
           ...corsHeaders,
-          Location: `${url.origin}/?integration=success&type=${integrationType}`,
+          Location: `${returnUrl}/?integration=success&type=${integrationType}`,
         },
       });
     }

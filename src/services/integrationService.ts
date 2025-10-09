@@ -32,7 +32,11 @@ export class IntegrationService {
   static async startOAuthFlow(projectId: string, integrationType: 'search_console' | 'analytics') {
     try {
       const { data, error } = await supabase.functions.invoke('google-oauth/authorize', {
-        body: { projectId, integrationType },
+        body: { 
+          projectId, 
+          integrationType,
+          returnUrl: window.location.origin
+        },
       });
 
       if (error) throw error;
