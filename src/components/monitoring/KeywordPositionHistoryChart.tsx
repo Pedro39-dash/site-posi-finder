@@ -1,11 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { fetchRankingHistory, getHistoryMaturity, calculateDaysSpan, HistoricalData } from "@/services/rankingHistoryService";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface KeywordPositionHistoryChartProps {
   selectedKeywords: string[];
@@ -26,7 +28,7 @@ export default function KeywordPositionHistoryChart({
   projectId,
   isLoading = false
 }: KeywordPositionHistoryChartProps) {
-  const [period, setPeriod] = useState<'month' | 'year'>('month');
+  const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year'>('week');
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [visibleKeywords, setVisibleKeywords] = useState<Set<string>>(new Set());
@@ -40,7 +42,7 @@ export default function KeywordPositionHistoryChart({
 
     const loadHistory = async () => {
       setIsLoadingHistory(true);
-      const days = period === 'month' ? 30 : 365;
+      const days = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 365;
       const result = await fetchRankingHistory(projectId, selectedKeywords, days);
       
       if (result.success && result.data) {
@@ -108,7 +110,7 @@ export default function KeywordPositionHistoryChart({
     };
   }, [historicalData]);
 
-  // Transform data for Recharts
+  // Transform data for Recharts with improved date formatting
   const chartData = useMemo(() => {
     if (historicalData.length === 0) return [];
 
@@ -119,19 +121,30 @@ export default function KeywordPositionHistoryChart({
       if (!visibleKeywords.has(keywordData.keyword)) return;
       
       keywordData.dataPoints.forEach(point => {
-        if (!dateMap.has(point.date)) {
-          dateMap.set(point.date, { date: point.date });
+        // Parse date and format based on period
+        const [day, month, year] = point.date.split('/');
+        const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        
+        let formattedDate = point.date;
+        if (period === 'day') {
+          formattedDate = format(parsedDate, 'HH:mm', { locale: ptBR });
+        } else if (period === 'week') {
+          formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
+        } else if (period === 'month') {
+          formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
+        } else {
+          formattedDate = format(parsedDate, 'MMM/yy', { locale: ptBR });
         }
-        dateMap.get(point.date)![keywordData.keyword] = point.position;
+        
+        if (!dateMap.has(formattedDate)) {
+          dateMap.set(formattedDate, { date: formattedDate, sortKey: parsedDate.getTime() });
+        }
+        dateMap.get(formattedDate)![keywordData.keyword] = point.position;
       });
     });
 
-    return Array.from(dateMap.values()).sort((a, b) => {
-      const [dayA, monthA, yearA] = a.date.split('/');
-      const [dayB, monthB, yearB] = b.date.split('/');
-      return new Date(yearA, monthA - 1, dayA).getTime() - new Date(yearB, monthB - 1, dayB).getTime();
-    });
-  }, [historicalData, visibleKeywords]);
+    return Array.from(dateMap.values()).sort((a, b) => a.sortKey - b.sortKey);
+  }, [historicalData, visibleKeywords, period]);
 
   const toggleKeywordVisibility = (keyword: string) => {
     setVisibleKeywords(prev => {
@@ -231,12 +244,28 @@ export default function KeywordPositionHistoryChart({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as 'month' | 'year')}>
-            <TabsList>
-              <TabsTrigger value="month">Mês</TabsTrigger>
-              <TabsTrigger value="year">Ano</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Período:</span>
+            <ToggleGroup 
+              type="single" 
+              value={period} 
+              onValueChange={(v) => v && setPeriod(v as 'day' | 'week' | 'month' | 'year')}
+              className="justify-start"
+            >
+              <ToggleGroupItem value="day" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                Dia
+              </ToggleGroupItem>
+              <ToggleGroupItem value="week" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                Semana
+              </ToggleGroupItem>
+              <ToggleGroupItem value="month" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                Mês
+              </ToggleGroupItem>
+              <ToggleGroupItem value="year" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                Ano
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
 
           {chartData.length === 0 ? (
             <div className="flex items-center justify-center h-[350px] text-muted-foreground">
