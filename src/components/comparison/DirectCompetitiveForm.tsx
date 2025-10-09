@@ -114,7 +114,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
 
       setIsLoadingKeywords(true);
       try {
-        const result = await RankingService.getProjectRankings(activeProject.id);
+        const result = await RankingService.getProjectRankings(activeProject.id, '30d');
         
         if (result.success && result.rankings) {
           // Extrair apenas os nomes das keywords (sem duplicatas)

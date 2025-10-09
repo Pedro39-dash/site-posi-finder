@@ -4,29 +4,54 @@ import { useSimulatedData } from "@/hooks/useSimulatedData";
 /**
  * Aplica dados de posicionamento simulados às keywords reais
  */
-function applySimulatedPositions(realKeywords: KeywordRanking[]): KeywordRanking[] {
-  return realKeywords.map(keyword => {
-    // Gerar posição atual simulada (1-50)
-    const simulatedPosition = Math.floor(Math.random() * 50) + 1;
+function applySimulatedPositions(
+  realKeywords: KeywordRanking[], 
+  period: string = '30d'
+): KeywordRanking[] {
+  // Calcular fator de variação baseado no período
+  const getVariationFactor = (period: string): number => {
+    switch(period) {
+      case '7d': return 5;    // Variação máxima de ±5 posições
+      case '30d': return 10;  // Variação máxima de ±10 posições
+      case '90d': return 20;  // Variação máxima de ±20 posições
+      case '180d': return 30; // Variação máxima de ±30 posições
+      case '365d': return 50; // Variação máxima de ±50 posições
+      default: return 10;
+    }
+  };
+
+  const maxVariation = getVariationFactor(period);
+
+  return realKeywords.map((keyword, index) => {
+    // Usar seed baseado no ID da keyword para consistência
+    const seed = keyword.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const random = (seed + index) % 100 / 100;
     
-    // Gerar posição anterior com variação realista (-10 a +10)
-    const variation = Math.floor(Math.random() * 21) - 10;
-    const simulatedPreviousPosition = Math.max(1, Math.min(100, simulatedPosition + variation));
+    // Gerar posição atual simulada (1-100)
+    const simulatedPosition = Math.floor(random * 100) + 1;
     
-    // Gerar volume de busca simulado
-    const simulatedVolume = Math.floor(Math.random() * 8000) + 500;
+    // Gerar posição anterior com variação proporcional ao período
+    const variation = Math.floor((random * maxVariation * 2) - maxVariation);
+    const simulatedPreviousPosition = Math.max(1, Math.min(100, simulatedPosition - variation));
+    
+    // Volume de busca baseado na posição (keywords bem ranqueadas geralmente têm mais volume)
+    const baseVolume = simulatedPosition <= 10 ? 5000 : 
+                       simulatedPosition <= 20 ? 2000 : 
+                       simulatedPosition <= 50 ? 800 : 300;
+    const simulatedVolume = Math.floor(baseVolume + (random * baseVolume * 0.5));
     
     return {
-      ...keyword, // Manter todos os dados originais (id, keyword, url, etc.)
+      ...keyword,
       current_position: simulatedPosition,
       previous_position: simulatedPreviousPosition,
-      data_source: 'simulated_overlay', // Flag para indicar simulação
+      data_source: 'simulated_overlay',
       metadata: {
         ...keyword.metadata,
         search_volume: simulatedVolume,
-        difficulty: Math.floor(Math.random() * 60) + 20,
+        difficulty: Math.floor(random * 60) + 20,
         trend: simulatedPosition < simulatedPreviousPosition ? 'up' : 
-               simulatedPosition > simulatedPreviousPosition ? 'down' : 'stable'
+               simulatedPosition > simulatedPreviousPosition ? 'down' : 'stable',
+        simulated_period: period
       }
     };
   });
@@ -138,7 +163,10 @@ export interface RankingAlert {
 export class RankingService {
   // ================ KEYWORD RANKINGS ================
   
-  static async getProjectRankings(projectId: string): Promise<{
+  static async getProjectRankings(
+    projectId: string,
+    period?: string
+  ): Promise<{
     success: boolean;
     rankings?: KeywordRanking[];
     error?: string;
@@ -161,10 +189,10 @@ export class RankingService {
       if (isSimulatedMode) {
         // Se há keywords reais, aplicar posições simuladas nelas
         if (realKeywords.length > 0) {
-          console.log('🧪 Modo simulado ativo: aplicando posições simuladas às keywords reais');
+          console.log('🧪 Modo simulado ativo: aplicando posições simuladas às keywords reais', { period });
           return {
             success: true,
-            rankings: applySimulatedPositions(realKeywords)
+            rankings: applySimulatedPositions(realKeywords, period || '30d')
           };
         }
         // Se não há keywords, gerar keywords simuladas completas (fallback)

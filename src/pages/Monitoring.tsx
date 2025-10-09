@@ -37,12 +37,13 @@ const Monitoring = () => {
     console.log('🔄 [loadRankings] Iniciando carregamento:', {
       projectId: currentProjectId,
       projectName: activeProject.name,
+      period: selectedPeriod,
       timestamp: Date.now()
     });
     
     setIsLoading(true);
     try {
-      const result = await RankingService.getProjectRankings(currentProjectId);
+      const result = await RankingService.getProjectRankings(currentProjectId, selectedPeriod);
       
       // Log DETALHADO do resultado da API
       console.log('📥 [loadRankings] Resposta da API:', {
@@ -139,6 +140,7 @@ const Monitoring = () => {
     console.log('🔄 [Monitoring] useEffect triggered:', {
       activeProjectId: activeProject?.id,
       activeProjectName: activeProject?.name,
+      selectedPeriod: selectedPeriod,
       timestamp: Date.now()
     });
     
@@ -158,7 +160,7 @@ const Monitoring = () => {
     console.log('📥 [Monitoring] Carregando dados para projeto:', activeProject.id);
     loadRankings();
     loadIntegrations();
-  }, [activeProject?.id]);
+  }, [activeProject?.id, selectedPeriod]);
 
   useEffect(() => {
     if (rankings.length > 0 && integrations.length > 0) {
