@@ -2,12 +2,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, FlaskConical } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { fetchRankingHistory, getHistoryMaturity, calculateDaysSpan, HistoricalData } from "@/services/rankingHistoryService";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useSimulatedData } from "@/hooks/useSimulatedData";
 
 interface KeywordPositionHistoryChartProps {
   selectedKeywords: string[];
@@ -32,6 +34,7 @@ export default function KeywordPositionHistoryChart({
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [visibleKeywords, setVisibleKeywords] = useState<Set<string>>(new Set());
+  const { isSimulatedMode } = useSimulatedData();
 
   // Fetch historical data when keywords or period changes
   useEffect(() => {
@@ -240,7 +243,7 @@ export default function KeywordPositionHistoryChart({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
@@ -250,15 +253,25 @@ export default function KeywordPositionHistoryChart({
               Histórico de posições das palavras-chave selecionadas ao longo do tempo
             </CardDescription>
           </div>
-          {maturityStatus && (
-            <Badge variant={
-              maturityStatus.status === 'complete' ? 'default' : 
-              maturityStatus.status === 'consolidating' ? 'secondary' : 
-              'outline'
-            }>
-              {maturityStatus.icon} {maturityStatus.message}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {isSimulatedMode && (
+              <Alert className="mb-0 border-amber-500/30 bg-amber-500/10 py-2 px-3 inline-flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-amber-400" />
+                <AlertDescription className="text-amber-300 text-xs p-0">
+                  Modo teste ativo
+                </AlertDescription>
+              </Alert>
+            )}
+            {maturityStatus && !isSimulatedMode && (
+              <Badge variant={
+                maturityStatus.status === 'complete' ? 'default' : 
+                maturityStatus.status === 'consolidating' ? 'secondary' : 
+                'outline'
+              }>
+                {maturityStatus.icon} {maturityStatus.message}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>

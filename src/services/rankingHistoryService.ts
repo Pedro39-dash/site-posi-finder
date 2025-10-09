@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { useSimulatedData } from '@/hooks/useSimulatedData';
 
 export interface RankingHistoryPoint {
   id: string;
@@ -38,6 +39,53 @@ export interface HistoryMaturity {
 }
 
 /**
+ * Generate simulated historical data for testing
+ */
+function generateSimulatedHistory(
+  keywords: string[],
+  days: number
+): { success: boolean; data: HistoricalData[] } {
+  const data: HistoricalData[] = keywords.map(keyword => {
+    const dataPoints: {
+      date: string;
+      position: number;
+      change: number;
+      metadata?: any;
+    }[] = [];
+    const basePosition = Math.floor(Math.random() * 30) + 1;
+    
+    // Generate hourly data for more granular testing
+    const hoursToGenerate = days * 24;
+    
+    for (let i = 0; i < hoursToGenerate; i++) {
+      const date = new Date();
+      date.setHours(date.getHours() - (hoursToGenerate - i));
+      
+      // Simulate realistic position variation
+      const variation = Math.floor(Math.random() * 6) - 3; // -3 to +3
+      const position = Math.max(1, Math.min(100, basePosition + variation + Math.sin(i / 12) * 5));
+      const prevPosition = dataPoints[i - 1]?.position || position;
+      
+      dataPoints.push({
+        date: date.toISOString(),
+        position: Math.round(position),
+        change: Math.round(position - prevPosition),
+        metadata: {
+          data_source: 'simulated' as any,
+          impressions: Math.floor(Math.random() * 1000) + 100,
+          clicks: Math.floor(Math.random() * 50) + 5,
+          ctr: Math.random() * 10 + 1
+        }
+      });
+    }
+    
+    return { keyword, dataPoints };
+  });
+  
+  return { success: true, data };
+}
+
+/**
  * Fetch ranking history for a specific project and keywords
  */
 export async function fetchRankingHistory(
@@ -46,6 +94,21 @@ export async function fetchRankingHistory(
   days: number = 30
 ): Promise<{ success: boolean; data?: HistoricalData[]; error?: string }> {
   try {
+    // Check if simulated mode is active
+    const { isSimulatedMode } = useSimulatedData.getState();
+    
+    if (isSimulatedMode) {
+      // If no keywords provided, generate some default ones
+      const simulatedKeywords = keywords || [
+        'marketing digital',
+        'SEO otimização',
+        'consultoria marketing',
+        'agência digital',
+        'estratégia conteúdo'
+      ];
+      return generateSimulatedHistory(simulatedKeywords, days);
+    }
+
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 

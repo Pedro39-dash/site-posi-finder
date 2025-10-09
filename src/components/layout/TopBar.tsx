@@ -1,9 +1,13 @@
-import { ChevronDown, Settings } from 'lucide-react';
+import { ChevronDown, Settings, FlaskConical } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+import { useSimulatedData } from '@/hooks/useSimulatedData';
 
 const getPageTitle = (pathname: string) => {
   const routes = {
@@ -26,6 +30,7 @@ export function TopBar({ onCreateProject }: TopBarProps) {
   const location = useLocation();
   const { user, logout } = useAuth();
   const pageTitle = getPageTitle(location.pathname);
+  const { isSimulatedMode, toggleSimulatedMode } = useSimulatedData();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-zinc-950" style={{ height: 'var(--topbar-height)' }}>
@@ -36,7 +41,35 @@ export function TopBar({ onCreateProject }: TopBarProps) {
         </div>
 
         {/* Right Section - User Profile */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          {/* Simulated Data Toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 border-l border-zinc-700 pl-4">
+                  {isSimulatedMode && (
+                    <Badge variant="secondary" className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+                      SIMULADO
+                    </Badge>
+                  )}
+                  <Switch 
+                    checked={isSimulatedMode}
+                    onCheckedChange={toggleSimulatedMode}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                  <FlaskConical className={`h-5 w-5 transition-colors ${isSimulatedMode ? 'text-amber-400' : 'text-muted-foreground'}`} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  {isSimulatedMode 
+                    ? 'Modo teste ativo: dados simulados sendo exibidos. Desative para ver dados reais.' 
+                    : 'Ativar dados simulados para testes e demonstrações'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* <ThemeToggle /> */}
           {user && (
             <DropdownMenu>
