@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ProjectSelector } from '@/components/projects/ProjectSelector';
 import AdvancedKeywordSuggestions from './AdvancedKeywordSuggestions';
+import { RankingService, KeywordRanking } from '@/services/rankingService';
 
 interface DirectCompetitiveFormProps {
   onAnalysisStarted: (analysisId: string) => void;
@@ -33,6 +34,10 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [keywordInput, setKeywordInput] = useState("");
   const [currentKeywordInput, setCurrentKeywordInput] = useState('');
+  
+  // Monitored keywords state
+  const [monitoredKeywords, setMonitoredKeywords] = useState<string[]>([]);
+  const [isLoadingKeywords, setIsLoadingKeywords] = useState(false);
   
   // UI states
   const [isLoading, setIsLoading] = useState(false);
@@ -98,6 +103,38 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
     
     return () => clearTimeout(timeoutId);
   }, [activeProject]);
+
+  // Fetch monitored keywords when project changes
+  useEffect(() => {
+    const fetchMonitoredKeywords = async () => {
+      if (!activeProject?.id) {
+        setMonitoredKeywords([]);
+        return;
+      }
+
+      setIsLoadingKeywords(true);
+      try {
+        const result = await RankingService.getProjectRankings(activeProject.id);
+        
+        if (result.success && result.rankings) {
+          // Extrair apenas os nomes das keywords (sem duplicatas)
+          const keywords = Array.from(
+            new Set(result.rankings.map(r => r.keyword))
+          );
+          
+          console.log('📊 Keywords monitoradas carregadas:', keywords.length);
+          setMonitoredKeywords(keywords);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar keywords monitoradas:', error);
+        setMonitoredKeywords([]);
+      } finally {
+        setIsLoadingKeywords(false);
+      }
+    };
+
+    fetchMonitoredKeywords();
+  }, [activeProject?.id]);
 
   const addCompetitor = () => {
     if (competitorInput.trim() && !competitors.includes(competitorInput.trim()) && competitors.length < 5) {
@@ -395,27 +432,53 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
           </div>
         )}
 
-        {/* Keywords from project */}
-        {activeProject?.focus_keywords && activeProject.focus_keywords.length > 0 && (
+        {/* Keywords being monitored (from Search Console or manually added) */}
+        {monitoredKeywords.length > 0 && (
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Palavras-chave do projeto:</p>
-            <div className="flex flex-wrap gap-2">
-              {activeProject.focus_keywords
-                .filter(keyword => !selectedKeywords.includes(keyword))
-                .slice(0, 5 - selectedKeywords.length)
-                .map((keyword, index) => (
-                <Button
-                  key={index}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addKeyword(keyword)}
-                  className="text-xs px-2 py-1 h-7"
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  {keyword}
-                </Button>
-              ))}
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">
+                Keywords em Monitoramento
+              </p>
+              <Badge variant="secondary" className="text-xs">
+                {monitoredKeywords.length} total
+              </Badge>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-xs">
+                    Keywords vindas do Search Console ou adicionadas manualmente 
+                    na tela de Monitoramento
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-dashed border-border rounded-lg">
+              {isLoadingKeywords ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Carregando keywords...
+                </div>
+              ) : (
+                monitoredKeywords
+                  .filter(keyword => !selectedKeywords.includes(keyword))
+                  .slice(0, 20)
+                  .map((keyword, index) => (
+                    <Button
+                      key={index}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addKeyword(keyword)}
+                      disabled={selectedKeywords.length >= 5}
+                      className="text-xs px-2 py-1 h-7"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      {keyword}
+                    </Button>
+                  ))
+              )}
             </div>
           </div>
         )}
