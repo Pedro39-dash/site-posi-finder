@@ -333,7 +333,7 @@ export default function KeywordPositionHistoryChart({
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
+              <LineChart data={chartData} margin={{ top: 10, right: 180, left: 20, bottom: 5 }}>
                 <CartesianGrid 
                   strokeDasharray="3 3" 
                   stroke="hsl(var(--border))"
@@ -373,35 +373,6 @@ export default function KeywordPositionHistoryChart({
                     fontWeight: 600
                   }}
                 />
-                <Legend 
-                  content={({ payload }: any) => {
-                    if (!payload) return null;
-                    return (
-                      <div className="flex flex-wrap gap-3 justify-center mt-4">
-                        {payload.map((entry: any, index: number) => {
-                          const isVisible = visibleKeywords.has(entry.value);
-                          return (
-                            <button
-                              key={index}
-                              onClick={() => toggleKeywordVisibility(entry.value)}
-                              className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all ${
-                                isVisible 
-                                  ? 'bg-secondary shadow-sm' 
-                                  : 'bg-muted opacity-50 hover:opacity-75'
-                              }`}
-                            >
-                              <div 
-                                className="w-4 h-4 rounded-full border-2 border-background" 
-                                style={{ backgroundColor: entry.color }}
-                              />
-                              <span className="text-sm font-medium">{entry.value}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  }}
-                />
                 {historicalData.map((keywordData, index) => (
                   visibleKeywords.has(keywordData.keyword) && (
                     <Line
@@ -419,6 +390,52 @@ export default function KeywordPositionHistoryChart({
                 ))}
               </LineChart>
             </ResponsiveContainer>
+          )}
+
+          {/* Legendas customizadas alinhadas ao último ponto */}
+          {chartData.length > 0 && (
+            <div className="relative h-0">
+              <div className="absolute top-0 right-0" style={{ transform: 'translateY(-400px)' }}>
+                {historicalData.map((keywordData, index) => {
+                  if (!visibleKeywords.has(keywordData.keyword)) return null;
+                  
+                  // Pegar a última posição da keyword
+                  const lastDataPoint = chartData[chartData.length - 1];
+                  const lastPosition = lastDataPoint?.[keywordData.keyword];
+                  
+                  if (!lastPosition || typeof lastPosition !== 'number') return null;
+                  
+                  // Calcular Y position (400px de altura, posição invertida, domínio 1-100)
+                  const yPercent = ((lastPosition - 1) / 99) * 100;
+                  const yPosition = (400 * yPercent) / 100;
+                  
+                  return (
+                    <button
+                      key={keywordData.keyword}
+                      onClick={() => toggleKeywordVisibility(keywordData.keyword)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-all bg-secondary/80 hover:bg-secondary shadow-sm mb-2"
+                      style={{ 
+                        position: 'absolute',
+                        top: `${yPosition}px`,
+                        left: '20px',
+                        transform: 'translateY(-50%)'
+                      }}
+                    >
+                      <div 
+                        className="w-3 h-3 rounded-full border-2 border-background" 
+                        style={{ backgroundColor: KEYWORD_COLORS[index % KEYWORD_COLORS.length] }}
+                      />
+                      <span className="text-sm font-medium whitespace-nowrap">
+                        {keywordData.keyword}
+                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        {lastPosition}ª
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           <div className="text-sm text-muted-foreground">

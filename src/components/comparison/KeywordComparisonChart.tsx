@@ -188,7 +188,7 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
       <CardContent>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData.data}>
+            <LineChart data={chartData.data} margin={{ top: 10, right: 180, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis 
                 dataKey="date" 
@@ -229,6 +229,49 @@ const KeywordComparisonChart: React.FC<KeywordComparisonChartProps> = ({
             </LineChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Legendas customizadas alinhadas ao último ponto */}
+        {chartData.data.length > 0 && (
+          <div className="relative h-0">
+            <div className="absolute top-0 right-0" style={{ transform: 'translateY(-384px)' }}>
+              {visibleKeywords.map((keyword, index) => {
+                const lastDataPoint = chartData.data[chartData.data.length - 1];
+                const lastPosition = lastDataPoint?.[keyword.keyword];
+                
+                if (!lastPosition || typeof lastPosition !== 'number') return null;
+                
+                // Calcular Y position (384px de altura da div h-96, domínio 1-100)
+                const yPercent = ((lastPosition - 1) / 99) * 100;
+                const yPosition = (384 * yPercent) / 100;
+                
+                return (
+                  <button
+                    key={keyword.id}
+                    onClick={() => toggleKeywordVisibility(keyword.keyword)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-all bg-secondary/80 hover:bg-secondary shadow-sm mb-2"
+                    style={{ 
+                      position: 'absolute',
+                      top: `${yPosition}px`,
+                      left: '20px',
+                      transform: 'translateY(-50%)'
+                    }}
+                  >
+                    <div 
+                      className="w-3 h-3 rounded-full border-2 border-background" 
+                      style={{ backgroundColor: getKeywordColor(index) }}
+                    />
+                    <span className="text-sm font-medium whitespace-nowrap">
+                      {keyword.keyword}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {lastPosition}ª
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         
         <div className="mt-4 text-sm text-muted-foreground">
           {chartData.hasHistoricalData ? (
