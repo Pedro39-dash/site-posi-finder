@@ -52,18 +52,45 @@ function generateSimulatedHistory(
       change: number;
       metadata?: any;
     }[] = [];
-    const basePosition = Math.floor(Math.random() * 30) + 1;
     
-    // Generate hourly data for more granular testing
-    const hoursToGenerate = days * 24;
+    // Base position varies by keyword for more realistic simulation
+    const basePosition = Math.floor(Math.random() * 40) + 5;
     
-    for (let i = 0; i < hoursToGenerate; i++) {
+    // Generate appropriate number of points based on period
+    let pointsToGenerate: number;
+    let intervalHours: number;
+    
+    if (days <= 1) {
+      // Day view: hourly data (24 points)
+      pointsToGenerate = 24;
+      intervalHours = 1;
+    } else if (days <= 7) {
+      // Week view: 4 points per day (28 points)
+      pointsToGenerate = days * 4;
+      intervalHours = 6;
+    } else if (days <= 30) {
+      // Month view: daily data (30 points)
+      pointsToGenerate = days;
+      intervalHours = 24;
+    } else {
+      // Year view: every 3 days (120 points)
+      pointsToGenerate = Math.floor(days / 3);
+      intervalHours = 72;
+    }
+    
+    for (let i = 0; i < pointsToGenerate; i++) {
       const date = new Date();
-      date.setHours(date.getHours() - (hoursToGenerate - i));
+      date.setHours(date.getHours() - (pointsToGenerate - i) * intervalHours);
       
-      // Simulate realistic position variation
-      const variation = Math.floor(Math.random() * 6) - 3; // -3 to +3
-      const position = Math.max(1, Math.min(100, basePosition + variation + Math.sin(i / 12) * 5));
+      // Create smooth, realistic position changes with trends
+      const trendFactor = Math.sin(i / pointsToGenerate * Math.PI) * 8; // Gradual improvement trend
+      const randomWalk = Math.floor(Math.random() * 7) - 3; // -3 to +3 random variation
+      const dailyCycle = Math.sin(i / 4) * 2; // Small daily fluctuations
+      
+      const position = Math.max(1, Math.min(100, 
+        basePosition + trendFactor + randomWalk + dailyCycle
+      ));
+      
       const prevPosition = dataPoints[i - 1]?.position || position;
       
       dataPoints.push({
@@ -72,9 +99,9 @@ function generateSimulatedHistory(
         change: Math.round(position - prevPosition),
         metadata: {
           data_source: 'simulated' as any,
-          impressions: Math.floor(Math.random() * 1000) + 100,
-          clicks: Math.floor(Math.random() * 50) + 5,
-          ctr: Math.random() * 10 + 1
+          impressions: Math.floor(Math.random() * 800) + 200,
+          clicks: Math.floor(Math.random() * 60) + 10,
+          ctr: Math.random() * 8 + 2
         }
       });
     }

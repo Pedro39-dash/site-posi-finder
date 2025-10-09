@@ -3,7 +3,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { TrendingUp, FlaskConical } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { fetchRankingHistory, getHistoryMaturity, calculateDaysSpan, HistoricalData } from "@/services/rankingHistoryService";
@@ -17,12 +17,16 @@ interface KeywordPositionHistoryChartProps {
   isLoading?: boolean;
 }
 
+// Vibrant colors for better visibility
 const KEYWORD_COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+  '#3b82f6', // Blue
+  '#10b981', // Green
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Purple
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+  '#f97316', // Orange
 ];
 
 export default function KeywordPositionHistoryChart({
@@ -181,21 +185,45 @@ export default function KeywordPositionHistoryChart({
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload) return null;
+    if (!active || !payload?.length) return null;
 
     return (
-      <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
-        <p className="font-medium mb-2">{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-2 text-sm">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-muted-foreground">{entry.name}:</span>
-            <span className="font-medium">{entry.value}ª posição</span>
-          </div>
-        ))}
+      <div className="bg-background border border-border rounded-lg shadow-lg p-4">
+        <p className="font-semibold mb-3 text-sm">{label}</p>
+        {payload.map((entry: any, index: number) => {
+          // Find the corresponding data point to get change info
+          const keywordData = historicalData.find(d => d.keyword === entry.name);
+          const dataPointIndex = chartData.findIndex(d => d.date === label);
+          
+          let change = 0;
+          if (keywordData && dataPointIndex > 0) {
+            const currentPos = entry.value;
+            const prevData = chartData[dataPointIndex - 1];
+            const prevPos = prevData?.[entry.name];
+            if (prevPos !== undefined && currentPos !== undefined) {
+              change = prevPos - currentPos; // Positive = improvement (lower position number)
+            }
+          }
+          
+          const changeText = change === 0 ? '—' : change > 0 ? `+${change}` : `${change}`;
+          const changeColor = change === 0 ? 'text-muted-foreground' : change > 0 ? 'text-green-500' : 'text-red-500';
+          
+          return (
+            <div key={index} className="flex items-center gap-2 text-sm mb-1.5">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="font-medium">{entry.name}:</span>
+              <span className="font-semibold">
+                {entry.value}ª
+              </span>
+              <span className={`text-xs font-medium ${changeColor}`}>
+                ({changeText})
+              </span>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -304,25 +332,75 @@ export default function KeywordPositionHistoryChart({
               Ainda não há histórico disponível para as palavras-chave selecionadas
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke="hsl(var(--border))"
+                  opacity={0.5}
+                />
                 <XAxis 
                   dataKey="date" 
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
                 />
                 <YAxis 
                   reversed
                   domain={[1, 100]}
+                  ticks={[1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
-                  label={{ value: 'Posição', angle: -90, position: 'insideLeft' }}
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  label={{ 
+                    value: 'Posição', 
+                    angle: -90, 
+                    position: 'insideLeft',
+                    style: { fill: 'hsl(var(--muted-foreground))', fontSize: 12 }
+                  }}
                 />
                 <Tooltip content={<CustomTooltip />} />
+                <ReferenceLine 
+                  y={10} 
+                  stroke="#10b981" 
+                  strokeDasharray="5 5"
+                  strokeWidth={2}
+                  label={{ 
+                    value: 'Top 10 (1ª Página)', 
+                    position: 'right',
+                    fill: '#10b981',
+                    fontSize: 11,
+                    fontWeight: 600
+                  }}
+                />
                 <Legend 
-                  onClick={(e) => toggleKeywordVisibility(e.value)}
-                  wrapperStyle={{ cursor: 'pointer' }}
+                  content={({ payload }: any) => {
+                    if (!payload) return null;
+                    return (
+                      <div className="flex flex-wrap gap-3 justify-center mt-4">
+                        {payload.map((entry: any, index: number) => {
+                          const isVisible = visibleKeywords.has(entry.value);
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => toggleKeywordVisibility(entry.value)}
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all ${
+                                isVisible 
+                                  ? 'bg-secondary shadow-sm' 
+                                  : 'bg-muted opacity-50 hover:opacity-75'
+                              }`}
+                            >
+                              <div 
+                                className="w-4 h-4 rounded-full border-2 border-background" 
+                                style={{ backgroundColor: entry.color }}
+                              />
+                              <span className="text-sm font-medium">{entry.value}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  }}
                 />
                 {historicalData.map((keywordData, index) => (
                   visibleKeywords.has(keywordData.keyword) && (
@@ -331,9 +409,10 @@ export default function KeywordPositionHistoryChart({
                       type="monotone"
                       dataKey={keywordData.keyword}
                       stroke={KEYWORD_COLORS[index % KEYWORD_COLORS.length]}
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
+                      strokeWidth={3}
+                      dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                      activeDot={{ r: 7, strokeWidth: 2 }}
+                      connectNulls={true}
                       name={keywordData.keyword}
                     />
                   )
