@@ -36,9 +36,7 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
   const [visibleColumns, setVisibleColumns] = useState({
     intent: true,
     previousPosition: true,
-    volume: true,
-    difficulty: true,
-    cpc: true,
+    estimatedTraffic: true,
     url: true,
     updated: true
   });
@@ -64,38 +62,18 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
   }
 
   // Utility functions
-  const calculateTrafficChange = (ranking: KeywordRanking): number => {
-    if (!ranking.current_position || !ranking.previous_position) return 0;
+  const calculateEstimatedTraffic = (ranking: KeywordRanking): number => {
+    if (!ranking.current_position) return 0;
     
     const ctrMap: Record<number, number> = {
       1: 0.32, 2: 0.17, 3: 0.11, 4: 0.08, 5: 0.06,
       6: 0.05, 7: 0.04, 8: 0.03, 9: 0.03, 10: 0.02
     };
     
-    const currentCTR = ctrMap[ranking.current_position] || 0.01;
-    const previousCTR = ctrMap[ranking.previous_position] || 0.01;
+    const ctr = ctrMap[ranking.current_position] || 0.01;
     const searchVolume = (ranking.metadata as any)?.search_volume || 1000;
     
-    const currentTraffic = searchVolume * currentCTR;
-    const previousTraffic = searchVolume * previousCTR;
-    
-    return Math.round(currentTraffic - previousTraffic);
-  };
-
-  const getKeywordDifficulty = (ranking: KeywordRanking): number => {
-    const metadata = ranking.metadata as any;
-    if (metadata?.keyword_difficulty) return metadata.keyword_difficulty;
-    
-    const volume = metadata?.search_volume || 0;
-    if (volume > 10000) return 75;
-    if (volume > 1000) return 50;
-    return 25;
-  };
-
-  const getDifficultyColor = (kd: number): string => {
-    if (kd < 30) return "text-green-600";
-    if (kd < 70) return "text-amber-600";
-    return "text-red-600";
+    return Math.round(searchVolume * ctr);
   };
 
   const toggleSelectAll = () => {
@@ -138,11 +116,10 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
   const exportToCSV = () => {
     const headers = [
       'Palavra-chave', 'Intenção', 'Posição Anterior', 'Posição Atual', 
-      'Diferença', 'Volume', 'KD %', 'CPC', 'URL', 'Buscador', 'Dispositivo', 'Localização'
+      'Diferença', 'Tráfego Estimado', 'URL', 'Buscador', 'Dispositivo', 'Localização'
     ];
     
     const rows = filteredRankings.map(r => {
-      const metadata = r.metadata as any;
       const diff = r.previous_position && r.current_position 
         ? r.previous_position - r.current_position 
         : 0;
@@ -153,9 +130,7 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
         r.previous_position || 'N/R',
         r.current_position || 'N/R',
         diff,
-        metadata?.search_volume || 0,
-        getKeywordDifficulty(r),
-        metadata?.cpc || 0,
+        calculateEstimatedTraffic(r),
         r.url || '',
         r.search_engine,
         r.device,
@@ -436,10 +411,7 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
                   {visibleColumns.previousPosition && <TableHead className="text-center">Anterior</TableHead>}
                   <TableHead className="text-center">Atual</TableHead>
                   <TableHead className="text-center">Dif.</TableHead>
-                  <TableHead className="text-center">Alt. Tráfego</TableHead>
-                  {visibleColumns.volume && <TableHead className="text-center">Volume</TableHead>}
-                  {visibleColumns.difficulty && <TableHead className="text-center">KD %</TableHead>}
-                  {visibleColumns.cpc && <TableHead className="text-center">CPC</TableHead>}
+                  {visibleColumns.estimatedTraffic && <TableHead className="text-center">Tráfego Est.</TableHead>}
                   {visibleColumns.url && <TableHead>URL</TableHead>}
                   {visibleColumns.updated && <TableHead className="text-right">Atualizado</TableHead>}
                   <TableHead className="text-right">Ações</TableHead>
@@ -448,9 +420,6 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
               <TableBody>
                 {filteredRankings.map((ranking) => {
                   const trend = getPositionTrend(ranking);
-                  const trafficChange = calculateTrafficChange(ranking);
-                  const kd = getKeywordDifficulty(ranking);
-                  const metadata = ranking.metadata as any;
                   
                   return (
                     <TableRow key={ranking.id}>
@@ -490,26 +459,9 @@ export const KeywordManager = ({ rankings, projectId, onRankingsUpdate }: Keywor
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <span className={trafficChange > 0 ? "text-green-600 font-medium" : trafficChange < 0 ? "text-red-600 font-medium" : "text-muted-foreground"}>
-                          {trafficChange > 0 ? '+' : ''}{trafficChange}
-                        </span>
-                      </TableCell>
-                      {visibleColumns.volume && (
-                        <TableCell className="text-center">
-                          {metadata?.search_volume || '-'}
-                        </TableCell>
-                      )}
-                      {visibleColumns.difficulty && (
-                        <TableCell className="text-center">
-                          <span className={`font-medium ${getDifficultyColor(kd)}`}>
-                            {kd}%
-                          </span>
-                        </TableCell>
-                      )}
-                      {visibleColumns.cpc && (
-                        <TableCell className="text-center">
-                          ${metadata?.cpc?.toFixed(2) || '0.00'}
+                      {visibleColumns.estimatedTraffic && (
+                        <TableCell className="text-center font-medium">
+                          {calculateEstimatedTraffic(ranking).toLocaleString('pt-BR')}
                         </TableCell>
                       )}
                       {visibleColumns.url && (

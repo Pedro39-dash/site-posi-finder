@@ -4,9 +4,7 @@ import { RankingService, KeywordRanking } from '@/services/rankingService';
 import { KeywordManager } from '@/components/monitoring/KeywordManager';
 import { KeywordMetricsSummary } from '@/components/monitoring/KeywordMetricsSummary';
 import { KeywordPositionDistributionChart } from '@/components/monitoring/KeywordPositionDistributionChart';
-import { QuickWinsCards } from '@/components/monitoring/insights/QuickWinsCards';
 import { useProject } from '@/hooks/useProject';
-import { quickWinsService, QuickWinsData } from '@/services/quickWinsService';
 import IntegrationStatusBanner from '@/components/integrations/IntegrationStatusBanner';
 import { IntegrationService, ProjectIntegration } from '@/services/integrationService';
 
@@ -14,8 +12,6 @@ const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
   const { activeProject } = useProject();
   const [isLoading, setIsLoading] = useState(true);
-  const [quickWinsData, setQuickWinsData] = useState<QuickWinsData | null>(null);
-  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [integrations, setIntegrations] = useState<ProjectIntegration[]>([]);
 
   const loadRankings = async () => {
@@ -62,19 +58,6 @@ const Monitoring = () => {
     }
   };
 
-  const loadQuickWins = async () => {
-    if (!activeProject) return;
-    
-    setIsLoadingInsights(true);
-    try {
-      const data = await quickWinsService.getQuickWinsData(activeProject.id);
-      setQuickWinsData(data);
-    } catch (error) {
-      console.error('❌ [loadQuickWins] Error:', error);
-    } finally {
-      setIsLoadingInsights(false);
-    }
-  };
 
   const loadIntegrations = async () => {
     if (!activeProject) return;
@@ -94,7 +77,6 @@ const Monitoring = () => {
     // LIMPEZA SÍNCRONA E IMEDIATA: limpar dados antigos ANTES de qualquer operação
     console.log('🧹 [Monitoring] Limpando dados do projeto anterior');
     setRankings([]);
-    setQuickWinsData(null);
     setIntegrations([]);
     
     // Early return se não houver projeto ativo
@@ -107,7 +89,6 @@ const Monitoring = () => {
     // Carregar dados do novo projeto
     console.log('📥 [Monitoring] Carregando dados para projeto:', activeProject.id);
     loadRankings();
-    loadQuickWins();
     loadIntegrations();
   }, [activeProject?.id]);
 
@@ -152,16 +133,6 @@ const Monitoring = () => {
               projectId={activeProject?.id || ''}
               onRankingsUpdate={loadRankings}
             />
-
-            {/* Insights Automáticos */}
-            {activeProject && (
-              <div className="mt-8">
-                <QuickWinsCards 
-                  data={quickWinsData}
-                  isLoading={isLoadingInsights}
-                />
-              </div>
-            )}
           </main>
         </div>
       </div>
