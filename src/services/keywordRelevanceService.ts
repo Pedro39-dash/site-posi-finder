@@ -29,6 +29,13 @@ export async function calculateKeywordRelevance(
     return relevanceMap;
   }
 
+  console.log('🔍 [calculateKeywordRelevance] Iniciando cálculo:', {
+    projectId,
+    keywordsCount: keywords.length,
+    currentPeriod,
+    expectedDays: PERIOD_DAYS[currentPeriod]
+  });
+
   try {
     // Buscar dados históricos de todas as keywords
     // Usar o período mais longo (16 meses) para calcular relevância em todos os períodos
@@ -40,10 +47,22 @@ export async function calculateKeywordRelevance(
       return relevanceMap;
     }
 
+    console.log('📦 Dados históricos recebidos:', {
+      keywordsWithData: result.data.length,
+      totalDataPoints: result.data.reduce((sum, d) => sum + d.dataPoints.length, 0)
+    });
+
     // Calcular relevância para cada keyword
     for (const keyword of keywords) {
       const historicalData = result.data.find(d => d.keyword === keyword);
       const dataPoints = historicalData?.dataPoints || [];
+      
+      console.log(`📊 [${keyword}]`, {
+        totalDataPoints: dataPoints.length,
+        firstDate: dataPoints[0]?.date,
+        lastDate: dataPoints[dataPoints.length - 1]?.date,
+        sampleDates: dataPoints.slice(0, 3).map(dp => dp.date)
+      });
       
       // Calcular span de dias (diferença entre primeira e última data)
       let daysSpan = 0;
@@ -61,11 +80,28 @@ export async function calculateKeywordRelevance(
         const periodDays = PERIOD_DAYS[period];
         const minPoints = RELEVANCE_THRESHOLDS.minPointsByPeriod[period];
         
-        // Filtrar apenas pontos dentro do período
+        // Filtrar apenas pontos dentro do período com validação robusta
         const pointsInPeriod = dataPoints.filter(dp => {
+          if (!dp.date) {
+            console.warn(`⚠️ Data point sem data para keyword ${keyword}`);
+            return false;
+          }
+          
           const pointDate = new Date(dp.date);
+          
+          // Validar se data é válida
+          if (isNaN(pointDate.getTime())) {
+            console.warn(`⚠️ Data inválida para keyword ${keyword}:`, dp.date);
+            return false;
+          }
+          
+          // Normalizar para comparação apenas de dia (sem horas)
+          pointDate.setHours(0, 0, 0, 0);
+          
           const cutoffDate = new Date();
+          cutoffDate.setHours(0, 0, 0, 0);
           cutoffDate.setDate(cutoffDate.getDate() - periodDays);
+          
           return pointDate >= cutoffDate;
         }).length;
         
@@ -77,14 +113,22 @@ export async function calculateKeywordRelevance(
         hasRelevanceFor[period] = coveragePercentage >= RELEVANCE_THRESHOLDS.minCoveragePercentage;
       }
 
-      // Calcular métricas para o período atual
+      // Calcular métricas para o período atual com validação robusta
       const currentPeriodDays = PERIOD_DAYS[currentPeriod];
       const currentMinPoints = RELEVANCE_THRESHOLDS.minPointsByPeriod[currentPeriod];
       
       const pointsInCurrentPeriod = dataPoints.filter(dp => {
+        if (!dp.date) return false;
+        
         const pointDate = new Date(dp.date);
+        if (isNaN(pointDate.getTime())) return false;
+        
+        pointDate.setHours(0, 0, 0, 0);
+        
         const cutoffDate = new Date();
+        cutoffDate.setHours(0, 0, 0, 0);
         cutoffDate.setDate(cutoffDate.getDate() - currentPeriodDays);
+        
         return pointDate >= cutoffDate;
       }).length;
 
@@ -93,6 +137,14 @@ export async function calculateKeywordRelevance(
         : 0;
 
       const isRelevant = hasRelevanceFor[currentPeriod];
+
+      console.log(`📈 [${keyword}] Resultado período ${currentPeriod}:`, {
+        pointsInPeriod: pointsInCurrentPeriod,
+        expectedPoints: currentMinPoints,
+        coverage: `${Math.round(dataCoverage)}%`,
+        isRelevant,
+        daysSpan
+      });
 
       relevanceMap.set(keyword, {
         keyword,

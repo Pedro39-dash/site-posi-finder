@@ -5,17 +5,19 @@ import { PeriodOption } from '@/components/monitoring/filters/PeriodSelector';
  */
 export const RELEVANCE_THRESHOLDS = {
   // Percentual mínimo de cobertura de dados para considerar keyword relevante
-  minCoveragePercentage: 70,
+  // Reduzido de 70% para 50% para acomodar dados esparsos do GSC
+  minCoveragePercentage: 50,
   
   // Número mínimo de pontos de dados por período
+  // Ajustado para refletir a frequência real de coleta do GSC (não diária)
   minPointsByPeriod: {
     '24h': 1,      // Pelo menos 1 ponto nas últimas 24h
-    '7d': 5,       // Pelo menos 5 pontos em 7 dias (70% cobertura)
-    '28d': 20,     // Pelo menos 20 pontos em 28 dias (70% cobertura)
-    '90d': 60,     // Pelo menos 60 pontos em 90 dias (70% cobertura)
-    '180d': 120,   // Pelo menos 120 pontos em 180 dias (70% cobertura)
-    '365d': 240,   // Pelo menos 240 pontos em 365 dias (70% cobertura)
-    '16m': 320,    // Pelo menos 320 pontos em 16 meses (70% cobertura)
+    '7d': 3,       // Pelo menos 3 pontos em 7 dias (50% cobertura ~3-4 coletas)
+    '28d': 10,     // Pelo menos 10 pontos em 28 dias (50% cobertura ~2-3x/semana)
+    '90d': 30,     // Pelo menos 30 pontos em 90 dias (50% cobertura ~2x/semana)
+    '180d': 60,    // Pelo menos 60 pontos em 180 dias (50% cobertura ~2x/semana)
+    '365d': 120,   // Pelo menos 120 pontos em 365 dias (50% cobertura ~2-3x/semana)
+    '16m': 160,    // Pelo menos 160 pontos em 16 meses (50% cobertura ~2-3x/semana)
   } as Record<PeriodOption, number>
 } as const;
 

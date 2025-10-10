@@ -178,25 +178,76 @@ export class RankingService {
     try {
       const { isSimulatedMode } = useSimulatedData.getState();
       
-      // SEMPRE buscar keywords reais primeiro
-      const { data, error } = await supabase
+      // 1. Buscar keywords monitoradas
+      const { data: monitoredData, error: monitoredError } = await supabase
         .from('keyword_rankings')
         .select('*')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (monitoredError) throw monitoredError;
       
-      const realKeywords = data || [];
+      let allKeywords = monitoredData || [];
+
+      // 2. Se período especificado E modo não simulado, buscar keywords adicionais do histórico
+      if (period && !isSimulatedMode) {
+        const days = this.periodToDays(period);
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+        
+        console.log(`🔍 Buscando keywords do histórico para período ${period} (${days} dias)`);
+        
+        const { data: historicalData } = await supabase
+          .from('ranking_history')
+          .select(`
+            keyword_ranking_id,
+            keyword_rankings!inner(
+              id, keyword, project_id, search_engine, 
+              location, device, data_source
+            )
+          `)
+          .eq('keyword_rankings.project_id', projectId)
+          .gte('recorded_at', startDate.toISOString());
+        
+        if (historicalData && historicalData.length > 0) {
+          // Extrair keywords únicas do histórico
+          const historicalKeywords = new Map();
+          historicalData.forEach((record: any) => {
+            const kr = record.keyword_rankings;
+            if (!historicalKeywords.has(kr.keyword)) {
+              historicalKeywords.set(kr.keyword, kr);
+            }
+          });
+          
+          // Adicionar apenas keywords que NÃO estão já monitoradas
+          const monitoredKeywordSet = new Set(allKeywords.map(k => k.keyword));
+          historicalKeywords.forEach((kr, keyword) => {
+            if (!monitoredKeywordSet.has(keyword)) {
+              allKeywords.push({
+                ...kr,
+                current_position: null,
+                previous_position: null,
+                url: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                tracking_status: 'active',
+                metadata: { from_history: true }
+              });
+            }
+          });
+          
+          console.log(`📊 Keywords encontradas: ${monitoredData?.length || 0} monitoradas + ${allKeywords.length - (monitoredData?.length || 0)} do histórico = ${allKeywords.length} total`);
+        }
+      }
       
-      // Se modo simulado está ativo
+      // 3. Se modo simulado está ativo
       if (isSimulatedMode) {
         // Se há keywords reais, aplicar posições simuladas nelas
-        if (realKeywords.length > 0) {
-          console.log('🧪 Modo simulado ativo: aplicando posições simuladas às keywords reais', { period });
+        if (allKeywords.length > 0) {
+          console.log('🧪 Modo simulado ativo: aplicando posições simuladas às keywords', { period });
           return {
             success: true,
-            rankings: applySimulatedPositions(realKeywords, period || '28d')
+            rankings: applySimulatedPositions(allKeywords, period || '28d')
           };
         }
         // Se não há keywords, gerar keywords simuladas completas (fallback)
@@ -210,7 +261,7 @@ export class RankingService {
       // Modo normal: retornar dados reais
       return {
         success: true,
-        rankings: realKeywords
+        rankings: allKeywords
       };
     } catch (error) {
       console.error('Error fetching project rankings:', error);
@@ -219,6 +270,15 @@ export class RankingService {
         error: error.message
       };
     }
+  }
+
+  // Helper para converter período em dias
+  private static periodToDays(period: string): number {
+    const map: Record<string, number> = {
+      '24h': 1, '7d': 7, '28d': 28, '90d': 90,
+      '180d': 180, '365d': 365, '16m': 480
+    };
+    return map[period] || 28;
   }
 
   static async addKeywordToTracking(data: {
