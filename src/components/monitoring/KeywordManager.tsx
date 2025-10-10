@@ -92,9 +92,17 @@ export const KeywordManager = ({
 
   const filteredRankings = useMemo(() => {
     if (!projectId || projectId === '') {
+      console.log('🔍 [KeywordManager] Sem projectId, retornando vazio');
       return [];
     }
-    return rankings.filter(r => r.project_id === projectId);
+    const filtered = rankings.filter(r => r.project_id === projectId);
+    console.log('🔍 [KeywordManager] Filtro por projectId:', {
+      projectId,
+      totalRankings: rankings.length,
+      filteredCount: filtered.length,
+      keywords: filtered.map(r => r.keyword)
+    });
+    return filtered;
   }, [rankings, projectId]);
 
   // Enriquecer rankings com informações de relevância
@@ -111,10 +119,15 @@ export const KeywordManager = ({
   }, [filteredRankings, keywordRelevance]);
   
   // Separar keywords ativas e inativas
-  const activeRankings = useMemo(() => 
-    enrichedRankings.filter(r => !r.tracking_status || r.tracking_status === 'active'),
-    [enrichedRankings]
-  );
+  const activeRankings = useMemo(() => {
+    const active = enrichedRankings.filter(r => !r.tracking_status || r.tracking_status === 'active');
+    console.log('🔍 [KeywordManager] Separação ativo/inativo:', {
+      totalEnriched: enrichedRankings.length,
+      activeCount: active.length,
+      activeKeywords: active.map(r => r.keyword)
+    });
+    return active;
+  }, [enrichedRankings]);
   
   const inactiveRankings = useMemo(() => 
     enrichedRankings.filter(r => r.tracking_status === 'inactive' || r.tracking_status === 'missing'),
@@ -124,9 +137,17 @@ export const KeywordManager = ({
   // Filtrar rankings exibidos baseado no toggle
   const displayedActiveRankings = useMemo(() => {
     if (showIrrelevantKeywords) {
+      console.log('🔍 [KeywordManager] Mostrando todas (incluindo irrelevantes):', activeRankings.length);
       return activeRankings;
     }
-    return activeRankings.filter(r => r.isRelevant);
+    const relevant = activeRankings.filter(r => r.isRelevant);
+    console.log('🔍 [KeywordManager] Filtro de relevância:', {
+      totalActive: activeRankings.length,
+      relevantCount: relevant.length,
+      hiddenCount: activeRankings.length - relevant.length,
+      irrelevantKeywords: activeRankings.filter(r => !r.isRelevant).map(r => r.keyword)
+    });
+    return relevant;
   }, [activeRankings, showIrrelevantKeywords]);
 
   // Contar keywords sem relevância

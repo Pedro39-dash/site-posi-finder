@@ -513,7 +513,7 @@ export default function KeywordPositionHistoryChart({
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 10, right: 120, left: 20, bottom: 5 }}>
+                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid 
                   strokeDasharray="3 3" 
                   stroke="hsl(var(--border))"
@@ -590,7 +590,7 @@ export default function KeywordPositionHistoryChart({
                             dominantBaseline="middle"
                             className="select-none"
                           >
-                            {keywordData.keyword}
+                            {props.value}º {keywordData.keyword}
                           </text>
                         );
                       }}
@@ -601,39 +601,6 @@ export default function KeywordPositionHistoryChart({
                 </ResponsiveContainer>
               )}
             </div>
-
-            {/* Legendas ao lado do gráfico */}
-            {chartData.length > 0 && (
-              <div className="flex-shrink-0 w-48 flex flex-col gap-2 justify-center">
-              {historicalData.map((keywordData, index) => {
-                if (!visibleKeywords.has(keywordData.keyword)) return null;
-                
-                const lastDataPoint = chartData[chartData.length - 1];
-                const lastPosition = lastDataPoint?.[keywordData.keyword];
-                
-                if (!lastPosition || typeof lastPosition !== 'number') return null;
-                
-                return (
-                  <button
-                    key={keywordData.keyword}
-                    onClick={() => toggleKeywordVisibility(keywordData.keyword)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-all bg-secondary/80 hover:bg-secondary shadow-sm"
-                  >
-                    <div 
-                      className="w-3 h-3 rounded-full border-2 border-background" 
-                      style={{ backgroundColor: KEYWORD_COLORS[index % KEYWORD_COLORS.length] }}
-                    />
-                    <span className="text-sm font-medium whitespace-nowrap">
-                      {keywordData.keyword}
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      {lastPosition}ª
-                    </Badge>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           <div className="text-sm text-muted-foreground">

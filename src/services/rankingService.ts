@@ -179,13 +179,20 @@ export class RankingService {
       const { isSimulatedMode } = useSimulatedData.getState();
       
       // 1. Buscar keywords monitoradas
-      const { data: monitoredData, error: monitoredError } = await supabase
-        .from('keyword_rankings')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
+    const { data: monitoredData, error: monitoredError } = await supabase
+      .from('keyword_rankings')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
 
-      if (monitoredError) throw monitoredError;
+    if (monitoredError) throw monitoredError;
+    
+    console.log('🔍 [getProjectRankings] Keywords do banco:', {
+      projectId,
+      period,
+      resultCount: monitoredData?.length || 0,
+      keywords: monitoredData?.map(k => k.keyword) || []
+    });
       
       let allKeywords = monitoredData || [];
 
