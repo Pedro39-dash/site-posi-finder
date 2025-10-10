@@ -36,8 +36,10 @@ interface KeywordManagerProps {
 
 interface EnrichedRanking extends KeywordRanking {
   isRelevant?: boolean;
-  dataCoverage?: number;
-  coverageInfo?: KeywordRelevance;
+  relevanceReason?: string;
+  totalDataPoints?: number;
+  daysSinceLastCollection?: number;
+  dataPointsInPeriod?: number;
 }
 export const KeywordManager = ({
   rankings,
@@ -112,8 +114,10 @@ export const KeywordManager = ({
       return {
         ...r,
         isRelevant: relevance?.isRelevant ?? true,
-        dataCoverage: relevance?.dataCoverage ?? 100,
-        coverageInfo: relevance
+        relevanceReason: relevance?.relevanceReason,
+        totalDataPoints: relevance?.totalDataPoints,
+        daysSinceLastCollection: relevance?.daysSinceLastCollection,
+        dataPointsInPeriod: relevance?.dataPointsInPeriod
       };
     });
   }, [filteredRankings, keywordRelevance]);
@@ -529,12 +533,13 @@ export const KeywordManager = ({
                                         Sem dados para {PERIOD_LABELS[period]}
                                       </Badge>
                                     </TooltipTrigger>
-                                    <TooltipContent>
-                                      <div className="text-xs">
-                                        <p className="font-semibold mb-1">Cobertura de dados:</p>
-                                        <p>• {ranking.dataCoverage}% ({ranking.coverageInfo?.dataPoints}/{ranking.coverageInfo?.expectedPoints} pontos)</p>
-                                        <p className="mt-1 text-muted-foreground">
-                                          Mínimo necessário: 70% de cobertura
+                                    <TooltipContent className="max-w-xs">
+                                      <div className="text-xs space-y-1">
+                                        <p><strong>Total histórico:</strong> {ranking.totalDataPoints || 0} pontos</p>
+                                        <p><strong>No período atual:</strong> {ranking.dataPointsInPeriod || 0} pontos</p>
+                                        <p><strong>Última coleta:</strong> {ranking.daysSinceLastCollection || '?'} dias atrás</p>
+                                        <p className="text-muted-foreground mt-2">
+                                          Esta keyword precisa de mais dados recentes ou aguardar próxima sincronização do GSC
                                         </p>
                                       </div>
                                     </TooltipContent>
