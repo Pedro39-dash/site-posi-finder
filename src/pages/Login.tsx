@@ -37,7 +37,7 @@ const Login = () => {
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               SEO Dashboard
             </h1>
-            <img src={Logo} alt="Logo ITX Company" />
+            <img src={Logo} className="mx-auto" alt="Logo ITX Company" />
             <p className="text-muted-foreground">
               Análise e monitoramento de SEO
             </p>
