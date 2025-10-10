@@ -415,6 +415,7 @@ export const KeywordManager = ({
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </div>
       </CardHeader>
