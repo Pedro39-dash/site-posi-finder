@@ -513,7 +513,7 @@ export default function KeywordPositionHistoryChart({
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
+                  <LineChart data={chartData} margin={{ top: 10, right: 150, left: 20, bottom: 5 }}>
                 <CartesianGrid 
                   strokeDasharray="3 3" 
                   stroke="hsl(var(--border))"
