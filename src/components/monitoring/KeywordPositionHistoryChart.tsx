@@ -504,16 +504,16 @@ export default function KeywordPositionHistoryChart({
           </Alert>
         )}
         <div className="space-y-4">
-          <div className="flex flex-row gap-0 relative">
-            {/* Gráfico */}
-            <div className="h-96" style={{ width: 'calc(100% - 200px)' }}>
-              {chartData.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  Ainda não há histórico disponível para as palavras-chave selecionadas
-                </div>
-              ) : (
-                 <ResponsiveContainer width="100%" height="100%">
-                   <LineChart data={chartData} margin={{ top: 10, right: 40, left: 20, bottom: 5 }}>
+          {chartData.length === 0 ? (
+            <div className="flex items-center justify-center h-96 text-muted-foreground">
+              Ainda não há histórico disponível para as palavras-chave selecionadas
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={384}>
+              <LineChart 
+                data={chartData}
+                margin={{ top: 10, right: 30, left: 20, bottom: 5 }}
+              >
                 <CartesianGrid 
                   strokeDasharray="3 3" 
                   stroke="hsl(var(--border))"
@@ -570,12 +570,11 @@ export default function KeywordPositionHistoryChart({
                   let extensionData = null;
                   if (!hasDataAtEnd && lastKeywordDataPoint && lastChartDate) {
                     const lastPosition = lastKeywordDataPoint.position;
-                    // Criar dois pontos: último real + projeção até o final
                     extensionData = chartData
                       .filter(d => new Date(d.date) >= new Date(lastKeywordDate))
                       .map(d => ({
                         ...d,
-                        [keywordData.keyword]: lastPosition // Manter mesma posição
+                        [keywordData.keyword]: lastPosition
                       }));
                   }
                   
@@ -593,10 +592,29 @@ export default function KeywordPositionHistoryChart({
                           fill: '#fff' 
                         }}
                         activeDot={{ r: 7, strokeWidth: 2 }}
-                      connectNulls={!isSinglePoint}
-                      name={keywordData.keyword}
-                      data={chartData}
-                    />
+                        connectNulls={!isSinglePoint}
+                        name={keywordData.keyword}
+                        data={chartData}
+                        label={(props: any) => {
+                          // Label apenas no último ponto se tiver dados até o fim
+                          const isLastPoint = props.index === chartData.length - 1;
+                          if (!isLastPoint || !props.value || !hasDataAtEnd) return null;
+                          
+                          return (
+                            <text 
+                              x={props.x + 12} 
+                              y={props.y} 
+                              fill={color}
+                              fontSize={12}
+                              fontWeight={600}
+                              dominantBaseline="middle"
+                              className="select-none"
+                            >
+                              {props.value}º {keywordData.keyword}
+                            </text>
+                          );
+                        }}
+                      />
                       
                       {/* Linha pontilhada de extensão (se necessário) */}
                       {extensionData && extensionData.length > 1 && (
@@ -609,44 +627,36 @@ export default function KeywordPositionHistoryChart({
                           strokeOpacity={0.5}
                           dot={false}
                           activeDot={false}
-                        connectNulls={false}
-                        isAnimationActive={false}
-                        data={extensionData}
-                      />
+                           connectNulls={false}
+                          isAnimationActive={false}
+                          data={extensionData}
+                          label={(props: any) => {
+                            // Label no final da extensão pontilhada
+                            const isLastPoint = props.index === extensionData.length - 1;
+                            if (!isLastPoint || !props.value) return null;
+                            
+                            return (
+                              <text 
+                                x={props.x + 12} 
+                                y={props.y} 
+                                fill={color}
+                                fontSize={12}
+                                fontWeight={600}
+                                dominantBaseline="middle"
+                                className="select-none"
+                              >
+                                {props.value}º {keywordData.keyword}
+                              </text>
+                            );
+                          }}
+                        />
                       )}
                     </React.Fragment>
                   );
                 })}
-                   </LineChart>
-                 </ResponsiveContainer>
-               )}
-             </div>
-
-             {/* Área de labels à direita do gráfico */}
-             <div className="w-[200px] h-96 flex flex-col justify-center gap-2 pl-4">
-               {historicalData
-                 .filter(kd => visibleKeywords.has(kd.keyword))
-                 .map((keywordData, index) => {
-                   const color = KEYWORD_COLORS[index % KEYWORD_COLORS.length];
-                   const lastDataPoint = keywordData.dataPoints[keywordData.dataPoints.length - 1];
-                   const position = lastDataPoint?.position;
-                   
-                   return (
-                     <div 
-                       key={keywordData.keyword}
-                       className="text-sm font-semibold flex items-center gap-2"
-                       style={{ color }}
-                     >
-                       <div 
-                         className="w-3 h-0.5" 
-                         style={{ backgroundColor: color }}
-                       />
-                       {position}º {keywordData.keyword}
-                     </div>
-                   );
-                 })}
-             </div>
-           </div>
+              </LineChart>
+            </ResponsiveContainer>
+          )}
 
           <div className="text-sm text-muted-foreground">
             <p className="font-medium mb-1">Dica:</p>
