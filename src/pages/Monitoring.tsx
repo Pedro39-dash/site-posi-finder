@@ -205,7 +205,7 @@ const Monitoring = () => {
     <>
       <Helmet><title>Monitoramento SEO</title></Helmet>
       {activeProject && <KeywordStatusNotifications projectId={activeProject.id} />}
-      <div className="min-h-screen bg-background lg:pl-80">
+      <div className="min-h-screen bg-background pl-4">
         <div className="pt-16 lg:pt-0">
           <main className="container mx-auto px-4 py-8">
             <div className="mb-8">
