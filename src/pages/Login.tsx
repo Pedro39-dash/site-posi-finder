@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { useAuth } from '@/contexts/AuthContext';
+import Logo from '@/assets/logo-itxcompany-02.png';
+
 
 const Login = () => {
   const { isAuthenticated } = useAuth();
@@ -35,6 +37,7 @@ const Login = () => {
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               SEO Dashboard
             </h1>
+            <img src={Logo} alt="Logo ITX Company" />
             <p className="text-muted-foreground">
               Análise e monitoramento de SEO
             </p>
