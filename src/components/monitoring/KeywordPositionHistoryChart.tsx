@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { TrendingUp, FlaskConical, Info, AlertCircle } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { fetchRankingHistory, getHistoryMaturity, calculateDaysSpan, HistoricalData } from "@/services/rankingHistoryService";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -513,7 +513,7 @@ export default function KeywordPositionHistoryChart({
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
+                  <LineChart data={chartData} margin={{ top: 10, right: 200, left: 20, bottom: 5 }}>
                 <CartesianGrid 
                   strokeDasharray="3 3" 
                   stroke="hsl(var(--border))"
@@ -560,41 +560,99 @@ export default function KeywordPositionHistoryChart({
                   const isSinglePoint = keywordData.dataPoints.length === 1;
                   const color = KEYWORD_COLORS[index % KEYWORD_COLORS.length];
                   
+                  // Verificar se keyword tem dados na última data do gráfico
+                  const lastChartDate = chartData[chartData.length - 1]?.date;
+                  const lastKeywordDataPoint = keywordData.dataPoints[keywordData.dataPoints.length - 1];
+                  const lastKeywordDate = lastKeywordDataPoint?.date;
+                  const hasDataAtEnd = lastKeywordDate === lastChartDate;
+                  
+                  // Criar dados para extensão pontilhada se necessário
+                  let extensionData = null;
+                  if (!hasDataAtEnd && lastKeywordDataPoint && lastChartDate) {
+                    const lastPosition = lastKeywordDataPoint.position;
+                    // Criar dois pontos: último real + projeção até o final
+                    extensionData = chartData
+                      .filter(d => new Date(d.date) >= new Date(lastKeywordDate))
+                      .map(d => ({
+                        ...d,
+                        [keywordData.keyword]: lastPosition // Manter mesma posição
+                      }));
+                  }
+                  
                   return (
-                    <Line
-                      key={keywordData.keyword}
-                      type="monotone"
-                      dataKey={keywordData.keyword}
-                      stroke={color}
-                      strokeWidth={isSinglePoint ? 0 : 3}
-                      dot={{ 
-                        r: isSinglePoint ? 8 : (hasLimitedPoints ? 6 : 4), 
-                        strokeWidth: 2, 
-                        fill: '#fff' 
-                      }}
-                      activeDot={{ r: 7, strokeWidth: 2 }}
-                      connectNulls={!isSinglePoint}
-                      name={keywordData.keyword}
-                      label={isSinglePoint ? undefined : (props: any) => {
-                        // Adicionar label apenas no último ponto
-                        const isLastPoint = props.index === chartData.length - 1;
-                        if (!isLastPoint || !props.value) return null;
-                        
-                        return (
-                          <text 
-                            x={props.x + 12} 
-                            y={props.y} 
-                            fill={color}
-                            fontSize={12}
-                            fontWeight={600}
-                            dominantBaseline="middle"
-                            className="select-none"
-                          >
-                            {props.value}º {keywordData.keyword}
-                          </text>
-                        );
-                      }}
-                    />
+                    <React.Fragment key={keywordData.keyword}>
+                      {/* Linha principal (dados reais) */}
+                      <Line
+                        type="monotone"
+                        dataKey={keywordData.keyword}
+                        stroke={color}
+                        strokeWidth={isSinglePoint ? 0 : 3}
+                        dot={{ 
+                          r: isSinglePoint ? 8 : (hasLimitedPoints ? 6 : 4), 
+                          strokeWidth: 2, 
+                          fill: '#fff' 
+                        }}
+                        activeDot={{ r: 7, strokeWidth: 2 }}
+                        connectNulls={!isSinglePoint}
+                        name={keywordData.keyword}
+                        data={chartData}
+                        label={isSinglePoint || !hasDataAtEnd ? undefined : (props: any) => {
+                          // Label no último ponto apenas se keyword tem dados até o final
+                          const isLastPoint = props.index === chartData.length - 1;
+                          if (!isLastPoint || !props.value) return null;
+                          
+                          return (
+                            <text 
+                              x={props.x + 12} 
+                              y={props.y} 
+                              fill={color}
+                              fontSize={12}
+                              fontWeight={600}
+                              dominantBaseline="middle"
+                              className="select-none"
+                            >
+                              {props.value}º {keywordData.keyword}
+                            </text>
+                          );
+                        }}
+                      />
+                      
+                      {/* Linha pontilhada de extensão (se necessário) */}
+                      {extensionData && extensionData.length > 1 && (
+                        <Line
+                          type="monotone"
+                          dataKey={keywordData.keyword}
+                          stroke={color}
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          strokeOpacity={0.5}
+                          dot={false}
+                          activeDot={false}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                          data={extensionData}
+                          label={(props: any) => {
+                            // Label no final da extensão pontilhada
+                            const isLastPoint = props.index === extensionData.length - 1;
+                            if (!isLastPoint || !props.value) return null;
+                            
+                            return (
+                              <text 
+                                x={props.x + 12} 
+                                y={props.y} 
+                                fill={color}
+                                fontSize={12}
+                                fontWeight={600}
+                                dominantBaseline="middle"
+                                className="select-none"
+                              >
+                                {props.value}º {keywordData.keyword}
+                              </text>
+                            );
+                          }}
+                        />
+                      )}
+                    </React.Fragment>
                   );
                 })}
                   </LineChart>
