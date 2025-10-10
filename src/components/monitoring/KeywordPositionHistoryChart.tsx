@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
-import { TrendingUp, FlaskConical } from "lucide-react";
+import { TrendingUp, FlaskConical, Info } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { fetchRankingHistory, getHistoryMaturity, calculateDaysSpan, HistoricalData } from "@/services/rankingHistoryService";
 import { format, parseISO } from "date-fns";
@@ -143,51 +143,108 @@ export default function KeywordPositionHistoryChart({
       if (!visibleKeywords.has(keywordData.keyword)) return;
       
       keywordData.dataPoints.forEach(point => {
-        const parsedDate = new Date(point.date);
+        const parsedDate = parseISO(point.date);
         let groupKey: string;
         let formattedDate: string;
+        let fullDate: string;
         
-        // Map PeriodOption to grouping logic
-        if (periodProp === '24h' || periodProp === '7d') {
-          // Group by day for 24h and 7 days
-          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
+        // Map PeriodOption to grouping logic with consistent ISO format
+        if (periodProp === '24h') {
+          // Group by hour for 24h
+          groupKey = format(parsedDate, 'yyyy-MM-dd-HH', { locale: ptBR });
+          formattedDate = format(parsedDate, 'HH:mm', { locale: ptBR });
+          fullDate = format(parsedDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        } else if (periodProp === '7d' || periodProp === '28d' || periodProp === '90d') {
+          // Group by day for short/medium periods
+          groupKey = format(parsedDate, 'yyyy-MM-dd', { locale: ptBR });
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
-        } else if (periodProp === '28d' || periodProp === '90d') {
-          // Group by day for 28 and 90 days
-          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
-          formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
-        } else if (periodProp === '180d' || periodProp === '365d' || periodProp === '16m') {
-          // Group by week for 180, 365 days and 16 months
-          const weekNumber = Math.floor(parsedDate.getTime() / (7 * 24 * 60 * 60 * 1000));
-          groupKey = `week-${weekNumber}`;
-          formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
+          fullDate = format(parsedDate, 'dd/MM/yyyy', { locale: ptBR });
         } else {
-          // Default: group by day
-          groupKey = `${parsedDate.getFullYear()}-${parsedDate.getMonth()}-${parsedDate.getDate()}`;
+          // Group by week for long periods (180d, 365d, 16m)
+          groupKey = format(parsedDate, 'yyyy-ww', { locale: ptBR });
           formattedDate = format(parsedDate, 'dd/MM', { locale: ptBR });
+          fullDate = format(parsedDate, 'dd/MM/yyyy', { locale: ptBR });
         }
         
         if (!dateMap.has(groupKey)) {
           dateMap.set(groupKey, { 
-            date: formattedDate, 
+            date: formattedDate,
+            fullDate,
             sortKey: parsedDate.getTime(),
-            groupKey 
+            metadata: new Map<string, any>()
           });
         }
         
+        const mapEntry = dateMap.get(groupKey)!;
+        const currentValue = mapEntry[keywordData.keyword];
+        const currentTime = mapEntry.metadata.get(`${keywordData.keyword}_time`) || 0;
+        
         // Use the most recent position for each group
-        const existing = dateMap.get(groupKey)![keywordData.keyword];
-        if (!existing || parsedDate.getTime() > (dateMap.get(groupKey)!.latestTime || 0)) {
-          dateMap.get(groupKey)![keywordData.keyword] = point.position;
-          dateMap.get(groupKey)!.latestTime = parsedDate.getTime();
+        if (!currentValue || parsedDate.getTime() > currentTime) {
+          mapEntry[keywordData.keyword] = point.position;
+          mapEntry.metadata.set(`${keywordData.keyword}_time`, parsedDate.getTime());
+          mapEntry.metadata.set(`${keywordData.keyword}_source`, point.metadata?.data_source || 'unknown');
+          mapEntry.metadata.set(`${keywordData.keyword}_impressions`, point.metadata?.impressions);
+          mapEntry.metadata.set(`${keywordData.keyword}_clicks`, point.metadata?.clicks);
         }
       });
     });
 
     return Array.from(dateMap.values())
       .sort((a, b) => a.sortKey - b.sortKey)
-      .map(({ sortKey, groupKey, latestTime, ...rest }) => rest);
+      .map(({ sortKey, metadata, ...rest }) => ({
+        ...rest,
+        _metadata: metadata
+      }));
   }, [historicalData, visibleKeywords, periodProp]);
+
+  // Calculate dynamic Y-axis domain based on actual data
+  const yAxisDomain = useMemo(() => {
+    if (chartData.length === 0) return [1, 100];
+    
+    const allPositions = chartData.flatMap(d => 
+      Object.entries(d)
+        .filter(([key]) => key !== 'date' && key !== 'fullDate' && key !== '_metadata')
+        .map(([_, value]) => value as number)
+        .filter(val => typeof val === 'number' && !isNaN(val))
+    );
+    
+    if (allPositions.length === 0) return [1, 100];
+    
+    const min = Math.min(...allPositions);
+    const max = Math.max(...allPositions);
+    
+    // Add padding (10% of range, minimum 5 positions)
+    const range = max - min;
+    const padding = Math.max(5, Math.ceil(range * 0.1));
+    
+    const domainMin = Math.max(1, Math.floor((min - padding) / 10) * 10);
+    const domainMax = Math.min(100, Math.ceil((max + padding) / 10) * 10);
+    
+    return [domainMin, domainMax];
+  }, [chartData]);
+
+  // Generate smart ticks for Y-axis
+  const yAxisTicks = useMemo(() => {
+    const [min, max] = yAxisDomain;
+    const range = max - min;
+    
+    if (range <= 20) {
+      // Show every 2 positions for small ranges
+      return Array.from({ length: Math.floor(range / 2) + 1 }, (_, i) => min + i * 2);
+    } else if (range <= 50) {
+      // Show every 5 positions for medium ranges
+      return Array.from({ length: Math.floor(range / 5) + 1 }, (_, i) => min + i * 5);
+    } else {
+      // Show every 10 positions for large ranges
+      return Array.from({ length: Math.floor(range / 10) + 1 }, (_, i) => min + i * 10);
+    }
+  }, [yAxisDomain]);
+
+  // Check if keywords have limited data
+  const hasLimitedData = useMemo(() => {
+    return historicalData.some(kw => kw.dataPoints.length < 3);
+  }, [historicalData]);
 
   const toggleKeywordVisibility = (keyword: string) => {
     setVisibleKeywords(prev => {
@@ -204,40 +261,74 @@ export default function KeywordPositionHistoryChart({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
 
+    // Get full date and metadata from the data point
+    const dataPoint = chartData.find(d => d.date === label);
+    const fullDate = dataPoint?.fullDate || label;
+    const metadata = dataPoint?._metadata;
+
     return (
-      <div className="bg-background border border-border rounded-lg shadow-lg p-4">
-        <p className="font-semibold mb-3 text-sm">{label}</p>
+      <div className="bg-background border border-border rounded-lg shadow-lg p-4 min-w-[280px]">
+        <p className="font-semibold mb-3 text-sm text-foreground">{fullDate}</p>
         {payload.map((entry: any, index: number) => {
           // Find the corresponding data point to get change info
-          const keywordData = historicalData.find(d => d.keyword === entry.name);
           const dataPointIndex = chartData.findIndex(d => d.date === label);
           
           let change = 0;
-          if (keywordData && dataPointIndex > 0) {
+          let isConstant = false;
+          if (dataPointIndex > 0) {
             const currentPos = entry.value;
             const prevData = chartData[dataPointIndex - 1];
             const prevPos = prevData?.[entry.name];
             if (prevPos !== undefined && currentPos !== undefined) {
               change = prevPos - currentPos; // Positive = improvement (lower position number)
+              isConstant = change === 0;
             }
           }
           
           const changeText = change === 0 ? '—' : change > 0 ? `+${change}` : `${change}`;
           const changeColor = change === 0 ? 'text-muted-foreground' : change > 0 ? 'text-green-500' : 'text-red-500';
           
+          // Get metadata for this keyword
+          const source = metadata?.get(`${entry.name}_source`);
+          const impressions = metadata?.get(`${entry.name}_impressions`);
+          const clicks = metadata?.get(`${entry.name}_clicks`);
+          
           return (
-            <div key={index} className="flex items-center gap-2 text-sm mb-1.5">
-              <div 
-                className="w-3 h-3 rounded-full" 
-                style={{ backgroundColor: entry.color }}
-              />
-              <span className="font-medium">{entry.name}:</span>
-              <span className="font-semibold">
-                {entry.value}ª
-              </span>
-              <span className={`text-xs font-medium ${changeColor}`}>
-                ({changeText})
-              </span>
+            <div key={index} className="mb-3 last:mb-0 pb-3 last:pb-0 border-b last:border-b-0 border-border/50">
+              <div className="flex items-center gap-2 mb-1">
+                <div 
+                  className="w-3 h-3 rounded-full flex-shrink-0" 
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span className="font-medium text-foreground">{entry.name}</span>
+              </div>
+              <div className="ml-5 space-y-0.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-lg font-bold text-foreground">
+                    {entry.value}ª posição
+                  </span>
+                  <span className={`text-sm font-medium ${changeColor}`}>
+                    ({changeText})
+                  </span>
+                  {isConstant && (
+                    <span className="text-xs text-muted-foreground italic">
+                      mantida
+                    </span>
+                  )}
+                </div>
+                {source && (
+                  <div className="text-xs text-muted-foreground">
+                    Fonte: {source === 'search_console' ? 'Google Search Console' : 'SerpAPI'}
+                  </div>
+                )}
+                {(impressions !== undefined || clicks !== undefined) && (
+                  <div className="text-xs text-muted-foreground">
+                    {impressions !== undefined && `${impressions} impressões`}
+                    {impressions !== undefined && clicks !== undefined && ' • '}
+                    {clicks !== undefined && `${clicks} cliques`}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
@@ -320,6 +411,15 @@ export default function KeywordPositionHistoryChart({
         </div>
       </CardHeader>
       <CardContent>
+        {hasLimitedData && (
+          <Alert variant="default" className="mb-4">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Algumas palavras-chave têm dados limitados. O histórico será mais completo 
+              com sincronizações frequentes do Google Search Console e verificações de ranking.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="space-y-4">
           <div className="flex flex-row gap-4">
             {/* Gráfico */}
@@ -344,8 +444,8 @@ export default function KeywordPositionHistoryChart({
                 />
                 <YAxis 
                   reversed
-                  domain={[1, 100]}
-                  ticks={[1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+                  domain={yAxisDomain}
+                  ticks={yAxisTicks}
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
                   tick={{ fill: 'hsl(var(--muted-foreground))' }}
@@ -370,21 +470,25 @@ export default function KeywordPositionHistoryChart({
                     fontWeight: 600
                   }}
                 />
-                {historicalData.map((keywordData, index) => (
-                  visibleKeywords.has(keywordData.keyword) && (
+                {historicalData.map((keywordData, index) => {
+                  if (!visibleKeywords.has(keywordData.keyword)) return null;
+                  
+                  const hasLimitedPoints = keywordData.dataPoints.length < 5;
+                  
+                  return (
                     <Line
                       key={keywordData.keyword}
                       type="monotone"
                       dataKey={keywordData.keyword}
                       stroke={KEYWORD_COLORS[index % KEYWORD_COLORS.length]}
                       strokeWidth={3}
-                      dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                      dot={hasLimitedPoints ? { r: 5, strokeWidth: 2, fill: '#fff' } : { r: 4, strokeWidth: 2, fill: '#fff' }}
                       activeDot={{ r: 7, strokeWidth: 2 }}
                       connectNulls={true}
                       name={keywordData.keyword}
                     />
-                  )
-                ))}
+                  );
+                })}
                   </LineChart>
                 </ResponsiveContainer>
               )}
