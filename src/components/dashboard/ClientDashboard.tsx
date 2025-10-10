@@ -198,16 +198,6 @@ export const ClientDashboard: React.FC = () => {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-          <TabsTrigger value="monitoring">Monitoramento</TabsTrigger>
-          <TabsTrigger value="notifications">
-            Notificações
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="ml-2">
-                {unreadCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="reports">Relatórios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -368,107 +358,6 @@ export const ClientDashboard: React.FC = () => {
               </div>
             </div>
           </section>
-        </TabsContent>
-
-        <TabsContent value="monitoring" className="space-y-4">
-          {monitoringSessions.length === 0 ? (
-            <MonitoringSetup onSetupComplete={loadClientData} />
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Sessões de Monitoramento</h2>
-                <Button variant="outline" onClick={loadClientData}>
-                  Atualizar
-                </Button>
-              </div>
-              
-              <div className="grid gap-4 md:grid-cols-2">
-                {monitoringSessions.map((session) => (
-                  <MonitoringCard
-                    key={session.id}
-                    session={session}
-                    onStatusChange={handleStatusChange}
-                    onSettings={handleSettings}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notificações
-                {unreadCount > 0 && (
-                  <Badge variant="destructive" className="ml-auto">
-                    {unreadCount} não lidas
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription>
-                Acompanhe todas as atualizações dos seus projetos
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {notifications.length > 0 ? (
-                notifications.map((notification) => (
-                  <div 
-                    key={notification.id} 
-                    className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
-                      !notification.is_read ? 'bg-muted/50' : ''
-                    }`}
-                    onClick={() => !notification.is_read && markNotificationAsRead(notification.id)}
-                  >
-                    <div className="mt-1">
-                      {notification.type === 'ranking_change' && <TrendingUp className="w-4 h-4 text-blue-500" />}
-                      {notification.type === 'audit_complete' && <BarChart3 className="w-4 h-4 text-green-500" />}
-                      {notification.type === 'alert_triggered' && <Bell className="w-4 h-4 text-yellow-500" />}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{notification.title}</p>
-                        {!notification.is_read && (
-                          <div className="w-2 h-2 rounded-full bg-blue-500" />
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{notification.message}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(notification.created_at)}
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {notification.priority}
-                    </Badge>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Nenhuma notificação encontrada
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Relatórios</CardTitle>
-              <CardDescription>
-                Gere e baixe relatórios detalhados dos seus projetos
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
-                  Sistema de relatórios será implementado em breve
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>
