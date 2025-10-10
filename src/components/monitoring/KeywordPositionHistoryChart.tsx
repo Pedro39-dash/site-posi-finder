@@ -246,6 +246,19 @@ export default function KeywordPositionHistoryChart({
     return historicalData.some(kw => kw.dataPoints.length < 3);
   }, [historicalData]);
 
+  const missingKeywords = useMemo(() => {
+    return selectedKeywords.filter(keyword => 
+      !historicalData.some(hd => hd.keyword === keyword && hd.dataPoints.length > 0)
+    );
+  }, [selectedKeywords, historicalData]);
+
+  const keywordsWithLimitedData = useMemo(() => {
+    return historicalData.filter(kw => 
+      kw.dataPoints.length === 1 && 
+      kw.dataPoints[0]?.metadata?.is_current_only === true
+    ).map(kw => kw.keyword);
+  }, [historicalData]);
+
   const toggleKeywordVisibility = (keyword: string) => {
     setVisibleKeywords(prev => {
       const newSet = new Set(prev);
@@ -272,6 +285,10 @@ export default function KeywordPositionHistoryChart({
         {payload.map((entry: any, index: number) => {
           // Find the corresponding data point to get change info
           const dataPointIndex = chartData.findIndex(d => d.date === label);
+          
+          const keywordData = historicalData.find(k => k.keyword === entry.name);
+          const isSinglePoint = keywordData?.dataPoints.length === 1 && 
+                               keywordData?.dataPoints[0]?.metadata?.is_current_only === true;
           
           let change = 0;
           let isConstant = false;
@@ -307,13 +324,21 @@ export default function KeywordPositionHistoryChart({
                   <span className="text-lg font-bold text-foreground">
                     {entry.value}ª posição
                   </span>
-                  <span className={`text-sm font-medium ${changeColor}`}>
-                    ({changeText})
-                  </span>
-                  {isConstant && (
-                    <span className="text-xs text-muted-foreground italic">
-                      mantida
+                  {isSinglePoint ? (
+                    <span className="text-xs text-amber-600 dark:text-amber-500 font-medium">
+                      ⚠️ Sem histórico
                     </span>
+                  ) : (
+                    <>
+                      <span className={`text-sm font-medium ${changeColor}`}>
+                        ({changeText})
+                      </span>
+                      {isConstant && (
+                        <span className="text-xs text-muted-foreground italic">
+                          mantida
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
                 {source && (
@@ -411,12 +436,30 @@ export default function KeywordPositionHistoryChart({
         </div>
       </CardHeader>
       <CardContent>
-        {hasLimitedData && (
+        {missingKeywords.length > 0 && (
           <Alert variant="default" className="mb-4">
             <Info className="h-4 w-4" />
             <AlertDescription>
-              Algumas palavras-chave têm dados limitados. O histórico será mais completo 
-              com sincronizações frequentes do Google Search Console e verificações de ranking.
+              {missingKeywords.length === 1 ? (
+                <>A keyword <strong>{missingKeywords[0]}</strong> não possui dados históricos no período selecionado.</>
+              ) : (
+                <>As keywords <strong>{missingKeywords.slice(0, 3).join(', ')}{missingKeywords.length > 3 ? ` e mais ${missingKeywords.length - 3}` : ''}</strong> não possuem dados históricos no período selecionado.</>
+              )}
+              {' '}Isso pode indicar que essas keywords não estavam ativas ou não foram monitoradas nesse intervalo.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {keywordsWithLimitedData.length > 0 && (
+          <Alert variant="default" className="mb-4 border-amber-600/50 bg-amber-50/50 dark:bg-amber-950/20">
+            <Info className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            <AlertDescription className="text-amber-900 dark:text-amber-200">
+              {keywordsWithLimitedData.length === 1 ? (
+                <>A keyword <strong>{keywordsWithLimitedData[0]}</strong> possui apenas a posição atual registrada no período.</>
+              ) : (
+                <>As keywords <strong>{keywordsWithLimitedData.slice(0, 3).join(', ')}{keywordsWithLimitedData.length > 3 ? ` e mais ${keywordsWithLimitedData.length - 3}` : ''}</strong> possuem apenas posições atuais.</>
+              )}
+              {' '}O histórico será mais completo com sincronizações frequentes do GSC.
             </AlertDescription>
           </Alert>
         )}
@@ -430,7 +473,7 @@ export default function KeywordPositionHistoryChart({
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
+                  <LineChart data={chartData} margin={{ top: 10, right: 120, left: 20, bottom: 5 }}>
                 <CartesianGrid 
                   strokeDasharray="3 3" 
                   stroke="hsl(var(--border))"
@@ -474,18 +517,43 @@ export default function KeywordPositionHistoryChart({
                   if (!visibleKeywords.has(keywordData.keyword)) return null;
                   
                   const hasLimitedPoints = keywordData.dataPoints.length < 5;
+                  const isSinglePoint = keywordData.dataPoints.length === 1;
+                  const color = KEYWORD_COLORS[index % KEYWORD_COLORS.length];
                   
                   return (
                     <Line
                       key={keywordData.keyword}
                       type="monotone"
                       dataKey={keywordData.keyword}
-                      stroke={KEYWORD_COLORS[index % KEYWORD_COLORS.length]}
-                      strokeWidth={3}
-                      dot={hasLimitedPoints ? { r: 5, strokeWidth: 2, fill: '#fff' } : { r: 4, strokeWidth: 2, fill: '#fff' }}
+                      stroke={color}
+                      strokeWidth={isSinglePoint ? 0 : 3}
+                      dot={{ 
+                        r: isSinglePoint ? 8 : (hasLimitedPoints ? 6 : 4), 
+                        strokeWidth: 2, 
+                        fill: '#fff' 
+                      }}
                       activeDot={{ r: 7, strokeWidth: 2 }}
-                      connectNulls={true}
+                      connectNulls={!isSinglePoint}
                       name={keywordData.keyword}
+                      label={isSinglePoint ? undefined : (props: any) => {
+                        // Adicionar label apenas no último ponto
+                        const isLastPoint = props.index === chartData.length - 1;
+                        if (!isLastPoint || !props.value) return null;
+                        
+                        return (
+                          <text 
+                            x={props.x + 12} 
+                            y={props.y} 
+                            fill={color}
+                            fontSize={12}
+                            fontWeight={600}
+                            dominantBaseline="middle"
+                            className="select-none"
+                          >
+                            {keywordData.keyword}
+                          </text>
+                        );
+                      }}
                     />
                   );
                 })}

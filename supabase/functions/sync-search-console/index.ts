@@ -152,9 +152,19 @@ serve(async (req) => {
         if (gscData.rows && gscData.rows.length > 0) {
           // Keyword TEM dados no período - marcar como ativa
           const latestRow = gscData.rows[gscData.rows.length - 1];
+          const newPosition = Math.round(latestRow.position);
+          
+          // Buscar posição atual antes de atualizar para usar como previous_position
+          const { data: currentRanking } = await supabase
+            .from('keyword_rankings')
+            .select('current_position')
+            .eq('id', kw.id)
+            .single();
+          
           updates.push({
             id: kw.id,
-            current_position: Math.round(latestRow.position),
+            current_position: newPosition,
+            previous_position: currentRanking?.current_position || null,
             impressions: latestRow.impressions,
             clicks: latestRow.clicks,
             ctr: latestRow.ctr,

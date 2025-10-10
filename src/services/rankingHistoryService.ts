@@ -12,6 +12,7 @@ export interface RankingHistoryPoint {
     impressions?: number;
     clicks?: number;
     ctr?: number;
+    is_current_only?: boolean;
   };
 }
 
@@ -26,6 +27,7 @@ export interface HistoricalData {
       impressions?: number;
       clicks?: number;
       ctr?: number;
+      is_current_only?: boolean;
     };
   }[];
 }
@@ -158,6 +160,42 @@ export async function fetchRankingHistory(
     if (error) {
       console.error('Error fetching ranking history:', error);
       return { success: false, error: error.message };
+    }
+
+    // For keywords without history in this period, fetch current position from keyword_rankings
+    if (keywords && keywords.length > 0) {
+      const keywordsWithHistory = new Set(
+        historyData?.map((h: any) => h.keyword_rankings.keyword) || []
+      );
+      
+      const keywordsWithoutHistory = keywords.filter(k => !keywordsWithHistory.has(k));
+      
+      if (keywordsWithoutHistory.length > 0) {
+        const { data: currentPositions } = await supabase
+          .from('keyword_rankings')
+          .select('keyword, current_position, updated_at, metadata, data_source')
+          .eq('project_id', projectId)
+          .in('keyword', keywordsWithoutHistory)
+          .not('current_position', 'is', null);
+        
+        // Add current positions as single historical points
+        currentPositions?.forEach((cp: any) => {
+          if (!historyData) return;
+          
+          historyData.push({
+            id: `current-${cp.keyword}`,
+            position: cp.current_position,
+            recorded_at: cp.updated_at,
+            change_from_previous: 0,
+            metadata: {
+              ...cp.metadata,
+              data_source: cp.data_source,
+              is_current_only: true
+            },
+            keyword_rankings: { keyword: cp.keyword, project_id: projectId }
+          });
+        });
+      }
     }
 
     // Group by keyword
