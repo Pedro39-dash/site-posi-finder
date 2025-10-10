@@ -26,7 +26,7 @@ const Monitoring = () => {
   const [showIntegrationPrompt, setShowIntegrationPrompt] = useState(false);
   const [showGSCImportModal, setShowGSCImportModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('28d');
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('today');
   const [keywordRelevance, setKeywordRelevance] = useState<Map<string, KeywordRelevance>>(new Map());
   const { toast } = useToast();
 
@@ -268,6 +268,18 @@ const Monitoring = () => {
                           Continuar sem integração
                         </Button>
                       </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {selectedPeriod === 'today' && (
+                  <Alert className="mb-6 border-primary/20 bg-primary/5">
+                    <Info className="h-4 w-4 text-primary" />
+                    <AlertTitle>Modo Tempo Real</AlertTitle>
+                    <AlertDescription>
+                      As posições são verificadas em tempo real via SerpAPI. 
+                      Clique em <strong>"Verificar Agora"</strong> para atualizar os dados das suas keywords.
+                      Cada verificação constrói automaticamente seu histórico.
                     </AlertDescription>
                   </Alert>
                 )}

@@ -67,7 +67,7 @@ export default function KeywordPositionHistoryChart({
       // Convert PeriodOption to days
       let days = 7; // default
       switch (periodProp) {
-        case '24h': days = 1; break;
+        case 'today': days = 1; break;
         case '7d': days = 7; break;
         case '28d': days = 28; break;
         case '90d': days = 90; break;
@@ -159,8 +159,8 @@ export default function KeywordPositionHistoryChart({
         let fullDate: string;
         
         // Map PeriodOption to grouping logic with consistent ISO format
-        if (periodProp === '24h') {
-          // Group by hour for 24h
+        if (periodProp === 'today') {
+          // Group by hour for today
           groupKey = format(parsedDate, 'yyyy-MM-dd-HH', { locale: ptBR });
           formattedDate = format(parsedDate, 'HH:mm', { locale: ptBR });
           fullDate = format(parsedDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });

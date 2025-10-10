@@ -5,7 +5,7 @@ import { PeriodOption } from "@/components/monitoring/filters/PeriodSelector";
  */
 export function periodToDays(period: PeriodOption): number {
   const periodMap: Record<PeriodOption, number> = {
-    '24h': 1,
+    'today': 1,
     '7d': 7,
     '28d': 28,
     '90d': 90,

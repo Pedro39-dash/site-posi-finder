@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { RankingService, KeywordRanking } from "@/services/rankingService";
 import { useSimulatedData } from "@/hooks/useSimulatedData";
-import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2, Download, Settings2, Clock, FlaskConical, Info, AlertCircle } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2, Download, Settings2, Clock, FlaskConical, Info, AlertCircle, RefreshCw } from "lucide-react";
 import { KeywordIntentBadge } from "./KeywordIntentBadge";
 import { PeriodSelector, PeriodOption } from "./filters/PeriodSelector";
 import { formatDistanceToNow } from "date-fns";
@@ -22,6 +22,8 @@ import { PERIOD_LABELS } from "@/config/monitoringConfig";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { RealtimeRankingService } from "@/services/realtimeRankingService";
+import { useProject } from "@/hooks/useProject";
 
 interface KeywordManagerProps {
   rankings: KeywordRanking[];
@@ -65,6 +67,8 @@ export const KeywordManager = ({
   const [location, setLocation] = useState("brazil");
   const [showIrrelevantKeywords, setShowIrrelevantKeywords] = useState(true);
   const [internalRelevance, setInternalRelevance] = useState<Map<string, KeywordRelevance>>(new Map());
+  const [isRealtimeCheck, setIsRealtimeCheck] = useState(false);
+  const { activeProject } = useProject();
   
   const [visibleColumns, setVisibleColumns] = useState({
     chart: true,
@@ -341,9 +345,55 @@ export const KeywordManager = ({
       case 'desktop':
         return <Monitor className="h-4 w-4" />;
       default:
-        return <Globe className="h-4 w-4" />;
+      return <Globe className="h-4 w-4" />;
     }
   };
+
+  const handleRealtimeCheck = async () => {
+    if (!projectId || !activeProject || displayedActiveRankings.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Selecione um projeto e adicione keywords primeiro",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsRealtimeCheck(true);
+    try {
+      const keywords = displayedActiveRankings.map(r => r.keyword);
+      const targetDomain = activeProject.domain;
+      
+      console.log(`🚀 Iniciando verificação em tempo real de ${keywords.length} keywords...`);
+      
+      await RealtimeRankingService.checkKeywordsRealtime(
+        projectId,
+        keywords,
+        targetDomain,
+        (current, total) => {
+          console.log(`⏳ Progresso: ${current}/${total} keywords verificadas`);
+        }
+      );
+      
+      toast({
+        title: "Verificação concluída",
+        description: `${keywords.length} palavras-chave atualizadas via SerpAPI`
+      });
+      
+      // Recarregar rankings
+      onRankingsUpdate();
+    } catch (error) {
+      console.error('❌ Erro na verificação em tempo real:', error);
+      toast({
+        title: "Erro na verificação",
+        description: "Falha ao buscar posições em tempo real",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRealtimeCheck(false);
+    }
+  };
+
   return <TooltipProvider>
     <Card>
       <CardHeader>
@@ -372,6 +422,17 @@ export const KeywordManager = ({
               </div>
             )}
             <div className="flex items-center gap-2">
+              {period === 'today' && (
+                <Button 
+                  onClick={handleRealtimeCheck}
+                  disabled={isRealtimeCheck || displayedActiveRankings.length === 0}
+                  variant="default"
+                  size="sm"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isRealtimeCheck ? 'animate-spin' : ''}`} />
+                  {isRealtimeCheck ? 'Verificando...' : 'Verificar Agora'}
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={exportToCSV}>
                 <Download className="h-4 w-4 mr-2" />
                 Exportar

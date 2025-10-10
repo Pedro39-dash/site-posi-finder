@@ -11,7 +11,7 @@ export const RELEVANCE_THRESHOLDS = {
   // Número mínimo de pontos de dados por período
   // Ajustado para refletir a frequência real de coleta do GSC (não diária)
   minPointsByPeriod: {
-    '24h': 1,      // Pelo menos 1 ponto nas últimas 24h
+    'today': 0,    // Hoje: busca em tempo real via SerpAPI
     '7d': 3,       // Pelo menos 3 pontos em 7 dias (50% cobertura ~3-4 coletas)
     '28d': 10,     // Pelo menos 10 pontos em 28 dias (50% cobertura ~2-3x/semana)
     '90d': 30,     // Pelo menos 30 pontos em 90 dias (50% cobertura ~2x/semana)
@@ -25,7 +25,7 @@ export const RELEVANCE_THRESHOLDS = {
  * Labels de período para exibição na UI
  */
 export const PERIOD_LABELS: Record<PeriodOption, string> = {
-  '24h': 'últimas 24h',
+  'today': 'hoje (tempo real)',
   '7d': 'últimos 7 dias',
   '28d': 'últimos 28 dias',
   '90d': 'últimos 90 dias',
@@ -38,7 +38,7 @@ export const PERIOD_LABELS: Record<PeriodOption, string> = {
  * Número de dias por período
  */
 export const PERIOD_DAYS: Record<PeriodOption, number> = {
-  '24h': 1,
+  'today': 1,
   '7d': 7,
   '28d': 28,
   '90d': 90,

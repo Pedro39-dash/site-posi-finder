@@ -140,9 +140,11 @@ export async function calculateKeywordRelevance(
       let relevanceReason: KeywordRelevance['relevanceReason'] = 'current_period';
 
       // Condição 1: Tem dados suficientes no período atual
-      const minPointsForPeriod = currentPeriodDays <= 7 
-        ? 1 // Para períodos curtos (24h, 7d), aceitar 1 ponto
-        : Math.max(2, Math.floor(currentPeriodDays / 14));
+      const minPointsForPeriod = currentPeriod === 'today'
+        ? 0 // Para "hoje", sempre aceitar (será buscado via SerpAPI)
+        : currentPeriodDays <= 7 
+          ? 1 
+          : Math.max(2, Math.floor(currentPeriodDays / 14));
       
       if (dataPointsInPeriod >= minPointsForPeriod) {
         isRelevant = true;
