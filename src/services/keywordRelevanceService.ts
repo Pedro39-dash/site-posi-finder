@@ -1,6 +1,7 @@
 import { PeriodOption } from '@/components/monitoring/filters/PeriodSelector';
 import { fetchRankingHistory } from './rankingHistoryService';
 import { RELEVANCE_THRESHOLDS, PERIOD_DAYS } from '@/config/monitoringConfig';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Informação de relevância de uma keyword baseada em histórico e atividade
@@ -57,9 +58,35 @@ export async function calculateKeywordRelevance(
 
     for (const keyword of keywords) {
       const historicalData = result.data.find(d => d.keyword === keyword);
-      const dataPoints = historicalData?.dataPoints || [];
+      let dataPoints = historicalData?.dataPoints || [];
 
-      // Se não tem dados, marcar como irrelevante
+      // Se não tem dados históricos, buscar current_position
+      if (dataPoints.length === 0) {
+        try {
+          const { data: currentRanking } = await supabase
+            .from('keyword_rankings')
+            .select('current_position, updated_at, data_source')
+            .eq('project_id', projectId)
+            .eq('keyword', keyword)
+            .maybeSingle();
+          
+          if (currentRanking?.current_position) {
+            dataPoints = [{
+              date: currentRanking.updated_at,
+              position: currentRanking.current_position,
+              change: 0,
+              metadata: {
+                is_current_only: true
+              }
+            }];
+            console.log(`📍 [${keyword}] Usando current_position como ponto de dados`);
+          }
+        } catch (err) {
+          console.warn(`Erro ao buscar current_position para ${keyword}:`, err);
+        }
+      }
+
+      // Se ainda não tem dados, marcar como irrelevante
       if (dataPoints.length === 0) {
         relevanceMap.set(keyword, {
           keyword,
@@ -113,7 +140,10 @@ export async function calculateKeywordRelevance(
       let relevanceReason: KeywordRelevance['relevanceReason'] = 'current_period';
 
       // Condição 1: Tem dados suficientes no período atual
-      const minPointsForPeriod = Math.max(2, Math.floor(currentPeriodDays / 14)); // ~2x por semana
+      const minPointsForPeriod = currentPeriodDays <= 7 
+        ? 1 // Para períodos curtos (24h, 7d), aceitar 1 ponto
+        : Math.max(2, Math.floor(currentPeriodDays / 14));
+      
       if (dataPointsInPeriod >= minPointsForPeriod) {
         isRelevant = true;
         relevanceReason = 'current_period';
@@ -132,6 +162,11 @@ export async function calculateKeywordRelevance(
       else if (dataPoints.length >= 100) {
         isRelevant = true;
         relevanceReason = 'strong_history';
+      }
+      // Condição 5: Tem posição atual muito recente (< 7 dias)
+      else if (dataPoints.length > 0 && daysSinceLastCollection <= 7) {
+        isRelevant = true;
+        relevanceReason = 'recent_activity';
       }
 
       const relevance: KeywordRelevance = {
