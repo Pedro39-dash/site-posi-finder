@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error?: string }>;
   isAuthenticated: boolean;
 }
 
@@ -146,6 +147,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    const redirectUrl = `${window.location.origin}/reset-password`;
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl
+    });
+
+    if (error) {
+      toast.error('Erro ao enviar email: ' + error.message);
+      return { error: error.message };
+    }
+
+    toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
+    return {};
+  };
+
   const value = {
     user,
     session,
@@ -153,6 +170,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     signUp,
     logout,
+    resetPassword,
     isAuthenticated: !!user
   };
 

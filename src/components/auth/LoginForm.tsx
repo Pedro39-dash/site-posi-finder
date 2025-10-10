@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
+import { ForgotPasswordModal } from "./ForgotPasswordModal";
 
 const authSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -23,6 +24,7 @@ interface LoginFormProps {
 export const LoginForm = ({ onSuccess }: LoginFormProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { login, signUp, isLoading } = useAuth();
 
   const {
@@ -113,6 +115,19 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
             )}
           </div>
 
+          {mode === 'login' && (
+            <div className="text-right">
+              <Button
+                type="button"
+                variant="link"
+                className="px-0 text-sm text-muted-foreground hover:text-primary"
+                onClick={() => setShowForgotPassword(true)}
+              >
+                Esqueci minha senha
+              </Button>
+            </div>
+          )}
+
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <div className="flex items-center gap-2">
@@ -146,6 +161,11 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
             </p>
           </div>
         )}
+
+        <ForgotPasswordModal 
+          open={showForgotPassword} 
+          onOpenChange={setShowForgotPassword} 
+        />
       </CardContent>
     </Card>
   );
