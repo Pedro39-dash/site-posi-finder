@@ -4,20 +4,22 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
-import { TrendingUp, FlaskConical, Info } from "lucide-react";
+import { TrendingUp, FlaskConical, Info, AlertCircle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { fetchRankingHistory, getHistoryMaturity, calculateDaysSpan, HistoricalData } from "@/services/rankingHistoryService";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useSimulatedData } from "@/hooks/useSimulatedData";
-
 import { PeriodSelector, PeriodOption } from "./filters/PeriodSelector";
+import { KeywordRelevance } from "@/services/keywordRelevanceService";
+import { PERIOD_LABELS } from "@/config/monitoringConfig";
 
 interface KeywordPositionHistoryChartProps {
   selectedKeywords: string[];
   projectId: string;
   isLoading?: boolean;
   period: PeriodOption;
+  keywordRelevance?: Map<string, KeywordRelevance>;
 }
 
 // Vibrant colors for better visibility
@@ -36,16 +38,25 @@ export default function KeywordPositionHistoryChart({
   selectedKeywords,
   projectId,
   isLoading = false,
-  period: periodProp
+  period: periodProp,
+  keywordRelevance
 }: KeywordPositionHistoryChartProps) {
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [visibleKeywords, setVisibleKeywords] = useState<Set<string>>(new Set());
   const { isSimulatedMode } = useSimulatedData();
 
-  // Fetch historical data when keywords or period changes
+  const relevantKeywords = useMemo(() => {
+    if (!keywordRelevance) return selectedKeywords;
+    return selectedKeywords.filter(kw => keywordRelevance.get(kw)?.isRelevant !== false);
+  }, [selectedKeywords, keywordRelevance]);
+
+  const removedKeywords = useMemo(() => {
+    return selectedKeywords.filter(kw => !relevantKeywords.includes(kw));
+  }, [selectedKeywords, relevantKeywords]);
+
   useEffect(() => {
-    if (!projectId || selectedKeywords.length === 0) {
+    if (!projectId || relevantKeywords.length === 0) {
       setHistoricalData([]);
       return;
     }
@@ -65,12 +76,11 @@ export default function KeywordPositionHistoryChart({
         case '16m': days = 480; break;
       }
       
-      const result = await fetchRankingHistory(projectId, selectedKeywords, days);
+      const result = await fetchRankingHistory(projectId, relevantKeywords, days);
       
       if (result.success && result.data) {
         setHistoricalData(result.data);
-        // Initialize all keywords as visible
-        setVisibleKeywords(new Set(selectedKeywords));
+        setVisibleKeywords(new Set(relevantKeywords));
       } else {
         setHistoricalData([]);
       }
@@ -78,7 +88,7 @@ export default function KeywordPositionHistoryChart({
     };
 
     loadHistory();
-  }, [projectId, selectedKeywords, periodProp]);
+  }, [projectId, relevantKeywords, periodProp]);
 
   // Calculate maturity status with data source detection
   const maturityStatus = useMemo(() => {
@@ -401,6 +411,24 @@ export default function KeywordPositionHistoryChart({
     );
   }
 
+  if (selectedKeywords.length > 0 && relevantKeywords.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Evolução de Rankings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert className="border-amber-500/30 bg-amber-500/10">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              As keywords selecionadas não possuem dados suficientes para <strong>{PERIOD_LABELS[periodProp]}</strong>.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -436,6 +464,18 @@ export default function KeywordPositionHistoryChart({
         </div>
       </CardHeader>
       <CardContent>
+        {removedKeywords.length > 0 && (
+          <Alert className="mb-4 border-amber-500/30 bg-amber-500/10">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              {removedKeywords.length === 1 ? (
+                <>A keyword <strong>{removedKeywords[0]}</strong> foi removida do gráfico por não ter dados suficientes para <strong>{PERIOD_LABELS[periodProp]}</strong>.</>
+              ) : (
+                <>Keywords removidas por dados insuficientes: <strong>{removedKeywords.join(', ')}</strong></>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
         {missingKeywords.length > 0 && (
           <Alert variant="default" className="mb-4">
             <Info className="h-4 w-4" />

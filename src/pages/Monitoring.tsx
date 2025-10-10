@@ -15,6 +15,7 @@ import { GSCKeywordImportModal } from '@/components/monitoring/GSCKeywordImportM
 import { useToast } from '@/hooks/use-toast';
 import { PeriodSelector, PeriodOption } from '@/components/monitoring/filters/PeriodSelector';
 import { KeywordStatusNotifications } from '@/components/notifications/KeywordStatusNotifications';
+import { KeywordRelevance } from '@/services/keywordRelevanceService';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
@@ -26,6 +27,7 @@ const Monitoring = () => {
   const [showGSCImportModal, setShowGSCImportModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('28d');
+  const [keywordRelevance, setKeywordRelevance] = useState<Map<string, KeywordRelevance>>(new Map());
   const { toast } = useToast();
 
   const loadRankings = async () => {
@@ -291,6 +293,7 @@ const Monitoring = () => {
                   projectId={activeProject.id}
                   isLoading={isLoading}
                   period={selectedPeriod}
+                  keywordRelevance={keywordRelevance}
                 />
               </>
             )}
@@ -304,6 +307,8 @@ const Monitoring = () => {
         selectedForChart={selectedForChart}
         onChartSelectionChange={setSelectedForChart}
         period={selectedPeriod}
+        keywordRelevance={keywordRelevance}
+        onRelevanceCalculated={setKeywordRelevance}
       />
 
       {/* Modal de Importação GSC */}

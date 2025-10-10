@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { RankingService, KeywordRanking } from "@/services/rankingService";
 import { useSimulatedData } from "@/hooks/useSimulatedData";
-import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2, Download, Settings2, Clock, FlaskConical, Info } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Minus, Monitor, Smartphone, Globe, Trash2, Download, Settings2, Clock, FlaskConical, Info, AlertCircle } from "lucide-react";
 import { KeywordIntentBadge } from "./KeywordIntentBadge";
 import { PeriodSelector, PeriodOption } from "./filters/PeriodSelector";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { calculateKeywordRelevance, KeywordRelevance } from "@/services/keywordRelevanceService";
+import { PERIOD_LABELS } from "@/config/monitoringConfig";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface KeywordManagerProps {
   rankings: KeywordRanking[];
@@ -25,6 +30,14 @@ interface KeywordManagerProps {
   selectedForChart: string[];
   onChartSelectionChange: (keywords: string[]) => void;
   period: PeriodOption;
+  keywordRelevance?: Map<string, KeywordRelevance>;
+  onRelevanceCalculated?: (relevance: Map<string, KeywordRelevance>) => void;
+}
+
+interface EnrichedRanking extends KeywordRanking {
+  isRelevant?: boolean;
+  dataCoverage?: number;
+  coverageInfo?: KeywordRelevance;
 }
 export const KeywordManager = ({
   rankings,
@@ -32,7 +45,9 @@ export const KeywordManager = ({
   onRankingsUpdate,
   selectedForChart,
   onChartSelectionChange,
-  period
+  period,
+  keywordRelevance: externalRelevance,
+  onRelevanceCalculated
 }: KeywordManagerProps) => {
   const {
     toast
@@ -46,6 +61,8 @@ export const KeywordManager = ({
   const [searchEngine, setSearchEngine] = useState("google");
   const [device, setDevice] = useState("desktop");
   const [location, setLocation] = useState("brazil");
+  const [showIrrelevantKeywords, setShowIrrelevantKeywords] = useState(true);
+  const [internalRelevance, setInternalRelevance] = useState<Map<string, KeywordRelevance>>(new Map());
   
   const [visibleColumns, setVisibleColumns] = useState({
     chart: true,
@@ -55,22 +72,67 @@ export const KeywordManager = ({
     url: true,
     updated: true
   });
+
+  // Usar relevância externa se disponível, senão usar interna
+  const keywordRelevance = externalRelevance || internalRelevance;
+  // Calcular relevância quando rankings, projectId ou período mudarem
+  useEffect(() => {
+    const calculateRelevance = async () => {
+      if (!projectId || rankings.length === 0) return;
+
+      const keywords = rankings.map(r => r.keyword);
+      const relevance = await calculateKeywordRelevance(projectId, keywords, period);
+      
+      setInternalRelevance(relevance);
+      onRelevanceCalculated?.(relevance);
+    };
+
+    calculateRelevance();
+  }, [rankings, projectId, period]);
+
   const filteredRankings = useMemo(() => {
     if (!projectId || projectId === '') {
       return [];
     }
     return rankings.filter(r => r.project_id === projectId);
   }, [rankings, projectId]);
+
+  // Enriquecer rankings com informações de relevância
+  const enrichedRankings = useMemo<EnrichedRanking[]>(() => {
+    return filteredRankings.map(r => {
+      const relevance = keywordRelevance.get(r.keyword);
+      return {
+        ...r,
+        isRelevant: relevance?.isRelevant ?? true,
+        dataCoverage: relevance?.dataCoverage ?? 100,
+        coverageInfo: relevance
+      };
+    });
+  }, [filteredRankings, keywordRelevance]);
   
   // Separar keywords ativas e inativas
   const activeRankings = useMemo(() => 
-    filteredRankings.filter(r => !r.tracking_status || r.tracking_status === 'active'),
-    [filteredRankings]
+    enrichedRankings.filter(r => !r.tracking_status || r.tracking_status === 'active'),
+    [enrichedRankings]
   );
   
   const inactiveRankings = useMemo(() => 
-    filteredRankings.filter(r => r.tracking_status === 'inactive' || r.tracking_status === 'missing'),
-    [filteredRankings]
+    enrichedRankings.filter(r => r.tracking_status === 'inactive' || r.tracking_status === 'missing'),
+    [enrichedRankings]
+  );
+
+  // Filtrar rankings exibidos baseado no toggle
+  const displayedActiveRankings = useMemo(() => {
+    if (showIrrelevantKeywords) {
+      return activeRankings;
+    }
+    return activeRankings.filter(r => r.isRelevant);
+  }, [activeRankings, showIrrelevantKeywords]);
+
+  // Contar keywords sem relevância
+  const irrelevantCount = useMemo(() => 
+    activeRankings.filter(r => !r.isRelevant).length,
+    [activeRankings]
   );
   if (!projectId || projectId === '') {
     return <Card>
@@ -102,7 +164,16 @@ export const KeywordManager = ({
     const searchVolume = (ranking.metadata as any)?.search_volume || 1000;
     return Math.round(searchVolume * ctr);
   };
-  const toggleChartSelection = (keyword: string) => {
+  const toggleChartSelection = (keyword: string, isRelevant: boolean = true) => {
+    if (!isRelevant) {
+      toast({
+        title: "Keyword sem dados suficientes",
+        description: `"${keyword}" não possui dados relevantes para o período de ${PERIOD_LABELS[period]}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (selectedForChart.includes(keyword)) {
       onChartSelectionChange(selectedForChart.filter(k => k !== keyword));
     } else {
@@ -248,18 +319,38 @@ export const KeywordManager = ({
         return <Globe className="h-4 w-4" />;
     }
   };
-  return <Card>
+  return <TooltipProvider>
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <CardTitle>
             Gerenciar Keywords ({activeRankings.length} ativas
-            {inactiveRankings.length > 0 && ` • ${inactiveRankings.length} inativas`})
+            {inactiveRankings.length > 0 && ` • ${inactiveRankings.length} inativas`}
+            {irrelevantCount > 0 && (
+              <Badge variant="outline" className="ml-2 text-xs border-amber-500 text-amber-700 dark:text-amber-400">
+                {irrelevantCount} sem dados
+              </Badge>
+            )})
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={exportToCSV}>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
-            </Button>
+          <div className="flex items-center gap-4">
+            {/* Toggle para mostrar/ocultar keywords irrelevantes */}
+            {irrelevantCount > 0 && (
+              <div className="flex items-center gap-2">
+                <Switch 
+                  id="show-irrelevant" 
+                  checked={showIrrelevantKeywords}
+                  onCheckedChange={setShowIrrelevantKeywords}
+                />
+                <Label htmlFor="show-irrelevant" className="text-sm cursor-pointer">
+                  Mostrar sem dados ({irrelevantCount})
+                </Label>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={exportToCSV}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -373,11 +464,27 @@ export const KeywordManager = ({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {activeRankings.map(ranking => {
+                      {displayedActiveRankings.map(ranking => {
                         const trend = getPositionTrend(ranking);
-                        return <TableRow key={ranking.id}>
+                        const isIrrelevant = !ranking.isRelevant;
+                        return <TableRow key={ranking.id} className={isIrrelevant ? 'opacity-50' : ''}>
                             {visibleColumns.chart && <TableCell className="text-center">
-                                <Checkbox checked={selectedForChart.includes(ranking.keyword)} onCheckedChange={() => toggleChartSelection(ranking.keyword)} />
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div>
+                                      <Checkbox 
+                                        checked={selectedForChart.includes(ranking.keyword)} 
+                                        onCheckedChange={() => toggleChartSelection(ranking.keyword, ranking.isRelevant)}
+                                        disabled={isIrrelevant}
+                                      />
+                                    </div>
+                                  </TooltipTrigger>
+                                  {isIrrelevant && (
+                                    <TooltipContent>
+                                      Dados insuficientes para o período
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
                               </TableCell>}
                             {visibleColumns.intent && <TableCell>
                                 <KeywordIntentBadge keyword={ranking.keyword} />
@@ -392,6 +499,25 @@ export const KeywordManager = ({
                                     <Settings2 className="h-3 w-3 mr-1" />
                                     Manual
                                   </Badge>}
+                                {isIrrelevant && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                        <AlertCircle className="h-3 w-3" />
+                                        Sem dados para {PERIOD_LABELS[period]}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <div className="text-xs">
+                                        <p className="font-semibold mb-1">Cobertura de dados:</p>
+                                        <p>• {ranking.dataCoverage}% ({ranking.coverageInfo?.dataPoints}/{ranking.coverageInfo?.expectedPoints} pontos)</p>
+                                        <p className="mt-1 text-muted-foreground">
+                                          Mínimo necessário: 70% de cobertura
+                                        </p>
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                               </div>
                             </TableCell>
                             {visibleColumns.previousPosition && <TableCell className="text-center">
@@ -525,5 +651,6 @@ export const KeywordManager = ({
             )}
           </div>}
       </CardContent>
-    </Card>;
+    </Card>
+  </TooltipProvider>;
 };

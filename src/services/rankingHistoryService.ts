@@ -289,6 +289,34 @@ export function calculateDaysSpan(dataPoints: { date: string }[]): number {
 }
 
 /**
+ * Calculate data coverage for a specific period
+ */
+export function calculateDataCoverage(
+  dataPoints: number,
+  targetDays: number
+): {
+  coveragePercentage: number;
+  isRelevant: boolean;
+  expectedPoints: number;
+} {
+  // Estimativa de pontos esperados: 1 ponto por dia no mínimo
+  const expectedPoints = Math.ceil(targetDays * 0.7); // 70% de cobertura esperada
+  
+  const coveragePercentage = expectedPoints > 0
+    ? Math.min(100, (dataPoints / expectedPoints) * 100)
+    : 0;
+  
+  // Considera relevante se tiver pelo menos 70% de cobertura
+  const isRelevant = coveragePercentage >= 70;
+  
+  return {
+    coveragePercentage: Math.round(coveragePercentage),
+    isRelevant,
+    expectedPoints
+  };
+}
+
+/**
  * @deprecated This function is no longer used. Projections removed to show only real data.
  * Kept for backwards compatibility.
  */
