@@ -178,7 +178,7 @@ const Index = () => {
                     <CardTitle className="text-lg text-[#DCE4E5]">Títulos e Meta Descrições</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription className="text-sm mb-3">
+                    <CardDescription className="text-sm mb-3 text-[#BAC9CB]">
                       5 páginas com títulos duplicados ou muito curtos detectadas
                     </CardDescription>
                     <Button 
@@ -202,7 +202,7 @@ const Index = () => {
                     <CardTitle className="text-lg text-[#DCE4E5]">Velocidade de Carregamento</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription className="text-sm mb-3">
+                    <CardDescription className="text-sm mb-3 text-[#BAC9CB]">
                       Tempo atual: 4.2s (recomendado: &lt;2s). Comprima imagens e ative cache
                     </CardDescription>
                     <Button 
@@ -226,7 +226,7 @@ const Index = () => {
                     <CardTitle className="text-lg text-[#DCE4E5]">Link Building Interno</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription className="text-sm mb-3">
+                    <CardDescription className="text-sm mb-3 text-[#BAC9CB]">
                       12 páginas importantes com poucos links internos encontradas
                     </CardDescription>
                     <Button 
