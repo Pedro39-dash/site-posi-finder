@@ -161,7 +161,7 @@ const TrafficChart: React.FC<TrafficChartProps> = ({
   const todayDate = todayIndex >= 0 ? trafficData[period - 1]?.date : '';
   
   return (
-    <Card>
+    <Card className='bg-[#151D1E]'>
       <CardHeader>
         <CardTitle>Tráfego Orgânico Estimado ({period} dias + {projectionDays} dias projeção)</CardTitle>
       </CardHeader>
