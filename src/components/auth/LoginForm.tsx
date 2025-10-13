@@ -128,10 +128,10 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full bg-[#22E8F7]" disabled={isLoading}>
             {isLoading ? (
               <div className="flex items-center gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-r-transparent bg-[#22E8F7]" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-r-transparent" />
                 {mode === 'login' ? 'Entrando...' : 'Criando conta...'}
               </div>
             ) : (
