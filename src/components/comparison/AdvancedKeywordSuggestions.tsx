@@ -225,26 +225,12 @@ export default function AdvancedKeywordSuggestions({
                               <span className="font-medium truncate">
                                 {suggestion.suggested_keyword}
                               </span>
-
-                              {suggestion.difficulty_score && (
-                                <div className="flex items-center gap-1">
-                                  <span>Dificuldade:</span>
-                                  <Badge 
-                                    variant="outline"
-                                    className={getDifficultyColor(suggestion.difficulty_score)}
-                                  >
-                                    {getDifficultyLabel(suggestion.difficulty_score)}
-                                  </Badge>
-                                </div>
-                              )}
-
-
-                            {/* <Badge 
+                            <Badge 
                               variant="outline"
                               className={getSourceTypeColor(suggestion.source_type)}
                             >
                               {getSourceTypeLabel(suggestion.source_type)}
-                            </Badge> */}
+                            </Badge>
                             {suggestion.metadata?.google_source && (
                               <Badge variant="secondary" className="gap-1">
                                 <span>{getGoogleSourceIcon(suggestion.metadata.google_source)}</span>
@@ -270,7 +256,7 @@ export default function AdvancedKeywordSuggestions({
                               </div>
                             )}
                             
-                            {/* {suggestion.difficulty_score && (
+                            {suggestion.difficulty_score && (
                               <div className="flex items-center gap-1">
                                 <span>Dificuldade:</span>
                                 <Badge 
@@ -280,7 +266,7 @@ export default function AdvancedKeywordSuggestions({
                                   {getDifficultyLabel(suggestion.difficulty_score)}
                                 </Badge>
                               </div>
-                            )} */}
+                            )}
                             
                             {suggestion.competitor_domains && suggestion.competitor_domains.length > 0 && (
                               <div className="flex items-center gap-1">
