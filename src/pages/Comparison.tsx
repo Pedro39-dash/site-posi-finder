@@ -72,8 +72,7 @@ const Comparison = () => {
       {/* Content with full width and proper padding */}
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-xl font-semibold tracking-tight">{pageTitle}</h1>
-          <p className="text-[#BAC9CB]">
+          <p className="text-muted-foreground">
             {state === 'form' && "Configure sua análise competitiva com dados reais do Google"}
             {state === 'results' && "Resultados da análise competitiva"}
           </p>
