@@ -245,7 +245,7 @@ const DirectCompetitiveForm = ({ onAnalysisStarted }: DirectCompetitiveFormProps
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 bg-green-500 rounded-full" />
               {/* <span className="font-medium">{activeProject.name}</span> */}
-              <Badge variant="secondary">{activeProject.domain}</Badge>
+              {/* <Badge variant="secondary">{activeProject.domain}</Badge> */}
               <p>{activeProject.domain}</p>
             </div>
           </div>
