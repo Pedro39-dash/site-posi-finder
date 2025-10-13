@@ -221,22 +221,22 @@ export default function AdvancedKeywordSuggestions({
                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                       >
                           <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className="font-medium truncate">
-                              {suggestion.suggested_keyword}
-                            </span>
+                            <div className="flex justify-between">
+                              <span className="font-medium truncate">
+                                {suggestion.suggested_keyword}
+                              </span>
 
-                            {suggestion.difficulty_score && (
-                              <div className="flex items-center gap-1">
-                                <span>Dificuldade:</span>
-                                <Badge 
-                                  variant="outline"
-                                  className={getDifficultyColor(suggestion.difficulty_score)}
-                                >
-                                  {getDifficultyLabel(suggestion.difficulty_score)}
-                                </Badge>
-                              </div>
-                            )}
+                              {suggestion.difficulty_score && (
+                                <div className="flex items-center gap-1">
+                                  <span>Dificuldade:</span>
+                                  <Badge 
+                                    variant="outline"
+                                    className={getDifficultyColor(suggestion.difficulty_score)}
+                                  >
+                                    {getDifficultyLabel(suggestion.difficulty_score)}
+                                  </Badge>
+                                </div>
+                              )}
 
 
                             {/* <Badge 
