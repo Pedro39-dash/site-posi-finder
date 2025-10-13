@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { useSimulatedData } from '@/hooks/useSimulatedData';
+import Logo from '@/assets/logo-itxcompany-02.png';
 
 const getPageTitle = (pathname: string) => {
   const routes = {
@@ -37,6 +38,7 @@ export function TopBar({ onCreateProject }: TopBarProps) {
       <div className="flex items-center justify-between px-6" style={{ height: 'var(--topbar-height)' }}>
         {/* Left Section */}
         <div className="flex items-center gap-4">
+          <img src={Logo} alt="Logo ITX Company" />
           <h1 className="text-xl font-semibold tracking-tight">{pageTitle}</h1>
         </div>
 
