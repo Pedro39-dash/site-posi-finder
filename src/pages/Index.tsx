@@ -184,7 +184,7 @@ const Index = () => {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full bg-[#22E8F7] text-zinc-950"
+                      className="w-full bg-[#fff] text-zinc-950"
                       onClick={() => navigate('/audit')}
                     >
                       Corrigir Agora
@@ -208,7 +208,7 @@ const Index = () => {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full bg-[#22E8F7] text-zinc-950"
+                      className="w-full bg-[#fff] text-zinc-950"
                       onClick={() => navigate('/audit')}
                     >
                       Ver Detalhes
@@ -232,7 +232,7 @@ const Index = () => {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full bg-[#22E8F7] text-zinc-950"
+                      className="w-full bg-[#fff] text-zinc-950"
                       onClick={() => navigate('/audit')}
                     >
                       Otimizar Links
