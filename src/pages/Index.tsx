@@ -169,7 +169,7 @@ const Index = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
                 {/* Card 1 - Otimização de Títulos */}
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-red-500">
+                <Card className="bg-[#151D1E] cursor-pointer border-l-4 border-l-red-500">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <FileText className="h-8 w-8 text-red-500 mb-2" />
@@ -193,7 +193,7 @@ const Index = () => {
                 </Card>
 
                 {/* Card 2 - Velocidade */}
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500">
+                <Card className="bg-[#151D1E] cursor-pointer border-l-4 border-l-orange-500">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <Zap className="h-8 w-8 text-orange-500 mb-2" />
@@ -217,7 +217,7 @@ const Index = () => {
                 </Card>
 
                 {/* Card 3 - Link Building */}
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-yellow-500">
+                <Card className="bg-[#151D1E] cursor-pointer border-l-4 border-l-yellow-500">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <LinkIcon className="h-8 w-8 text-yellow-500 mb-2" />
@@ -241,7 +241,7 @@ const Index = () => {
                 </Card>
 
                 {/* Card 4 - Ver Todas */}
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-dashed border-primary/50 bg-secondary/30">
+                <Card className="bg-[#151D1E] cursor-pointer border-2 border-dashed border-primary/50 bg-secondary/30">
                   <CardHeader className="pb-3">
                     <ArrowRight className="h-8 w-8 text-primary mb-2" />
                     <CardTitle className="text-lg">Ver Todas as Sugestões</CardTitle>
