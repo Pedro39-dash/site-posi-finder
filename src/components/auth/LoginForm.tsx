@@ -52,7 +52,7 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
   };
 
   return (
-    <Card className="w-full">
+    <Card className="w-full bg-[#151D1E]">
       <CardHeader>
         <CardTitle className="text-2xl text-center">
           {mode === 'login' ? 'Fazer Login' : 'Criar Conta'}
