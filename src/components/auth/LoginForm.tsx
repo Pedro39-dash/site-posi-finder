@@ -95,6 +95,7 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="Digite sua senha"
+                className="bg-zinc-50 placeholder:text-zinc-950"
                 {...register("password")}
                 disabled={isLoading}
               />
