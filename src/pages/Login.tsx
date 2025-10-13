@@ -31,7 +31,7 @@ const Login = () => {
         <meta name="description" content="Faça login para acessar o SEO Dashboard e gerenciar suas análises de SEO." />
       </Helmet>
       
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#090F0F] p-4">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
