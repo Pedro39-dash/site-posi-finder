@@ -38,7 +38,7 @@ export function TopBar({ onCreateProject }: TopBarProps) {
       <div className="flex items-center justify-between px-6" style={{ height: 'var(--topbar-height)' }}>
         {/* Left Section */}
         <div className="flex items-center gap-4">
-          <img src={Logo} alt="Logo ITX Company" />
+          <img src={Logo} width={104} height={58} alt="Logo ITX Company" />
           <h1 className="text-xl font-semibold tracking-tight">{pageTitle}</h1>
         </div>
 
