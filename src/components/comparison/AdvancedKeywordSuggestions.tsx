@@ -225,7 +225,7 @@ export default function AdvancedKeywordSuggestions({
                               <span className="font-medium truncate">
                                 {suggestion.suggested_keyword}
                               </span>
-                            <Badge 
+                            {/* <Badge 
                               variant="outline"
                               className={getSourceTypeColor(suggestion.source_type)}
                             >
@@ -236,7 +236,7 @@ export default function AdvancedKeywordSuggestions({
                                 <span>{getGoogleSourceIcon(suggestion.metadata.google_source)}</span>
                                 {getGoogleSourceLabel(suggestion.metadata.google_source)}
                               </Badge>
-                            )}
+                            )} */}
                           </div>
                           
                           <div className="flex flex-col gap-4 text-sm text-muted-foreground">
