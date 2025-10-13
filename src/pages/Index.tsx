@@ -268,7 +268,7 @@ const Index = () => {
                   Trafego estimado
                 </h2>
               </div>
-                <p className="max-width-[1026px] text-zinc-500 mt-2"> 
+                <p className="max-width-[1026px] text-[#BAC9CB] mt-2"> 
                   O tráfego orgânico estimado com projeção futura baseado nas suas últimas análises competitivas.
                 </p>
                 {loadingAnalysis ? (
