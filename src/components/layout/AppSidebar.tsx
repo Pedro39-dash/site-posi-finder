@@ -95,7 +95,7 @@ export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps =
 
   return (
     <Sidebar 
-      className="w-72 border-r h-full bg-zinc-950"
+      className="w-72 border-r h-full bg-[#080F10]"
       collapsible="none"
     >
       <SidebarHeader className="border-b px-4 py-4">

@@ -34,7 +34,7 @@ export function TopBar({ onCreateProject }: TopBarProps) {
   const { isSimulatedMode, toggleSimulatedMode } = useSimulatedData();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-zinc-950" style={{ height: 'var(--topbar-height)' }}>
+    <header className="sticky top-0 z-50 w-full border-b bg-[#080F10]" style={{ height: 'var(--topbar-height)' }}>
       <div className="flex items-center justify-between px-6" style={{ height: 'var(--topbar-height)' }}>
         {/* Left Section */}
         <div className="flex items-center gap-4">
