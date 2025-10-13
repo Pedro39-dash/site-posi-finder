@@ -208,7 +208,7 @@ const Index = () => {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full"
+                      className="w-full bg-[#22E8F7]"
                       onClick={() => navigate('/audit')}
                     >
                       Ver Detalhes
@@ -232,7 +232,7 @@ const Index = () => {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full"
+                      className="w-full b-[#22E8F7]"
                       onClick={() => navigate('/audit')}
                     >
                       Otimizar Links
@@ -241,7 +241,7 @@ const Index = () => {
                 </Card>
 
                 {/* Card 4 - Ver Todas */}
-                <Card className="bg-[#151D1E] cursor-pointer border-2 border-dashed border-primary/50 bg-secondary/30">
+                {/* <Card className="bg-[#151D1E] cursor-pointer border-2 border-dashed border-primary/50 bg-secondary/30">
                   <CardHeader className="pb-3">
                     <ArrowRight className="h-8 w-8 text-primary mb-2" />
                     <CardTitle className="text-lg">Ver Todas as Sugestões</CardTitle>
@@ -253,13 +253,13 @@ const Index = () => {
                     <Button 
                       variant="default" 
                       size="sm" 
-                      className="w-full"
+                      className="w-full bg-[#22E8F7]"
                       onClick={() => navigate('/audit')}
                     >
                       Abrir Auditoria <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </CardContent>
-                </Card>
+                </Card> */}
               </div>
               <div className="mt-8">
                 <div className="flex gap-2 items-center">
