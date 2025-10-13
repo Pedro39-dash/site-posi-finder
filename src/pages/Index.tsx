@@ -175,7 +175,7 @@ const Index = () => {
                       <FileText className="h-8 w-8 text-red-500 mb-2" />
                       <Badge variant="destructive" className="text-xs">Alta</Badge>
                     </div>
-                    <CardTitle className="text-lg">Títulos e Meta Descrições</CardTitle>
+                    <CardTitle className="text-lg text-[#DCE4E5]">Títulos e Meta Descrições</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="text-sm mb-3">
@@ -199,7 +199,7 @@ const Index = () => {
                       <Zap className="h-8 w-8 text-orange-500 mb-2" />
                       <Badge variant="destructive" className="text-xs">Alta</Badge>
                     </div>
-                    <CardTitle className="text-lg">Velocidade de Carregamento</CardTitle>
+                    <CardTitle className="text-lg text-[#DCE4E5]">Velocidade de Carregamento</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="text-sm mb-3">
@@ -223,7 +223,7 @@ const Index = () => {
                       <LinkIcon className="h-8 w-8 text-yellow-500 mb-2" />
                       <Badge variant="secondary" className="text-xs">Média</Badge>
                     </div>
-                    <CardTitle className="text-lg">Link Building Interno</CardTitle>
+                    <CardTitle className="text-lg text-[#DCE4E5]">Link Building Interno</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <CardDescription className="text-sm mb-3">
