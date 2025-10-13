@@ -151,7 +151,7 @@ const Index = () => {
                 <h1 className="text-3xl font-medium text-foreground mb-4">
                   Painel exclusivo ITX Company de <span className="font-bold">monitoramento SEO/AIO</span>
                 </h1>
-                <p className="text-zinc-500 mt-2">
+                <p className="text-[#BAC9CB] mt-2">
                   Obtenha um prognóstico assertivo do seu site com relação a busca orgânica do Google.
                 </p>
               </div>
@@ -162,7 +162,7 @@ const Index = () => {
                     Sugestões de SEO/AIO
                   </h2>
                 </div>
-                <p className="max-width-[1026px] text-zinc-500 mt-2"> 
+                <p className="max-width-[1026px] text-[#BAC9CB] mt-2"> 
                   Analisamos seu site e elencamos as principais oportunidades de SEO encontradas. Trabalhe nessas otimizações
                   para melhorar seus posicionamentos e aumentar seu tráfego.
                 </p>
