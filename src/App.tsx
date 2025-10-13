@@ -131,7 +131,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             onEditProject={handleEditProject}
             onCreateProject={handleCreateProject}
           />
-          <main className="flex-1 overflow-auto bg-zinc-950">
+          <main className="flex-1 overflow-auto bg-[#080F10]">
             {children}
           </main>
         </div>
