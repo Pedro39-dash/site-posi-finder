@@ -239,7 +239,7 @@ export default function AdvancedKeywordSuggestions({
                             )}
                           </div>
                           
-                          <div className="flex flex-col items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex flex-col gap-4 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <span>Relevância:</span>
                               <Badge variant="outline">
