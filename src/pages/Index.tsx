@@ -145,7 +145,7 @@ const Index = () => {
         <meta name="keywords" content="seo, posições google, ranking, palavras-chave, otimização, busca" />
         <link rel="canonical" href="/" />
       </Helmet>
-      <section className="py-6">
+      <section className="py-6 bg-[#080F10]">
             <div className="container mx-auto">
               <div className="flex justify-between">
                 <h1 className="text-3xl font-medium text-foreground mb-4">
