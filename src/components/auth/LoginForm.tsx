@@ -76,7 +76,7 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
               id="email"
               type="email"
               placeholder="seu.email@exemplo.com"
-              className="bg-zinc-50 placeholder:text-zinc-950"
+              className="bg-zinc-50 placeholder:text-zinc-950 text-zinc-950"
               {...register("email")}
               disabled={isLoading}
             />

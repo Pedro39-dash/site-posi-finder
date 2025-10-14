@@ -132,7 +132,7 @@ export const KeywordMetricsSummary = ({ rankings, projectId, isLoading = false }
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {[1, 2].map((i) => (
-          <Card key={i} className="animate-pulse">
+          <Card key={i} className="animate-pulse bg-[#151D1E]">
             <CardHeader>
               <div className="h-4 bg-muted rounded w-1/3"></div>
             </CardHeader>
@@ -149,7 +149,7 @@ export const KeywordMetricsSummary = ({ rankings, projectId, isLoading = false }
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
       {/* Total de Palavras-chave */}
-      <Card className="border-l-4 border-l-primary">
+      <Card className="border-l-4 border-l-primary bg-[#151D1E]">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Palavras-chave
