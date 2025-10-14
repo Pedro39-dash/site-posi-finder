@@ -16,18 +16,20 @@ const getPageTitle = (pathname: string) => {
     '/comparison': 'Análise de Concorrentes',
     '/monitoring': 'Monitoramento',
     '/projects': 'Projetos',
+    '/projects/new': 'Novo Projeto',
     '/profile': 'Perfil',
     '/help': 'Ajuda'
   };
   
+  // Check if it's an edit project route
+  if (pathname.startsWith('/projects/') && pathname.endsWith('/edit')) {
+    return 'Editar Projeto';
+  }
+  
   return routes[pathname as keyof typeof routes] || 'Dashboard';
 };
 
-interface TopBarProps {
-  onCreateProject?: () => void;
-}
-
-export function TopBar({ onCreateProject }: TopBarProps) {
+export function TopBar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const pageTitle = getPageTitle(location.pathname);

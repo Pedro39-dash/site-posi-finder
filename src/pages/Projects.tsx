@@ -7,25 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useProject } from "@/hooks/useProject";
 import { useNavigate } from "react-router-dom";
-import { ProjectModal } from "@/components/projects/ProjectModal";
 import { toast } from "sonner";
 import type { Project } from "@/services/projectService";
 
 const Projects = () => {
   const { projects, deleteProject } = useProject();
   const navigate = useNavigate();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<string | null>(null);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
 
   const handleCreateProject = () => {
-    setEditingProject(null);
-    setIsModalOpen(true);
+    navigate('/projects/new');
   };
 
   const handleEditProject = (projectId: string) => {
-    setEditingProject(projectId);
-    setIsModalOpen(true);
+    navigate(`/projects/${projectId}/edit`);
   };
 
   const handleAnalyze = () => {
@@ -356,12 +351,6 @@ const Projects = () => {
           </main>
         </div>
       </div>
-
-      <ProjectModal
-        open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        projectId={editingProject || undefined}
-      />
     </>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { TrendingUp, Home, Zap, HelpCircle, BarChart, Settings, ChevronDown, Plus, Globe, Check } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useRole } from "@/hooks/useRole";
 import { useActiveProject } from "@/contexts/ActiveProjectContext";
 import { Button } from "@/components/ui/button";
@@ -64,12 +64,8 @@ const getNavigationItems = (isAdmin: boolean, isClient: boolean) => ({
   ]
 });
 
-interface AppSidebarProps {
-  onEditProject?: () => void;
-  onCreateProject?: () => void;
-}
-
-export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps = {}) {
+export function AppSidebar() {
+  const navigate = useNavigate();
   const location = useLocation();
   const { isAdmin, isClient, isLoading: roleLoading } = useRole();
   const { activeProject, projects, setActiveProject } = useActiveProject();
@@ -81,6 +77,16 @@ export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps =
     setIsChangingProject(true);
     await setActiveProject(projectId);
     setIsChangingProject(false);
+  };
+
+  const handleEditProject = () => {
+    if (activeProject) {
+      navigate(`/projects/${activeProject.id}/edit`);
+    }
+  };
+
+  const handleCreateProject = () => {
+    navigate('/projects/new');
   };
 
   const isActive = (path: string) => {
@@ -169,7 +175,7 @@ export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps =
                 variant="outline"
                 size="sm"
                 className="flex-1 gap-2"
-                onClick={onEditProject}
+                onClick={handleEditProject}
               >
                 <Settings className="h-3 w-3" />
                 Editar
@@ -178,7 +184,7 @@ export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps =
                 variant="outline"
                 size="sm"
                 className="gap-2"
-                onClick={onCreateProject}
+                onClick={handleCreateProject}
               >
                 <Plus className="h-3 w-3" />
               </Button>
@@ -193,7 +199,7 @@ export function AppSidebar({ onEditProject, onCreateProject }: AppSidebarProps =
                 <p className="text-xs text-muted-foreground mb-3">
                   Crie seu primeiro projeto
                 </p>
-                <Button size="sm" onClick={onCreateProject} className="w-full">
+                <Button size="sm" onClick={handleCreateProject} className="w-full">
                   <Plus className="h-3 w-3 mr-2" />
                   Criar Projeto
                 </Button>

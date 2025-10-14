@@ -15,9 +15,9 @@ import { ActiveProjectProvider, useActiveProject } from "@/contexts/ActiveProjec
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { TopBar } from "@/components/layout/TopBar";
-import { ProjectModal } from "@/components/projects/ProjectModal";
 import Index from "./pages/Index";
 import Projects from "./pages/Projects";
+import NewProject from "./pages/NewProject";
 import Comparison from "./pages/Comparison";
 import Monitoring from "./pages/Monitoring";
 import AutoMonitoring from "./pages/AutoMonitoring";
@@ -27,13 +27,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Layout component with integrated onboarding and project management
+// Layout component with integrated onboarding
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading: authLoading } = useAuth();
   const { projects, activeProject, isLoading: projectsLoading, refreshProjects } = useActiveProject();
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showProjectModal, setShowProjectModal] = useState(false);
-  const [editingProjectId, setEditingProjectId] = useState<string | undefined>(undefined);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const [isOnboardingInProgress, setIsOnboardingInProgress] = useState(false);
 
@@ -99,18 +97,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     await refreshProjects();
   };
 
-  const handleCreateProject = () => {
-    setEditingProjectId(undefined);
-    setShowProjectModal(true);
-  };
-
-  const handleEditProject = () => {
-    if (activeProject) {
-      setEditingProjectId(activeProject.id);
-      setShowProjectModal(true);
-    }
-  };
-
   if (authLoading || projectsLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -123,14 +109,11 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     <SidebarProvider>
       <div className="min-h-screen w-full flex flex-col">
         {/* Top bar spanning 100% width */}
-        <TopBar onCreateProject={handleCreateProject} />
+        <TopBar />
         
         {/* Content area with fixed sidebar - remaining height */}
         <div className="flex w-full" style={{ height: 'calc(100vh - var(--topbar-height))' }}>
-          <AppSidebar 
-            onEditProject={handleEditProject}
-            onCreateProject={handleCreateProject}
-          />
+          <AppSidebar />
           <main className="flex-1 overflow-auto bg-[#080F10]">
             {children}
           </main>
@@ -141,15 +124,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       <OnboardingFlow 
         open={showOnboarding} 
         onComplete={handleOnboardingComplete} 
-      />
-      
-      <ProjectModal 
-        open={showProjectModal}
-        onClose={() => {
-          setShowProjectModal(false);
-          setEditingProjectId(undefined);
-        }}
-        projectId={editingProjectId}
       />
     </SidebarProvider>
   );
@@ -181,6 +155,20 @@ const App = () => (
                         <ProtectedRoute>
                           <AppLayout>
                             <Projects />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/projects/new" element={
+                        <ProtectedRoute>
+                          <AppLayout>
+                            <NewProject />
+                          </AppLayout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/projects/:id/edit" element={
+                        <ProtectedRoute>
+                          <AppLayout>
+                            <NewProject />
                           </AppLayout>
                         </ProtectedRoute>
                       } />
