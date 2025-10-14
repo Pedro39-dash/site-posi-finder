@@ -121,7 +121,7 @@ const Projects = () => {
               </div>
               
               <div className="flex gap-2">
-                {selectedProjects.size > 0 && (
+                {/* {selectedProjects.size > 0 && (
                   <Button 
                     variant="destructive" 
                     onClick={handleDeleteSelected}
@@ -130,7 +130,7 @@ const Projects = () => {
                     <Trash2 className="h-4 w-4" />
                     Excluir ({selectedProjects.size})
                   </Button>
-                )}
+                )} */}
                 <Button onClick={handleCreateProject} className="gap-2">
                   <Plus className="h-4 w-4" />
                   Novo Projeto
@@ -212,28 +212,40 @@ const Projects = () => {
                 </CardContent>
               </Card>
             </div>
-            {projects.length > 0 && (
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={selectedProjects.size === projects.length}
-                    onCheckedChange={handleSelectAll}
-                    id="select-all"
-                  />
-                  <label 
-                    htmlFor="select-all"
-                    className="text-sm font-medium cursor-pointer"
-                  >
-                    Selecionar todos
-                  </label>
+            <div className="flex justify-between">
+              {projects.length > 0 && (
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedProjects.size === projects.length}
+                      onCheckedChange={handleSelectAll}
+                      id="select-all"
+                    />
+                    <label 
+                      htmlFor="select-all"
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      Selecionar todos
+                    </label>
+                  </div>
+                  {selectedProjects.size > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      {selectedProjects.size} de {projects.length} selecionado(s)
+                    </span>
+                  )}
                 </div>
-                {selectedProjects.size > 0 && (
-                  <span className="text-sm text-muted-foreground">
-                    {selectedProjects.size} de {projects.length} selecionado(s)
-                  </span>
                 )}
-              </div>
-            )}
+                {selectedProjects.size > 0 && (
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleDeleteSelected}
+                      className="gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Excluir ({selectedProjects.size})
+                    </Button>
+                  )}
+            </div>
             {/* Projects Grid */}
             {projects.length === 0 ? (
               <Card className="text-center py-12">
