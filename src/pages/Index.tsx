@@ -147,7 +147,7 @@ const Index = () => {
       </Helmet>
       <section className="py-6 bg-[#080F10]">
             <div className="container mx-auto">
-              <div className="flex justify-between">
+              <div className="flex flex-col justify-between">
                 <h1 className="text-3xl font-medium text-foreground mb-4">
                   Painel exclusivo ITX Company de <span className="font-bold">monitoramento SEO/AIO</span>
                 </h1>
