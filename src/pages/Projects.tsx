@@ -139,7 +139,7 @@ const Projects = () => {
             </div>
 
             {/* Bulk Actions */}
-            {projects.length > 0 && (
+            {/* {projects.length > 0 && (
               <div className="flex items-center gap-4 mb-6">
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -160,7 +160,7 @@ const Projects = () => {
                   </span>
                 )}
               </div>
-            )}
+            )} */}
 
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -212,7 +212,28 @@ const Projects = () => {
                 </CardContent>
               </Card>
             </div>
-
+            {projects.length > 0 && (
+              <div className="flex items-center gap-4 mb-6">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={selectedProjects.size === projects.length}
+                    onCheckedChange={handleSelectAll}
+                    id="select-all"
+                  />
+                  <label 
+                    htmlFor="select-all"
+                    className="text-sm font-medium cursor-pointer"
+                  >
+                    Selecionar todos
+                  </label>
+                </div>
+                {selectedProjects.size > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    {selectedProjects.size} de {projects.length} selecionado(s)
+                  </span>
+                )}
+              </div>
+            )}
             {/* Projects Grid */}
             {projects.length === 0 ? (
               <Card className="text-center py-12">
