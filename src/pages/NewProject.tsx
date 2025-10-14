@@ -20,19 +20,19 @@ import { Separator } from '@/components/ui/separator';
 import { ArrowLeft } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 
-const MARKET_SEGMENTS = [
-  'E-commerce',
-  'Saúde e Bem-estar',
-  'Educação',
-  'Tecnologia',
-  'Serviços Financeiros',
-  'Imobiliário',
-  'Turismo e Viagem',
-  'Alimentação e Bebidas',
-  'Moda e Beleza',
-  'Consultoria',
-  'Outro'
-];
+// const MARKET_SEGMENTS = [
+//   'E-commerce',
+//   'Saúde e Bem-estar',
+//   'Educação',
+//   'Tecnologia',
+//   'Serviços Financeiros',
+//   'Imobiliário',
+//   'Turismo e Viagem',
+//   'Alimentação e Bebidas',
+//   'Moda e Beleza',
+//   'Consultoria',
+//   'Outro'
+// ];
 
 export default function NewProject() {
   const navigate = useNavigate();
@@ -215,7 +215,7 @@ export default function NewProject() {
                 />
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="segment">Segmento de Mercado</Label>
                 <Select value={marketSegment} onValueChange={setMarketSegment}>
                   <SelectTrigger>
@@ -229,7 +229,7 @@ export default function NewProject() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="keywords">Palavras-chave Principais</Label>
