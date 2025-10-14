@@ -29,7 +29,7 @@ const Projects = () => {
   };
 
   const handleAnalyze = () => {
-    navigate("/");
+    navigate("/monitoring");
   };
 
   const handleCompare = () => {
@@ -212,7 +212,7 @@ const Projects = () => {
                 </CardContent>
               </Card>
             </div>
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between">
               {projects.length > 0 && (
                 <div className="flex items-center gap-4 mb-6">
                   <div className="flex items-center gap-2">
@@ -318,7 +318,7 @@ const Projects = () => {
                         className="gap-1 flex-1"
                       >
                         <Search className="h-3 w-3" />
-                        Analisar
+                        Monitorar dominio
                       </Button>
                       <Button
                         variant="outline"
