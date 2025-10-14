@@ -212,9 +212,9 @@ const Projects = () => {
                 </CardContent>
               </Card>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between h-[50px] mb-6">
               {projects.length > 0 && (
-                <div className="flex items-center gap-4 mb-6">
+                <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Checkbox
                       checked={selectedProjects.size === projects.length}
