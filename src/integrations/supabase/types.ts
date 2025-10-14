@@ -9,6 +9,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      analysis_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          data: Json
+          expires_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          data: Json
+          expires_at: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          data?: Json
+          expires_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_cache_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audits: {
         Row: {
           created_at: string
@@ -247,6 +285,38 @@ export type Database = {
           },
         ]
       }
+      keyword_positions: {
+        Row: {
+          checked_at: string
+          id: string
+          keyword_id: string
+          position: number | null
+          url: string | null
+        }
+        Insert: {
+          checked_at?: string
+          id?: string
+          keyword_id: string
+          position?: number | null
+          url?: string | null
+        }
+        Update: {
+          checked_at?: string
+          id?: string
+          keyword_id?: string
+          position?: number | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_positions_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "monitored_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monitored_keywords: {
         Row: {
           created_at: string
@@ -280,6 +350,41 @@ export type Database = {
             foreignKeyName: "monitored_keywords_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitoring_schedules: {
+        Row: {
+          created_at: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitoring_schedules_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
