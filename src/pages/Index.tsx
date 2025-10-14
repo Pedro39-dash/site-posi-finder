@@ -42,7 +42,7 @@ const Index = () => {
       setLatestAnalysis(null);
       setLoadingAnalysis(true);
       try {
-        const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(1);
+        const { success, analyses } = await CompetitorAnalysisService.getAnalysesByProject(activeProject.id);
         
         if (success && analyses && analyses.length > 0) {
           const latest = analyses[0];
