@@ -50,12 +50,17 @@ const getNavigationItems = (isAdmin: boolean, isClient: boolean) => ({
       path: "/monitoring",
       icon: BarChart,
     },
-    // Show Projects only for clients
-    ...(isClient ? [{
+    {
       title: "Projetos",
       path: "/projects",
       icon: Zap,
-    }] : []),
+    }
+    // // Show Projects only for clients
+    // ...(isClient ? [{
+    //   title: "Projetos",
+    //   path: "/projects",
+    //   icon: Zap,
+    // }] : []),
   ]
 });
 
