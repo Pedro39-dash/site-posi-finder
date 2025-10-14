@@ -42,7 +42,8 @@ const Index = () => {
       setLatestAnalysis(null);
       setLoadingAnalysis(true);
       try {
-        const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(1);
+        // CORREÇÃO: Passar o ID do projeto ativo para buscar a análise correta
+        const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(1, activeProject.id);
         
         if (success && analyses && analyses.length > 0) {
           const latest = analyses[0];
