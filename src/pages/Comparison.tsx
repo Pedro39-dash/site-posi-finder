@@ -1,113 +1,107 @@
-import { useState, useEffect } from "react";
-import { Helmet } from "react-helmet-async";
-import DirectCompetitiveForm from "@/components/comparison/DirectCompetitiveForm";
-import CompetitiveResultsDisplay from "@/components/comparison/CompetitiveResultsDisplay";
-import { HookErrorBoundary } from "@/components/comparison/HookErrorBoundary";
-import { KeywordFilterProvider } from "@/contexts/KeywordFilterContext";
-import { useActiveProject } from "@/contexts/ActiveProjectContext";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { RefreshCw } from "lucide-react";
+import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProject } from '@/hooks/useProject';
+import { CompetitorAnalysisService } from '@/services/competitorAnalysisService';
+import DirectCompetitiveForm from '@/components/comparison/DirectCompetitiveForm';
+import CompetitiveResultsDisplay from '@/components/comparison/CompetitiveResultsDisplay';
+import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { KeywordFilterProvider } from '@/contexts/KeywordFilterContext'; // Importar o Provider
 
-type AnalysisState = 'form' | 'results';
+// Interface para os valores do formulário
+interface AnalysisFormValues {
+  targetDomain: string;
+  competitors: string[];
+  keywords: string[];
+}
 
 const Comparison = () => {
-  const { activeProject } = useActiveProject();
-  
-  // Main state management
-  const [state, setState] = useState<AnalysisState>('form');
-  const [isChangingProject, setIsChangingProject] = useState(false);
-  
-  // Real analysis state
-  const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { activeProject } = useProject();
 
-  // Reset state when active project changes
-  useEffect(() => {
-    console.log('🎯 Comparison montou/atualizou com projeto:', {
-      id: activeProject?.id,
-      name: activeProject?.name,
-      timestamp: Date.now()
-    });
-    
-    if (activeProject?.id) {
-      console.log('🔄 Comparison: Projeto ativo mudou para:', activeProject.name);
-      console.log('📌 Resetando estado da página Comparison');
-      
-      setIsChangingProject(true);
-      setState('form');
-      setAnalysisId(null);
-      
-      // Remove indicator after brief delay
-      setTimeout(() => setIsChangingProject(false), 500);
+  // Controlo para saber se mostramos o formulário ou os resultados
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleStartAnalysis = async (values: AnalysisFormValues) => {
+    const { targetDomain, competitors, keywords } = values;
+
+    if (!user || !activeProject?.id) {
+      toast.error('É necessário estar autenticado e ter um projeto ativo.');
+      return;
     }
-  }, [activeProject?.id]);
 
-  // Handler functions
-  const handleAnalysisStarted = (newAnalysisId: string) => {
-    setAnalysisId(newAnalysisId);
-    setState('results');
+    setIsLoading(true);
+
+    try {
+      const { success, analysisId, error: startError } = await CompetitorAnalysisService.startAnalysis(
+        targetDomain,
+        competitors,
+        keywords,
+        activeProject.id
+      );
+
+      if (!success || !analysisId) {
+        throw new Error(startError || 'Falha ao iniciar a análise.');
+      }
+
+      toast.info('Análise iniciada!', {
+        description: 'Os dados serão carregados em breve. Isto pode demorar alguns minutos.',
+      });
+
+      // Definir o ID da análise para mudar para a vista de resultados
+      setCurrentAnalysisId(analysisId);
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      toast.error('Ocorreu um erro ao iniciar a análise', {
+        description: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // Função para voltar ao formulário a partir dos resultados
   const handleBackToForm = () => {
-    setState('form');
-    setAnalysisId(null);
+    setCurrentAnalysisId(null);
   };
 
-  const handleNewAnalysis = () => {
-    setState('form');
-    setAnalysisId(null);
-  };
-
+  // Renderização condicional: ou mostra o formulário ou os resultados
   return (
-    <>
+    // Envolver a página com o Provider do contexto
+    <KeywordFilterProvider>
       <Helmet>
-        <title>Comparação de Domínios - SEO Dashboard</title>
-        <meta 
-          name="description" 
-          content="Compare as posições SEO de múltiples sites para as mesmas palavras-chave. Analise a concorrência e descubra oportunidades de otimização." 
-        />
-        <meta name="keywords" content="comparação seo, análise concorrência, posições google, ranking sites" />
-        <link rel="canonical" href="/comparison" />
+        <title>Análise Competitiva - PosiFinder</title>
+        <meta name="description" content="Compare o seu domínio com concorrentes e descubra oportunidades." />
       </Helmet>
-
-      {/* Content with full width and proper padding */}
-      <div className="p-8">
-        <div className="mb-8">
-          <p className="text-muted-foreground">
-            {state === 'form' && "Configure sua análise competitiva com dados reais do Google"}
-            {state === 'results' && "Resultados da análise competitiva"}
-          </p>
-        </div>
-
-        {/* Project change indicator */}
-        {isChangingProject && (
-          <Alert className="mb-6">
-            <RefreshCw className="h-4 w-4 animate-spin" />
+      <div className="container mx-auto px-4 py-8">
+        {!activeProject && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Nenhum Projeto Ativo</AlertTitle>
             <AlertDescription>
-              Carregando dados do projeto {activeProject?.name}...
+              Por favor, selecione um projeto ativo para iniciar uma análise.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Direct Analysis Form */}
-        {state === 'form' && (
-          <DirectCompetitiveForm 
-            onAnalysisStarted={handleAnalysisStarted} 
+        {/* Se não houver uma análise ativa, mostra o formulário */}
+        {!currentAnalysisId ? (
+          <DirectCompetitiveForm
+            onSubmit={handleStartAnalysis}
+            isLoading={isLoading}
+            disabled={!activeProject}
+          />
+        ) : (
+          // Se houver uma análise ativa, mostra os resultados
+          <CompetitiveResultsDisplay
+            analysisId={currentAnalysisId}
+            onBackToForm={handleBackToForm}
           />
         )}
-
-        {/* Analysis Results */}
-        {state === 'results' && analysisId && (
-          <KeywordFilterProvider>
-            <HookErrorBoundary>
-              <CompetitiveResultsDisplay 
-                analysisId={analysisId} 
-                onBackToForm={handleBackToForm}
-              />
-            </HookErrorBoundary>
-          </KeywordFilterProvider>
-        )}
       </div>
-    </>
+    </KeywordFilterProvider>
   );
 };
 
