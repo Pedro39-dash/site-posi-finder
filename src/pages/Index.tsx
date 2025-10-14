@@ -34,6 +34,7 @@ const Index = () => {
   const navigate = useNavigate();
 
   // Buscar análise mais recente do projeto ativo
+    // Buscar análise mais recente do projeto ativo
   useEffect(() => {
     const fetchLatestAnalysis = async () => {
       if (!activeProject?.id || !isAuthenticated) return;
@@ -42,7 +43,8 @@ const Index = () => {
       setLatestAnalysis(null);
       setLoadingAnalysis(true);
       try {
-        const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(1);
+        // Alteração aqui para passar o ID do projeto
+        const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(1, activeProject.id);
         
         if (success && analyses && analyses.length > 0) {
           const latest = analyses[0];
@@ -50,10 +52,17 @@ const Index = () => {
           
           if (dataSuccess && data) {
             setLatestAnalysis(data);
+          } else {
+            // Se não houver dados de análise para o projeto, limpa o estado
+            setLatestAnalysis(null);
           }
+        } else {
+          // Se não houver análises para o projeto, limpa o estado
+          setLatestAnalysis(null);
         }
       } catch (error) {
         console.error('Error fetching latest analysis:', error);
+        setLatestAnalysis(null); // Limpa em caso de erro
       } finally {
         setLoadingAnalysis(false);
       }
@@ -61,6 +70,33 @@ const Index = () => {
 
     fetchLatestAnalysis();
   }, [activeProject?.id, isAuthenticated]);
+  // useEffect(() => {
+  //   const fetchLatestAnalysis = async () => {
+  //     if (!activeProject?.id || !isAuthenticated) return;
+      
+  //     // Limpar dados antigos
+  //     setLatestAnalysis(null);
+  //     setLoadingAnalysis(true);
+  //     try {
+  //       const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(1);
+        
+  //       if (success && analyses && analyses.length > 0) {
+  //         const latest = analyses[0];
+  //         const { success: dataSuccess, data } = await CompetitorAnalysisService.getAnalysisData(latest.id);
+          
+  //         if (dataSuccess && data) {
+  //           setLatestAnalysis(data);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error('Error fetching latest analysis:', error);
+  //     } finally {
+  //       setLoadingAnalysis(false);
+  //     }
+  //   };
+
+  //   fetchLatestAnalysis();
+  // }, [activeProject?.id, isAuthenticated]);
 
   if (isLoading || roleLoading) {
     return (
