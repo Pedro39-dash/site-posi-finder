@@ -301,11 +301,6 @@ const Index = () => {
                     period={30}
                     projectionDays={30}
                   />
-                  console.log('TrafficChart props - domains:', domains);
-                  console.log('TrafficChart props - targetDomain:', targetDomain);
-                  console.log('TrafficChart props - competitors:', competitors);
-                  console.log('TrafficChart props - keywords:', keywords);
-
                 ) : (
                   <Card className="mt-4">
                     <CardContent className="p-12 text-center">
