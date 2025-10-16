@@ -25,6 +25,7 @@ interface SearchResult {
   previousPosition?: number;
 }
 
+
 const Index = () => {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { isAdmin, isClient, isDisplay, isLoading: roleLoading } = useRole();
@@ -133,6 +134,16 @@ const Index = () => {
     // This would be the search functionality for public users
     console.log('Search functionality would be implemented here');
   };
+    console.log('latestAnalysis:', latestAnalysis);
+
+  if (latestAnalysis) {
+    console.log('domains:', [
+      latestAnalysis.analysis.target_domain,
+      ...(latestAnalysis.competitors ? latestAnalysis.competitors.slice(0, 2).map(c => c.domain) : [])
+    ]);
+    console.log('keywords:', latestAnalysis.keywords);
+    console.log('competitors:', latestAnalysis.competitors);
+  }
 
   return (
     <>
@@ -290,6 +301,11 @@ const Index = () => {
                     period={30}
                     projectionDays={30}
                   />
+                  console.log('TrafficChart props - domains:', domains);
+                  console.log('TrafficChart props - targetDomain:', targetDomain);
+                  console.log('TrafficChart props - competitors:', competitors);
+                  console.log('TrafficChart props - keywords:', keywords);
+
                 ) : (
                   <Card className="mt-4">
                     <CardContent className="p-12 text-center">
