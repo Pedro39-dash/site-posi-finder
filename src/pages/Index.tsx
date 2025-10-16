@@ -38,10 +38,9 @@ const Index = () => {
   useEffect(() => {
     const fetchLatestAnalysis = async () => {
       if (!activeProject?.id || !isAuthenticated) return;
-      console.log('latestAnalysis:', latestAnalysis);
       // Limpar dados antigos
-      setLatestAnalysis(null);
-      setLoadingAnalysis(true);
+      // setLatestAnalysis(null);
+      // setLoadingAnalysis(true);
       try {
         const { success, analyses } = await CompetitorAnalysisService.getAnalysesByProject(activeProject.id);
         
@@ -58,7 +57,7 @@ const Index = () => {
       } finally {
         setLoadingAnalysis(false);
       }
-      
+      console.log('latestAnalysis:', latestAnalysis);
     };
 
     fetchLatestAnalysis();
