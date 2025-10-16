@@ -39,6 +39,7 @@ const Comparison = () => {
       // Remove indicator after brief delay
       setTimeout(() => setIsChangingProject(false), 500);
     }
+    console.log('latestAnalysis:', latestAnalysis);
   }, [activeProject?.id]);
 
   // Handler functions
