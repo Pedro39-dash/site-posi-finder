@@ -134,16 +134,6 @@ const Index = () => {
     // This would be the search functionality for public users
     console.log('Search functionality would be implemented here');
   };
-    console.log('latestAnalysis:', latestAnalysis);
-
-  if (latestAnalysis) {
-    console.log('domains:', [
-      latestAnalysis.analysis.target_domain,
-      ...(latestAnalysis.competitors ? latestAnalysis.competitors.slice(0, 2).map(c => c.domain) : [])
-    ]);
-    console.log('keywords:', latestAnalysis.keywords);
-    console.log('competitors:', latestAnalysis.competitors);
-  }
 
   return (
     <>
