@@ -38,7 +38,7 @@ const Index = () => {
   useEffect(() => {
     const fetchLatestAnalysis = async () => {
       if (!activeProject?.id || !isAuthenticated) return;
-      
+      console.log('latestAnalysis:', latestAnalysis);
       // Limpar dados antigos
       setLatestAnalysis(null);
       setLoadingAnalysis(true);
@@ -135,7 +135,7 @@ const Index = () => {
     // This would be the search functionality for public users
     console.log('Search functionality would be implemented here');
   };
-console.log('latestAnalysis:', latestAnalysis);
+
   return (
     <>
       <Helmet>
