@@ -58,7 +58,7 @@ const Index = () => {
         setLoadingAnalysis(false);
       }
     };
-
+    console.log('latestAnalysis:', latestAnalysis);
     fetchLatestAnalysis();
   }, [activeProject?.id, isAuthenticated]);
 
