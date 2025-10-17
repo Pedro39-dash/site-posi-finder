@@ -42,10 +42,8 @@ export const useSupabaseCache = <T>(
       }
 
       console.log('🔄 Fetching fresh data for:', key);
-      // Só mostra loading se não tiver dados em cache
-      if (!data) {
-        setLoading(true);
-      }
+      // Show loading only if we don't have data yet
+      setLoading(prev => prev || !forceRefresh);
       
       const freshData = await fetcher();
       
@@ -78,7 +76,7 @@ export const useSupabaseCache = <T>(
     } finally {
       setLoading(false);
     }
-  }, [key, fetcher, ttl, data]);
+  }, [key, fetcher, ttl]);
 
   const refresh = useCallback(() => {
     return loadData(true);
