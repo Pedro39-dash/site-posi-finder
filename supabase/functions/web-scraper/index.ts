@@ -51,15 +51,16 @@ serve(async (req) => {
       });
     }
 
-    // Handle suggestions request using SerpAPI
+    // Handle suggestions request using SerpAPI with automatic key rotation
     if (type === 'suggestions') {
       const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
+      const SERPAPI_KEY_2 = Deno.env.get('SERPAPI_KEY_2');
       
-      if (!SERPAPI_KEY) {
+      if (!SERPAPI_KEY && !SERPAPI_KEY_2) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'SERPAPI_KEY not configured',
+            error: 'No SERPAPI_KEY configured',
           }),
           { 
             status: 500, 
@@ -68,27 +69,55 @@ serve(async (req) => {
         );
       }
 
-      const serpApiUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(keyword)}&api_key=${SERPAPI_KEY}&gl=br&hl=pt`;
+      // Try primary key first, fallback to secondary if rate limited
+      const apiKeys = [SERPAPI_KEY, SERPAPI_KEY_2].filter(Boolean);
+      let serpData = null;
+      let lastError = null;
       
-      console.log('Calling SerpAPI for suggestions:', keyword);
+      for (let i = 0; i < apiKeys.length; i++) {
+        const apiKey = apiKeys[i];
+        const serpApiUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(keyword)}&api_key=${apiKey}&gl=br&hl=pt`;
+        
+        console.log(`Calling SerpAPI for suggestions with key ${i + 1}:`, keyword);
+        
+        try {
+          const serpResponse = await fetch(serpApiUrl);
+          
+          if (serpResponse.ok) {
+            serpData = await serpResponse.json();
+            console.log(`✅ SerpAPI successful with key ${i + 1}`);
+            break; // Success, stop trying other keys
+          } else if (serpResponse.status === 429) {
+            console.warn(`⚠️ Rate limit reached for key ${i + 1}, trying next key...`);
+            lastError = { status: 429, message: 'Rate limit exceeded' };
+            continue; // Try next key
+          } else {
+            console.error(`❌ SerpAPI error with key ${i + 1}:`, serpResponse.status);
+            lastError = { status: serpResponse.status, message: `Request failed: ${serpResponse.status}` };
+            break; // Other error, don't try next key
+          }
+        } catch (error) {
+          console.error(`❌ Exception calling SerpAPI with key ${i + 1}:`, error);
+          lastError = { status: 500, message: error.message };
+          continue; // Try next key
+        }
+      }
       
-      const serpResponse = await fetch(serpApiUrl);
-      
-      if (!serpResponse.ok) {
-        console.error('SerpAPI error:', serpResponse.status);
+      // If all keys failed, return error
+      if (!serpData) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: `SerpAPI request failed: ${serpResponse.status}`,
+            error: lastError?.status === 429 
+              ? 'Todas as chaves da SerpAPI atingiram o limite. Tente novamente em alguns minutos.'
+              : `SerpAPI request failed: ${lastError?.message || 'Unknown error'}`,
           }),
           { 
-            status: 500, 
+            status: lastError?.status === 429 ? 429 : 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
-
-      const serpData = await serpResponse.json();
       
       const suggestions: Array<{ keyword: string; source: string }> = [];
       
