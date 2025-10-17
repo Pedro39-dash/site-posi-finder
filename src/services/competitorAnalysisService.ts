@@ -217,7 +217,7 @@ export class CompetitorAnalysisService {
     }
   }
 
-  static async getUserAnalyses(projectId: string, limit: number = 10): Promise<{ success: boolean; analyses?: CompetitorAnalysis[]; error?: string }> {
+  static async getUserAnalyses(limit: number = 10): Promise<{ success: boolean; analyses?: CompetitorAnalysis[]; error?: string }> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -229,7 +229,6 @@ export class CompetitorAnalysisService {
         .from('competitor_analyses')
         .select('*')
         .eq('user_id', user.id)
-        .eq('project_id', projectId) 
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -237,8 +236,6 @@ export class CompetitorAnalysisService {
         console.error('Error fetching user analyses:', error);
         return { success: false, error: error.message };
       }
-      console.log('projectId enviado:', projectId);
-      console.log('Dados retornados da query:', analyses);
 
       return { 
         success: true, 

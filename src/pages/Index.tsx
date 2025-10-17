@@ -25,7 +25,6 @@ interface SearchResult {
   previousPosition?: number;
 }
 
-
 const Index = () => {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { isAdmin, isClient, isDisplay, isLoading: roleLoading } = useRole();
@@ -38,11 +37,12 @@ const Index = () => {
   useEffect(() => {
     const fetchLatestAnalysis = async () => {
       if (!activeProject?.id || !isAuthenticated) return;
+      
       // Limpar dados antigos
       setLatestAnalysis(null);
       setLoadingAnalysis(true);
       try {
-        const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(activeProject.id, 1);
+        const { success, analyses } = await CompetitorAnalysisService.getUserAnalyses(1);
         
         if (success && analyses && analyses.length > 0) {
           const latest = analyses[0];
@@ -58,6 +58,7 @@ const Index = () => {
         setLoadingAnalysis(false);
       }
     };
+
     fetchLatestAnalysis();
   }, [activeProject?.id, isAuthenticated]);
 
