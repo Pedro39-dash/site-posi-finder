@@ -237,6 +237,8 @@ export class CompetitorAnalysisService {
         console.error('Error fetching user analyses:', error);
         return { success: false, error: error.message };
       }
+      console.log('projectId enviado:', projectId);
+      console.log('Dados retornados da query:', analyses);
 
       return { 
         success: true, 
