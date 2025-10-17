@@ -26,18 +26,17 @@ export const useProject = () => {
         
         // Find active project
         const active = userProjects.find(p => p.is_active);
-        setActiveProject(active ? { ...active } : null);
-        console.log('🔄 [useProject] Setando activeProject:', {
-          id: active?.id,
-          name: active?.name,
-          timestamp: Date.now()
-        });
-        console.log('📌 Projeto ativo:', active?.name || 'Nenhum', active ? {
-          id: active.id,
-          domain: active.domain,
-          keywords: active.focus_keywords?.length || 0,
-          competitors: active.competitor_domains?.length || 0
-        } : '');
+        if (active) {
+          setActiveProject({ ...active });
+          console.log('📌 Projeto ativo:', active.name, {
+            id: active.id,
+            domain: active.domain,
+            keywords: active.focus_keywords?.length || 0,
+            competitors: active.competitor_domains?.length || 0
+          });
+        } else {
+          setActiveProject(null);
+        }
       }
     } catch (error) {
       console.error('❌ Error loading projects:', error);
@@ -90,19 +89,8 @@ export const useProject = () => {
     if (result.success) {
       console.log('✅ Projeto ativo alterado com sucesso');
       toast.success('Projeto alterado com sucesso!');
-      // Recarregar projetos para garantir sincronização
+      // Recarregar projetos apenas uma vez
       await loadProjects();
-      // Força um re-render adicionando timestamp ao objeto
-      const { success: refreshSuccess, projects: refreshedProjects } = await ProjectService.getUserProjects();
-      if (refreshSuccess && refreshedProjects) {
-        const newActive = refreshedProjects.find(p => p.is_active);
-        if (newActive) {
-          setActiveProject({ ...newActive, _forceUpdate: Date.now() } as any);
-          console.log('🔄 [useProject] Forçando atualização do activeProject:', newActive.name);
-        }
-      }
-      // Delay para garantir propagação do estado
-      await new Promise(resolve => setTimeout(resolve, 300));
     } else {
       console.error('❌ Erro ao alterar projeto ativo:', result.error);
       toast.error(result.error || 'Erro ao alterar projeto');
