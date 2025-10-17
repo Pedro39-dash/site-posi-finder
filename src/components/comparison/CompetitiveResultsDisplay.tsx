@@ -388,6 +388,22 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
     }
   }, [allDomains, selectedDomains.length]);
 
+  // Auto-refresh when analysis is in progress
+  useEffect(() => {
+    if (!filteredAnalysisData?.analysis) return;
+    
+    const status = filteredAnalysisData.analysis.status;
+    
+    if (status === 'pending' || status === 'analyzing') {
+      console.log('Auto-refreshing analysis status...');
+      const interval = setInterval(() => {
+        refresh();
+      }, 10000); // Check every 10 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [filteredAnalysisData?.analysis?.status, refresh]);
+
   return (
     <div>
       <HookErrorBoundary>
@@ -446,8 +462,40 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
           </Alert>
         )}
 
+        {/* Analysis Failed State */}
+        {!loading && !error && filteredAnalysisData && 
+         filteredAnalysisData.analysis?.status === 'failed' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={onBackToForm}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+            </div>
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-2">A análise competitiva falhou</p>
+                {filteredAnalysisData.analysis.metadata?.error && (
+                  <p className="text-sm mb-4">{filteredAnalysisData.analysis.metadata.error}</p>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button variant="outline" size="sm" onClick={onBackToForm}>
+                    Nova Análise
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={refresh}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Tentar Novamente
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         {/* Analysis In Progress State */}
-        {!loading && !error && filteredAnalysisData && filteredAnalysisData.analysis?.status !== 'completed' && (
+        {!loading && !error && filteredAnalysisData && 
+         ['pending', 'analyzing'].includes(filteredAnalysisData.analysis?.status || '') && (
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={onBackToForm}>
@@ -456,9 +504,19 @@ const CompetitiveResultsDisplay: React.FC<CompetitiveResultsDisplayProps> = memo
               </Button>
             </div>
             <Alert>
-              <AlertTriangle className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4 animate-spin" />
               <AlertDescription>
-                A análise ainda está em progresso. Por favor, aguarde alguns minutos.
+                <p className="font-medium">A análise está em progresso</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Processando {filteredAnalysisData.analysis?.total_keywords || 0} palavras-chave...
+                </p>
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto mt-2" 
+                  onClick={refresh}
+                >
+                  Atualizar status
+                </Button>
               </AlertDescription>
             </Alert>
           </div>
