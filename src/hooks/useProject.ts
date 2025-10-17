@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ProjectService, Project } from '@/services/projectService';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -49,7 +49,7 @@ export const useProject = () => {
     loadProjects();
   }, [loadProjects]);
 
-  const createProject = async (projectData: {
+  const createProject = useCallback(async (projectData: {
     name: string;
     domain: string;
     market_segment?: string;
@@ -67,9 +67,9 @@ export const useProject = () => {
       toast.error(result.error || 'Erro ao criar projeto');
     }
     return result;
-  };
+  }, [loadProjects]);
 
-  const updateProject = async (projectId: string, updates: Partial<Project>) => {
+  const updateProject = useCallback(async (projectId: string, updates: Partial<Project>) => {
     console.log('📝 Atualizando projeto:', projectId, updates);
     const result = await ProjectService.updateProject(projectId, updates);
     if (result.success) {
@@ -81,32 +81,31 @@ export const useProject = () => {
       toast.error(result.error || 'Erro ao atualizar projeto');
     }
     return result;
-  };
+  }, [loadProjects]);
 
-  const setActiveProjectById = async (projectId: string) => {
+  const setActiveProjectById = useCallback(async (projectId: string) => {
     console.log('🔄 Alterando projeto ativo para:', projectId);
     const result = await ProjectService.setActiveProject(projectId);
     if (result.success) {
       console.log('✅ Projeto ativo alterado com sucesso');
       toast.success('Projeto alterado com sucesso!');
-      // Recarregar projetos apenas uma vez
       await loadProjects();
     } else {
       console.error('❌ Erro ao alterar projeto ativo:', result.error);
       toast.error(result.error || 'Erro ao alterar projeto');
     }
     return result;
-  };
+  }, [loadProjects]);
 
-  const deleteProject = async (projectId: string) => {
+  const deleteProject = useCallback(async (projectId: string) => {
     const result = await ProjectService.deleteProject(projectId);
     if (result.success) {
       await loadProjects();
     }
     return result;
-  };
+  }, [loadProjects]);
 
-  return {
+  return useMemo(() => ({
     projects,
     activeProject,
     isLoading,
@@ -115,5 +114,5 @@ export const useProject = () => {
     setActiveProject: setActiveProjectById,
     deleteProject,
     refreshProjects: loadProjects
-  };
+  }), [projects, activeProject, isLoading, createProject, updateProject, setActiveProjectById, deleteProject, loadProjects]);
 };
