@@ -11,76 +11,11 @@ export class ContentExtractionService {
   
   /**
    * Extract content from a domain using web scraping
+   * Note: Direct fetching from browser is blocked by CORS, so we return fallback
    */
   static async extractDomainContent(domain: string): Promise<ExtractedContent> {
-    try {
-      const url = domain.startsWith('http') ? domain : `https://${domain}`;
-      
-      // Fetch the page content directly
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const html = await response.text();
-      
-      // Extract title
-      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      const title = titleMatch ? titleMatch[1].trim() : '';
-      
-      // Extract meta description
-      const metaDescMatch = html.match(/<meta[^>]+name=['"]description['"][^>]+content=['"]([^'"]+)['"][^>]*>/i);
-      const metaDescription = metaDescMatch ? metaDescMatch[1].trim() : '';
-      
-      // Extract headings
-      const headingMatches = html.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>/gi) || [];
-      const headings = headingMatches.map(h => {
-        const textMatch = h.match(/>([^<]+)</);
-        return textMatch ? textMatch[1].trim() : '';
-      }).filter(Boolean);
-      
-      // Extract body text (simplified)
-      const bodyMatch = html.match(/<body[^>]*>(.*?)<\/body>/is);
-      const bodyText = bodyMatch 
-        ? bodyMatch[1].replace(/<script[^>]*>.*?<\/script>/gis, '')
-                      .replace(/<style[^>]*>.*?<\/style>/gis, '')
-                      .replace(/<[^>]+>/g, ' ')
-                      .replace(/\s+/g, ' ')
-                      .trim()
-                      .slice(0, 1000)
-        : '';
-      
-      // Extract keywords from content
-      const keywords = this.extractKeywordsFromHTML(html);
-      
-      // Extract links
-      const linkMatches = html.match(/<a[^>]+href=['"]([^'"]+)['"][^>]*>/gi) || [];
-      const links = linkMatches
-        .map(link => {
-          const hrefMatch = link.match(/href=['"]([^'"]+)['"]/i);
-          return hrefMatch ? hrefMatch[1] : '';
-        })
-        .filter(link => link.startsWith('http'))
-        .slice(0, 20);
-      
-      return {
-        title,
-        metaDescription,
-        headings: headings.slice(0, 10),
-        bodyText,
-        keywords: keywords.slice(0, 15),
-        links
-      };
-    } catch (error) {
-      console.error('Error extracting domain content:', error);
-      return this.getFallbackContent(domain);
-    }
+    // CORS blocks direct fetching from browser, return fallback immediately
+    return this.getFallbackContent(domain);
   }
   
   /**
