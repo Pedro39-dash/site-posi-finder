@@ -16,20 +16,66 @@ export class ContentExtractionService {
     try {
       const url = domain.startsWith('http') ? domain : `https://${domain}`;
       
-      // Use Supabase edge function for web scraping
-      const { data, error } = await supabase.functions.invoke('web-scraper', {
-        body: { url, extract_keywords: true }
+      // Fetch the page content directly
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
       });
       
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const html = await response.text();
+      
+      // Extract title
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      const title = titleMatch ? titleMatch[1].trim() : '';
+      
+      // Extract meta description
+      const metaDescMatch = html.match(/<meta[^>]+name=['"]description['"][^>]+content=['"]([^'"]+)['"][^>]*>/i);
+      const metaDescription = metaDescMatch ? metaDescMatch[1].trim() : '';
+      
+      // Extract headings
+      const headingMatches = html.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>/gi) || [];
+      const headings = headingMatches.map(h => {
+        const textMatch = h.match(/>([^<]+)</);
+        return textMatch ? textMatch[1].trim() : '';
+      }).filter(Boolean);
+      
+      // Extract body text (simplified)
+      const bodyMatch = html.match(/<body[^>]*>(.*?)<\/body>/is);
+      const bodyText = bodyMatch 
+        ? bodyMatch[1].replace(/<script[^>]*>.*?<\/script>/gis, '')
+                      .replace(/<style[^>]*>.*?<\/style>/gis, '')
+                      .replace(/<[^>]+>/g, ' ')
+                      .replace(/\s+/g, ' ')
+                      .trim()
+                      .slice(0, 1000)
+        : '';
+      
+      // Extract keywords from content
+      const keywords = this.extractKeywordsFromHTML(html);
+      
+      // Extract links
+      const linkMatches = html.match(/<a[^>]+href=['"]([^'"]+)['"][^>]*>/gi) || [];
+      const links = linkMatches
+        .map(link => {
+          const hrefMatch = link.match(/href=['"]([^'"]+)['"]/i);
+          return hrefMatch ? hrefMatch[1] : '';
+        })
+        .filter(link => link.startsWith('http'))
+        .slice(0, 20);
       
       return {
-        title: data.title || '',
-        metaDescription: data.meta_description || '',
-        headings: data.headings || [],
-        bodyText: data.body_text || '',
-        keywords: data.keywords || [],
-        links: data.links || []
+        title,
+        metaDescription,
+        headings: headings.slice(0, 10),
+        bodyText,
+        keywords: keywords.slice(0, 15),
+        links
       };
     } catch (error) {
       console.error('Error extracting domain content:', error);
@@ -191,6 +237,3 @@ export class ContentExtractionService {
     };
   }
 }
-
-// Add missing supabase import
-import { supabase } from '@/integrations/supabase/client';
