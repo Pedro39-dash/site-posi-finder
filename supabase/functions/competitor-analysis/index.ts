@@ -878,9 +878,9 @@ async function analyzeKeywordPositions(keyword: string, targetDomain: string): P
   console.log(`🔍 SERPAPI: Starting enhanced multi-page analysis for "${keyword}" targeting ${targetDomain}`);
   
   try {
-    const serpApiKey = Deno.env.get('SERPAPI_KEY');
+    const serpApiKey = Deno.env.get('SERPAPI_KEY_2');
     if (!serpApiKey) {
-      throw new Error('SERPAPI_KEY not configured');
+      throw new Error('SERPAPI_KEY_2 not configured');
     }
 
     // 🚀 NEW: Multi-page search for more comprehensive competitor discovery
