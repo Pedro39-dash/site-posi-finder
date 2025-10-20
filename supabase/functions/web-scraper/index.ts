@@ -51,16 +51,15 @@ serve(async (req) => {
       });
     }
 
-    // Handle suggestions request using SerpAPI with automatic key rotation
+    // Handle suggestions request using SerpAPI
     if (type === 'suggestions') {
-      const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
-      const SERPAPI_KEY_2 = Deno.env.get('SERPAPI_KEY_2');
+      const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY_2');
       
-      if (!SERPAPI_KEY && !SERPAPI_KEY_2) {
+      if (!SERPAPI_KEY) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'No SERPAPI_KEY configured',
+            error: 'SERPAPI_KEY_2 not configured',
           }),
           { 
             status: 500, 
@@ -69,51 +68,65 @@ serve(async (req) => {
         );
       }
 
-      // Try primary key first, fallback to secondary if rate limited
-      const apiKeys = [SERPAPI_KEY, SERPAPI_KEY_2].filter(Boolean);
-      let serpData = null;
-      let lastError = null;
+      const serpApiUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(keyword)}&api_key=${SERPAPI_KEY}&gl=br&hl=pt`;
       
-      for (let i = 0; i < apiKeys.length; i++) {
-        const apiKey = apiKeys[i];
-        const serpApiUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(keyword)}&api_key=${apiKey}&gl=br&hl=pt`;
+      console.log(`Calling SerpAPI for suggestions:`, keyword);
+      
+      let serpData = null;
+      
+      try {
+        const serpResponse = await fetch(serpApiUrl);
         
-        console.log(`Calling SerpAPI for suggestions with key ${i + 1}:`, keyword);
-        
-        try {
-          const serpResponse = await fetch(serpApiUrl);
-          
-          if (serpResponse.ok) {
-            serpData = await serpResponse.json();
-            console.log(`✅ SerpAPI successful with key ${i + 1}`);
-            break; // Success, stop trying other keys
-          } else if (serpResponse.status === 429) {
-            console.warn(`⚠️ Rate limit reached for key ${i + 1}, trying next key...`);
-            lastError = { status: 429, message: 'Rate limit exceeded' };
-            continue; // Try next key
-          } else {
-            console.error(`❌ SerpAPI error with key ${i + 1}:`, serpResponse.status);
-            lastError = { status: serpResponse.status, message: `Request failed: ${serpResponse.status}` };
-            break; // Other error, don't try next key
-          }
-        } catch (error) {
-          console.error(`❌ Exception calling SerpAPI with key ${i + 1}:`, error);
-          lastError = { status: 500, message: error.message };
-          continue; // Try next key
+        if (serpResponse.ok) {
+          serpData = await serpResponse.json();
+          console.log(`✅ SerpAPI successful`);
+        } else if (serpResponse.status === 429) {
+          console.warn(`⚠️ Rate limit reached`);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Rate limit atingido. Tente novamente em alguns minutos.',
+            }),
+            { 
+              status: 429, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        } else {
+          console.error(`❌ SerpAPI error:`, serpResponse.status);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `SerpAPI request failed: ${serpResponse.status}`,
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
         }
+      } catch (error) {
+        console.error(`❌ Exception calling SerpAPI:`, error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: error.message || 'Unknown error',
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
       }
       
-      // If all keys failed, return error
       if (!serpData) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: lastError?.status === 429 
-              ? 'Todas as chaves da SerpAPI atingiram o limite. Tente novamente em alguns minutos.'
-              : `SerpAPI request failed: ${lastError?.message || 'Unknown error'}`,
+            error: 'No data returned from SerpAPI',
           }),
           { 
-            status: lastError?.status === 429 ? 429 : 500, 
+            status: 500, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
