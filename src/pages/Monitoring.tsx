@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PeriodSelector, PeriodOption } from '@/components/monitoring/filters/PeriodSelector';
 import { KeywordStatusNotifications } from '@/components/notifications/KeywordStatusNotifications';
 import { KeywordRelevance } from '@/services/keywordRelevanceService';
+import { RealtimeRankingService } from '@/services/realtimeRankingService';
 
 const Monitoring = () => {
   const [rankings, setRankings] = useState<KeywordRanking[]>([]);
@@ -67,6 +68,12 @@ const Monitoring = () => {
       if (result.success) {
         console.log('✅ [loadRankings] Atualizando estado com', result.rankings?.length || 0, 'rankings');
         setRankings(result.rankings || []);
+        
+        // Se for período "today" e houver keywords, fazer verificação automática via SerpAPI
+        if (selectedPeriod === 'today' && result.rankings && result.rankings.length > 0) {
+          console.log('🚀 [loadRankings] Período "today" detectado, iniciando verificação automática via SerpAPI');
+          checkRealtimePositions(result.rankings);
+        }
       }
     } catch (error) {
       console.error('❌ [loadRankings] Error:', error);
@@ -75,6 +82,43 @@ const Monitoring = () => {
     }
   };
 
+
+  const checkRealtimePositions = async (rankingsToCheck: KeywordRanking[]) => {
+    if (!activeProject || rankingsToCheck.length === 0) return;
+    
+    try {
+      const keywords = rankingsToCheck.map(r => r.keyword);
+      const targetDomain = activeProject.domain;
+      
+      console.log(`🔍 [checkRealtimePositions] Verificando ${keywords.length} keywords via SerpAPI`);
+      
+      await RealtimeRankingService.checkKeywordsRealtime(
+        activeProject.id,
+        keywords,
+        targetDomain
+      );
+      
+      console.log('✅ [checkRealtimePositions] Verificação concluída, recarregando rankings');
+      
+      // Recarregar rankings após verificação
+      const result = await RankingService.getProjectRankings(activeProject.id, selectedPeriod);
+      if (result.success) {
+        setRankings(result.rankings || []);
+      }
+      
+      toast({
+        title: "Posições atualizadas",
+        description: `${keywords.length} keywords verificadas em tempo real via SerpAPI`
+      });
+    } catch (error) {
+      console.error('❌ [checkRealtimePositions] Erro:', error);
+      toast({
+        title: "Erro na verificação",
+        description: "Falha ao buscar posições em tempo real",
+        variant: "destructive"
+      });
+    }
+  };
 
   const loadIntegrations = async () => {
     if (!activeProject) return;
