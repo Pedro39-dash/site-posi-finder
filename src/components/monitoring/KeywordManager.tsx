@@ -445,6 +445,16 @@ const filteredRankings = useMemo(() => {
       }
     );
 
+console.group('🐛 [DEBUG] Estado antes de renderizar');
+console.log('projectId:', projectId);
+console.log('filteredRankings.length:', filteredRankings.length);
+console.log('activeRankings.length:', activeRankings.length);
+console.log('displayedActiveRankings.length:', displayedActiveRankings.length);
+console.log('displayedActiveRankings:', displayedActiveRankings);
+console.log('Condição filteredRankings === 0:', filteredRankings.length === 0);
+console.log('Condição activeRankings > 0:', activeRankings.length > 0);
+console.groupEnd();
+
     // Dispara atualização no componente pai (sem argumento)
     if (typeof onRankingsUpdate === 'function') {
       onRankingsUpdate();
@@ -731,4 +741,89 @@ const filteredRankings = useMemo(() => {
       </CardContent>
     </Card>
   </TooltipProvider>;
+  // SUBSTITUA O CARD PARA REMOVER O FUNDO VERMELHO:
+return <TooltipProvider>
+  <Card> {/* ✅ Removido bg-red-600 */}
+    <CardHeader>
+      {/* ... resto do código ... */}
+    </CardHeader>
+    <CardContent>
+      {/* ADICIONE ESTE DEBUG VISUAL: */}
+      <div className="mb-4 p-4 bg-yellow-100 border-2 border-yellow-500 rounded">
+        <p><strong>🐛 DEBUG:</strong></p>
+        <p>filteredRankings: {filteredRankings.length}</p>
+        <p>activeRankings: {activeRankings.length}</p>
+        <p>displayedActiveRankings: {displayedActiveRankings.length}</p>
+        <p>Keywords: {displayedActiveRankings.map(r => r.keyword).join(', ')}</p>
+      </div>
+
+      {filteredRankings.length === 0 ? (
+        <div className="text-center py-12 bg-blue-100">
+          <p>❌ ENTRANDO NA CONDIÇÃO DE "SEM KEYWORDS"</p>
+          <TrendingUp className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Nenhuma Keyword Monitorada</h3>
+          {/* ... resto ... */}
+        </div>
+      ) : (
+        <div className="space-y-6 bg-green-100 p-4">
+          <p>✅ ENTRANDO NA RENDERIZAÇÃO DA TABELA</p>
+          
+          {/* SEÇÃO: Keywords Ativas */}
+          {activeRankings.length > 0 ? (
+            <div className="bg-white p-4">
+              <p className="text-green-600 font-bold mb-2">
+                ✅ activeRankings.length {'>'} 0 - RENDERIZANDO TABELA
+              </p>
+              <h3 className="text-lg font-semibold mb-3">
+                Keywords Ativas
+                <Badge variant="secondary">{activeRankings.length}</Badge>
+              </h3>
+              
+              {displayedActiveRankings.length === 0 ? (
+                <div className="bg-red-100 p-4">
+                  <p>❌ displayedActiveRankings está VAZIO!</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <p className="text-green-600 mb-2">
+                    ✅ Renderizando {displayedActiveRankings.length} linhas
+                  </p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Palavra-chave</TableHead>
+                        <TableHead>Posição Atual</TableHead>
+                        {/* ... outras colunas ... */}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {displayedActiveRankings.map((ranking, index) => {
+                        console.log(`🔵 Renderizando linha ${index}:`, ranking.keyword);
+                        return (
+                          <TableRow key={ranking.id}>
+                            <TableCell>{ranking.keyword}</TableCell>
+                            <TableCell>
+                              <Badge>
+                                {ranking.current_position ? `#${ranking.current_position}` : "N/R"}
+                              </Badge>
+                            </TableCell>
+                            {/* ... outras células ... */}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-orange-100 p-4">
+              <p>⚠️ activeRankings.length === 0</p>
+            </div>
+          )}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+</TooltipProvider>;
 };
