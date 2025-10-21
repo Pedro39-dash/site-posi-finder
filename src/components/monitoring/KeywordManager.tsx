@@ -17,13 +17,14 @@ import { KeywordIntentBadge } from "./KeywordIntentBadge";
 import { PeriodSelector, PeriodOption } from "./filters/PeriodSelector";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { calculateKeywordRelevance, KeywordRelevance } from "@/services/keywordRelevanceService";
+import { calculateKeywordRelevance, KeywordRelevance, filterRelevantKeywords } from "@/services/keywordRelevanceService";
 import { PERIOD_LABELS } from "@/config/monitoringConfig";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RealtimeRankingService } from "@/services/realtimeRankingService";
-import { useProject } from "@/hooks/useProject";
+import { useProject } from "@/hooks/useProject"; 
+
 
 interface KeywordManagerProps {
   rankings: KeywordRanking[];
@@ -82,19 +83,42 @@ export const KeywordManager = ({
   // Usar relevância externa se disponível, senão usar interna
   const keywordRelevance = externalRelevance || internalRelevance;
   // Calcular relevância quando rankings, projectId ou período mudarem
-  useEffect(() => {
-    const calculateRelevance = async () => {
-      if (!projectId || rankings.length === 0) return;
+  // useEffect(() => {
+  //   const calculateRelevance = async () => {
+  //     if (!projectId || rankings.length === 0) return;
 
-      const keywords = rankings.map(r => r.keyword);
-      const relevance = await calculateKeywordRelevance(projectId, keywords, period);
+  //     const keywords = rankings.map(r => r.keyword);
+  //     const relevance = await calculateKeywordRelevance(projectId, keywords, period);
       
-      setInternalRelevance(relevance);
-      onRelevanceCalculated?.(relevance);
-    };
+  //     setInternalRelevance(relevance);
+  //     onRelevanceCalculated?.(relevance);
+  //   };
 
-    calculateRelevance();
-  }, [rankings, projectId, period]);
+  //   calculateRelevance();
+  // }, [rankings, projectId, period]);
+
+const [filteredKeywords, setFilteredKeywords] = useState<string[]>([]);
+
+useEffect(() => {
+  const calculateRelevance = async () => {
+    if (!projectId || rankings.length === 0) return;
+    const keywords = rankings.map(r => r.keyword);
+    const relevance = await calculateKeywordRelevance(projectId, keywords, period);
+
+    // AQUI: Filtra as keywords usando a função MODIFICADA
+    const filteredKeywords = filterRelevantKeywords(keywords, relevance, period);
+
+    // Use filteredKeywords para mostrar ou consultar (ex: armazenar em estado/variável)
+    setInternalRelevance(relevance);
+    setFilteredKeywords(filteredKeywords); // se usar um estado para isso
+    onRelevanceCalculated?.(relevance);
+  };
+  calculateRelevance();
+}, [rankings, projectId, period]);
+
+
+
+
 
   const filteredRankings = useMemo(() => {
     if (!projectId || projectId === '') {
@@ -143,20 +167,29 @@ export const KeywordManager = ({
   );
 
   // Filtrar rankings exibidos baseado no toggle
+  // const displayedActiveRankings = useMemo(() => {
+  //   if (showIrrelevantKeywords) {
+  //     console.log('🔍 [KeywordManager] Mostrando todas (incluindo irrelevantes):', activeRankings.length);
+  //     return activeRankings;
+  //   }
+  //   const relevant = activeRankings.filter(r => r.isRelevant);
+  //   console.log('🔍 [KeywordManager] Filtro de relevância:', {
+  //     totalActive: activeRankings.length,
+  //     relevantCount: relevant.length,
+  //     hiddenCount: activeRankings.length - relevant.length,
+  //     irrelevantKeywords: activeRankings.filter(r => !r.isRelevant).map(r => r.keyword)
+  //   });
+  //   return relevant;
+  // }, [activeRankings, showIrrelevantKeywords]);
+
+
   const displayedActiveRankings = useMemo(() => {
-    if (showIrrelevantKeywords) {
-      console.log('🔍 [KeywordManager] Mostrando todas (incluindo irrelevantes):', activeRankings.length);
-      return activeRankings;
-    }
-    const relevant = activeRankings.filter(r => r.isRelevant);
-    console.log('🔍 [KeywordManager] Filtro de relevância:', {
-      totalActive: activeRankings.length,
-      relevantCount: relevant.length,
-      hiddenCount: activeRankings.length - relevant.length,
-      irrelevantKeywords: activeRankings.filter(r => !r.isRelevant).map(r => r.keyword)
-    });
-    return relevant;
-  }, [activeRankings, showIrrelevantKeywords]);
+  // Use as keywords filtradas — para 'today', vem todas!
+  const filteredKeywordSet = new Set(filteredKeywords);
+  const filtered = activeRankings.filter(r => filteredKeywordSet.has(r.keyword));
+  return filtered;
+}, [activeRankings, filteredKeywords]);
+
 
   // Contar keywords sem relevância
   const irrelevantCount = useMemo(() => 
