@@ -103,25 +103,18 @@ useEffect(() => {
   const calculateRelevance = async () => {
     if (!projectId || rankings.length === 0) return;
     const keywords = rankings.map(r => r.keyword);
+    console.log('VALOR DO PERÍODO:', period); // Verifique aqui!
     const relevance = await calculateKeywordRelevance(projectId, keywords, period);
-
-    const filtered = filterRelevantKeywords(keywords, relevance, period);
+    // const filtered = filterRelevantKeywords(keywords, relevance, period);
+    const filtered = period === "today" ? keywords : filterRelevantKeywords(keywords, relevance, period);
+    console.log('RETORNO filtroRelevantKeywords:', filtered);
+    console.log('filteredKeywords:', filteredKeywords);
     setFilteredKeywords(filtered);
-
-    // Debug:
-    console.log('Período:', period);
-    console.log('Todas keywords:', keywords);
-    console.log('Keywords filtradas:', filtered);
-
     setInternalRelevance(relevance);
     onRelevanceCalculated?.(relevance);
   };
   calculateRelevance();
 }, [rankings, projectId, period]);
-
-
-
-
 
   const filteredRankings = useMemo(() => {
     if (!projectId || projectId === '') {
@@ -185,14 +178,13 @@ useEffect(() => {
   //   return relevant;
   // }, [activeRankings, showIrrelevantKeywords]);
 
-
-  const displayedActiveRankings = useMemo(() => {
+const displayedActiveRankings = useMemo(() => {
   const filteredKeywordSet = new Set(filteredKeywords);
   const filtered = activeRankings.filter(r => filteredKeywordSet.has(r.keyword));
-  // Debug:
-  console.log('Rankings mostrados:', filtered);
+  console.log('DISPLAYED ativos:', filtered.map(r => r.keyword));
   return filtered;
 }, [activeRankings, filteredKeywords]);
+
 
 
   // Contar keywords sem relevância
