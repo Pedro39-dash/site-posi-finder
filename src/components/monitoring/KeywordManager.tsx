@@ -105,12 +105,15 @@ useEffect(() => {
     const keywords = rankings.map(r => r.keyword);
     const relevance = await calculateKeywordRelevance(projectId, keywords, period);
 
-    // AQUI: Filtra as keywords usando a função MODIFICADA
-    const filteredKeywords = filterRelevantKeywords(keywords, relevance, period);
+    const filtered = filterRelevantKeywords(keywords, relevance, period);
+    setFilteredKeywords(filtered);
 
-    // Use filteredKeywords para mostrar ou consultar (ex: armazenar em estado/variável)
+    // Debug:
+    console.log('Período:', period);
+    console.log('Todas keywords:', keywords);
+    console.log('Keywords filtradas:', filtered);
+
     setInternalRelevance(relevance);
-    setFilteredKeywords(filteredKeywords); // se usar um estado para isso
     onRelevanceCalculated?.(relevance);
   };
   calculateRelevance();
@@ -184,9 +187,10 @@ useEffect(() => {
 
 
   const displayedActiveRankings = useMemo(() => {
-  // Use as keywords filtradas — para 'today', vem todas!
   const filteredKeywordSet = new Set(filteredKeywords);
   const filtered = activeRankings.filter(r => filteredKeywordSet.has(r.keyword));
+  // Debug:
+  console.log('Rankings mostrados:', filtered);
   return filtered;
 }, [activeRankings, filteredKeywords]);
 
