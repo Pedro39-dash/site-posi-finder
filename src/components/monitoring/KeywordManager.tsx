@@ -427,6 +427,36 @@ const filteredRankings = useMemo(() => {
       setIsRealtimeCheck(false);
     }
   };
+const getRealtimeRankings = async () => {
+  try {
+    if (!projectId || filteredKeywords.length === 0 || !activeProject?.domain) {
+      console.log('[API][RealtimeRanking] Dados insuficientes para consulta');
+      return;
+    }
+
+    // A função retorna um array diretamente!
+    const dadosRetornados = await RealtimeRankingService.checkKeywordsRealtime(
+      projectId,
+      filteredKeywords,
+      activeProject.domain,
+      (current, total) => {
+        console.log(`[API][RealtimeRanking] Progresso: ${current}/${total} keywords verificadas`);
+      }
+    );
+
+    // Chame o callback SEM argumento para atualizar rankings no componente pai
+    if (typeof onRankingsUpdate === 'function') {
+      onRankingsUpdate(); // SEM parâmetro!
+      console.log('[API][RealtimeRanking] Solicitação de atualização enviada ao pai');
+    }
+
+  } catch (error) {
+    console.error('[API][RealtimeRanking] Erro ao consultar posições em tempo real:', error);
+  }
+};
+
+
+
 
   return <TooltipProvider>
     <Card className="bg-red-600">
