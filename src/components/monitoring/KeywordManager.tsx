@@ -100,57 +100,42 @@ export const KeywordManager = ({
 const [filteredKeywords, setFilteredKeywords] = useState<string[]>([]);
 
 useEffect(() => {
-  const calculateRelevance = async () => {
-    // Se não há projectId, limpa filteredKeywords
-    if (!projectId || projectId === '') {
-      setFilteredKeywords([]);
-      return;
-    }
+    const calculateRelevance = async () => {
+      if (!projectId || rankings.length === 0) return;
+      const keywords = rankings.map(r => r.keyword);
 
-    // Se não há rankings AINDA, aguarda (não limpa filteredKeywords)
-    if (rankings.length === 0) return;
+      console.group('%c[KEYWORD_MANAGER][UseEffect] Cálculo de relevância', 'color: blue; font-weight: bold;');
+      console.log('%c[PERIOD]', 'color: #5577aa', period);
+      console.log('%c[TODAS AS KEYWORDS]', 'color: #2288bb', keywords);
 
-    const keywords = rankings
-      .filter(r => r.project_id === projectId) // ✅ Filtra aqui também
-      .map(r => r.keyword);
+      const relevance = await calculateKeywordRelevance(projectId, keywords, period);
 
-    console.group('%c[KEYWORD_MANAGER][UseEffect] Cálculo de relevância', 'color: blue; font-weight: bold;');
-    console.log('%c[PERIOD]', 'color: #5577aa', period);
-    console.log('%c[TODAS AS KEYWORDS]', 'color: #2288bb', keywords);
+      // Teste manual sempre retorna todas para 'today'
+      const filtered = period === "today"
+        ? keywords
+        : filterRelevantKeywords(keywords, relevance, period);
 
-    const relevance = await calculateKeywordRelevance(projectId, keywords, period);
+      console.log('%c[FILTERED KEYWORDS]', 'color: green', filtered);
+      setFilteredKeywords(filtered);
 
-    // Para "today" OU se showIrrelevantKeywords estiver ativo, mostra todas
-    const filtered = period === "today"
-      ? keywords
-      : filterRelevantKeywords(keywords, relevance, period);
-
-    console.log('%c[FILTERED KEYWORDS]', 'color: green', filtered);
-    setFilteredKeywords(filtered);
-
-    setInternalRelevance(relevance);
-    onRelevanceCalculated?.(relevance);
-    console.groupEnd();
-  };
-  calculateRelevance();
-}, [rankings, projectId, period]);
+      setInternalRelevance(relevance);
+      onRelevanceCalculated?.(relevance);
+      console.groupEnd();
+    };
+    calculateRelevance();
+  }, [rankings, projectId, period]);
 
 const filteredRankings = useMemo(() => {
-  if (!projectId || projectId === '') {
-    console.log('%c[KEYWORD_MANAGER][filteredRankings] Sem projectId, retornando vazio', 'color: orange');
-    return [];
-  }
-  
-  const filtered = rankings.filter(r => r.project_id === projectId);
-  
-  console.group('%c[KEYWORD_MANAGER][filteredRankings] Filtro por projectId', 'color: orange');
-  console.log({ 
-    projectId, 
-    totalRankings: rankings.length, 
-    filteredCount: filtered.length, 
-    keywords: filtered.map(r => ({ keyword: r.keyword, project_id: r.project_id }))
-  });
-  console.groupEnd();
+    if (!projectId || projectId === '') {
+      console.log('%c[KEYWORD_MANAGER][filteredRankings] Sem projectId, retornando vazio', 'color: orange');
+      return [];
+    }
+    const filtered = rankings.filter(r => r.project_id === projectId);
+    console.groupCollapsed('%c[KEYWORD_MANAGER][filteredRankings] Filtro por projectId', 'color: orange');
+    console.log({ projectId, totalRankings: rankings.length, filteredCount: filtered.length, keywords: filtered.map(r => r.keyword) });
+    console.groupEnd();
+    return filtered;
+  }, [rankings, projectId]);
 
   // Enriquecer rankings com informações de relevância
   const enrichedRankings = useMemo<EnrichedRanking[]>(() => {
@@ -198,24 +183,13 @@ const filteredRankings = useMemo(() => {
   //   return relevant;
   // }, [activeRankings, showIrrelevantKeywords]);
 
-const displayedActiveRankings = useMemo(() => {
-  // Se não há filtro de relevância calculado ainda, mostra tudo
-  if (filteredKeywords.length === 0 && activeRankings.length > 0) {
-    console.log('%c[KEYWORD_MANAGER][displayedActiveRankings] Sem filtro, mostrando todas', 'color: orange');
-    return activeRankings;
-  }
+  const displayedActiveRankings = useMemo(() => {
+    const filteredKeywordSet = new Set(filteredKeywords);
+    const filtered = activeRankings.filter(r => filteredKeywordSet.has(r.keyword));
+    console.log('%c[KEYWORD_MANAGER][displayedActiveRankings] Rankings mostrados:', 'color: #66aa66', filtered.map(r => r.keyword));
+    return filtered;
+  }, [activeRankings, filteredKeywords]);
 
-  const filteredKeywordSet = new Set(filteredKeywords);
-  const filtered = activeRankings.filter(r => filteredKeywordSet.has(r.keyword));
-  
-  console.log('%c[KEYWORD_MANAGER][displayedActiveRankings] Rankings mostrados:', 'color: #66aa66', {
-    total: activeRankings.length,
-    filtered: filtered.length,
-    keywords: filtered.map(r => r.keyword)
-  });
-  
-  return filtered;
-}, [activeRankings, filteredKeywords]);
 
 
   // Contar keywords sem relevância
@@ -454,15 +428,33 @@ const displayedActiveRankings = useMemo(() => {
     }
   };
 
-  const displayedActiveRankingsWithToggle = useMemo(() => {
-  // Se toggle está ativo OU não há filtro calculado, mostra tudo
-  if (showIrrelevantKeywords || filteredKeywords.length === 0) {
-    return activeRankings;
-  }
+  const getRealtimeRankings = async () => {
+  try {
+    if (!projectId || filteredKeywords.length === 0 || !activeProject?.domain) {
+      console.log('[API][RealtimeRanking] Dados insuficientes para consulta');
+      return;
+    }
 
-  const filteredKeywordSet = new Set(filteredKeywords);
-  return activeRankings.filter(r => filteredKeywordSet.has(r.keyword));
-}, [activeRankings, filteredKeywords, showIrrelevantKeywords]);
+    // Chamada para a API de verificação de rankings em tempo real
+    await RealtimeRankingService.checkKeywordsRealtime(
+      projectId,
+      filteredKeywords,
+      activeProject.domain,
+      (current, total) => {
+        console.log(`[API][RealtimeRanking] Progresso: ${current}/${total} keywords verificadas`);
+      }
+    );
+
+    // Dispara atualização no componente pai (sem argumento)
+    if (typeof onRankingsUpdate === 'function') {
+      onRankingsUpdate();
+      console.log('[API][RealtimeRanking] Solicitação de atualização enviada ao pai');
+    }
+
+  } catch (error) {
+    console.error('[API][RealtimeRanking] Erro ao consultar posições em tempo real:', error);
+  }
+};
 
   return <TooltipProvider>
     <Card className="bg-red-600">
