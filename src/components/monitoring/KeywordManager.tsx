@@ -427,15 +427,16 @@ const filteredRankings = useMemo(() => {
       setIsRealtimeCheck(false);
     }
   };
-const getRealtimeRankings = async () => {
+
+  const getRealtimeRankings = async () => {
   try {
     if (!projectId || filteredKeywords.length === 0 || !activeProject?.domain) {
       console.log('[API][RealtimeRanking] Dados insuficientes para consulta');
       return;
     }
 
-    // A função retorna um array diretamente!
-    const dadosRetornados = await RealtimeRankingService.checkKeywordsRealtime(
+    // Chamada para a API de verificação de rankings em tempo real
+    await RealtimeRankingService.checkKeywordsRealtime(
       projectId,
       filteredKeywords,
       activeProject.domain,
@@ -444,9 +445,9 @@ const getRealtimeRankings = async () => {
       }
     );
 
-    // Chame o callback SEM argumento para atualizar rankings no componente pai
+    // Dispara atualização no componente pai (sem argumento)
     if (typeof onRankingsUpdate === 'function') {
-      onRankingsUpdate(); // SEM parâmetro!
+      onRankingsUpdate();
       console.log('[API][RealtimeRanking] Solicitação de atualização enviada ao pai');
     }
 
