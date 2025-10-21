@@ -204,10 +204,25 @@ export async function calculateKeywordRelevance(
 /**
  * Filtra apenas keywords relevantes para o período especificado
  */
+// export function filterRelevantKeywords(
+//   keywords: string[],
+//   relevanceMap: Map<string, KeywordRelevance>
+// ): string[] {
+//   return keywords.filter(keyword => {
+//     const relevance = relevanceMap.get(keyword);
+//     return relevance?.isRelevant !== false; // considera relevante se não houver info
+//   });
+// }
 export function filterRelevantKeywords(
   keywords: string[],
-  relevanceMap: Map<string, KeywordRelevance>
+  relevanceMap: Map<string, KeywordRelevance>,
+  currentPeriod: PeriodOption // adicione esse parâmetro!
 ): string[] {
+  if (currentPeriod === 'today') {
+    // No tempo real (hoje), sempre mostra todas as keywords (buscar posição via API)
+    return keywords;
+  }
+  // No restante dos períodos, filtra normalmente por relevância
   return keywords.filter(keyword => {
     const relevance = relevanceMap.get(keyword);
     return relevance?.isRelevant !== false; // considera relevante se não houver info
