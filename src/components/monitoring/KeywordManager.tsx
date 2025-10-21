@@ -100,34 +100,40 @@ export const KeywordManager = ({
 const [filteredKeywords, setFilteredKeywords] = useState<string[]>([]);
 
 useEffect(() => {
-  const calculateRelevance = async () => {
-    if (!projectId || rankings.length === 0) return;
-    const keywords = rankings.map(r => r.keyword);
-    console.log('VALOR DO PERÍODO:', period); // Verifique aqui!
-    const relevance = await calculateKeywordRelevance(projectId, keywords, period);
-    // const filtered = filterRelevantKeywords(keywords, relevance, period);
-    const filtered = period === "today" ? keywords : filterRelevantKeywords(keywords, relevance, period);
-    console.log('RETORNO filtroRelevantKeywords:', filtered);
-    console.log('filteredKeywords:', filteredKeywords);
-    setFilteredKeywords(filtered);
-    setInternalRelevance(relevance);
-    onRelevanceCalculated?.(relevance);
-  };
-  calculateRelevance();
-}, [rankings, projectId, period]);
+    const calculateRelevance = async () => {
+      if (!projectId || rankings.length === 0) return;
+      const keywords = rankings.map(r => r.keyword);
 
-  const filteredRankings = useMemo(() => {
+      console.group('%c[KEYWORD_MANAGER][UseEffect] Cálculo de relevância', 'color: blue; font-weight: bold;');
+      console.log('%c[PERIOD]', 'color: #5577aa', period);
+      console.log('%c[TODAS AS KEYWORDS]', 'color: #2288bb', keywords);
+
+      const relevance = await calculateKeywordRelevance(projectId, keywords, period);
+
+      // Teste manual sempre retorna todas para 'today'
+      const filtered = period === "today"
+        ? keywords
+        : filterRelevantKeywords(keywords, relevance, period);
+
+      console.log('%c[FILTERED KEYWORDS]', 'color: green', filtered);
+      setFilteredKeywords(filtered);
+
+      setInternalRelevance(relevance);
+      onRelevanceCalculated?.(relevance);
+      console.groupEnd();
+    };
+    calculateRelevance();
+  }, [rankings, projectId, period]);
+
+const filteredRankings = useMemo(() => {
     if (!projectId || projectId === '') {
-      console.log('🔍 [KeywordManager] Sem projectId, retornando vazio');
+      console.log('%c[KEYWORD_MANAGER][filteredRankings] Sem projectId, retornando vazio', 'color: orange');
       return [];
     }
     const filtered = rankings.filter(r => r.project_id === projectId);
-    console.log('🔍 [KeywordManager] Filtro por projectId:', {
-      projectId,
-      totalRankings: rankings.length,
-      filteredCount: filtered.length,
-      keywords: filtered.map(r => r.keyword)
-    });
+    console.groupCollapsed('%c[KEYWORD_MANAGER][filteredRankings] Filtro por projectId', 'color: orange');
+    console.log({ projectId, totalRankings: rankings.length, filteredCount: filtered.length, keywords: filtered.map(r => r.keyword) });
+    console.groupEnd();
     return filtered;
   }, [rankings, projectId]);
 
@@ -149,11 +155,7 @@ useEffect(() => {
   // Separar keywords ativas e inativas
   const activeRankings = useMemo(() => {
     const active = enrichedRankings.filter(r => !r.tracking_status || r.tracking_status === 'active');
-    console.log('🔍 [KeywordManager] Separação ativo/inativo:', {
-      totalEnriched: enrichedRankings.length,
-      activeCount: active.length,
-      activeKeywords: active.map(r => r.keyword)
-    });
+    console.log('%c[KEYWORD_MANAGER][activeRankings] Ativas:', 'color: #bb77aa', active.map(r => r.keyword));
     return active;
   }, [enrichedRankings]);
   
@@ -161,6 +163,9 @@ useEffect(() => {
     enrichedRankings.filter(r => r.tracking_status === 'inactive' || r.tracking_status === 'missing'),
     [enrichedRankings]
   );
+
+
+
 
   // Filtrar rankings exibidos baseado no toggle
   // const displayedActiveRankings = useMemo(() => {
@@ -178,12 +183,12 @@ useEffect(() => {
   //   return relevant;
   // }, [activeRankings, showIrrelevantKeywords]);
 
-const displayedActiveRankings = useMemo(() => {
-  const filteredKeywordSet = new Set(filteredKeywords);
-  const filtered = activeRankings.filter(r => filteredKeywordSet.has(r.keyword));
-  console.log('DISPLAYED ativos:', filtered.map(r => r.keyword));
-  return filtered;
-}, [activeRankings, filteredKeywords]);
+  const displayedActiveRankings = useMemo(() => {
+    const filteredKeywordSet = new Set(filteredKeywords);
+    const filtered = activeRankings.filter(r => filteredKeywordSet.has(r.keyword));
+    console.log('%c[KEYWORD_MANAGER][displayedActiveRankings] Rankings mostrados:', 'color: #66aa66', filtered.map(r => r.keyword));
+    return filtered;
+  }, [activeRankings, filteredKeywords]);
 
 
 
