@@ -456,15 +456,6 @@ const filteredRankings = useMemo(() => {
   }
 };
 
-useEffect(() => {
-  if (period === "today") {
-    getRealtimeRankings();
-  }
-}, [period, projectId, filteredKeywords, activeProject]);
-
-
-
-
   return <TooltipProvider>
     <Card className="bg-red-600">
       <CardHeader>
