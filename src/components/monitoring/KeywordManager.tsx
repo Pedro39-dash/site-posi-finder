@@ -456,6 +456,12 @@ const filteredRankings = useMemo(() => {
   }
 };
 
+useEffect(() => {
+  if (period === "today") {
+    getRealtimeRankings();
+  }
+}, [period, projectId, filteredKeywords, activeProject]);
+
 
 
 
