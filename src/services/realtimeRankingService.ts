@@ -111,19 +111,9 @@ export const RealtimeRankingService = {
           previousPosition: null,
           change: null,
           checkedAt: new Date().toISOString()
-          
-          console.log(`[REALTIME][${keyword}] Result final para push:`, {
-            keyword,
-            position: newPosition,
-            url: serpResult.url,
-            previousPosition,
-            change
-          });
         });
       }
     }
-
-    console.log(`🎉 Verificação em tempo real concluída: ${results.length} keywords`);
     return results;
     console.log("🎉 Verificação em tempo real concluída: resultados =>", results);
   }
