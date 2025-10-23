@@ -436,7 +436,27 @@ export class RankingService {
       };
     }
   }
+  static async getTodayKeywordPosition(projectId: string, keyword: string): Promise<{position: number, rankingId: string} | null> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
 
+    const { data, error } = await supabase
+      .from('rankinghistory')
+      .select('position, recordedat, keywordrankingid')
+      .eq('projectid', projectId)
+      .eq('keyword', keyword)
+      .gte('recordedat', todayStart.toISOString())
+      .lte('recordedat', todayEnd.toISOString())
+      .order('recordedat', { ascending: false }); // pega o mais recente do dia
+
+    if (error) {
+      console.error('Erro ao buscar posição de hoje:', error);
+      return null;
+    }
+    return data?.length ? { position: data[0].position, rankingId: data[0].keywordrankingid } : null;
+  }
   // ================ RANKING HISTORY ================
   
   static async getRankingHistory(

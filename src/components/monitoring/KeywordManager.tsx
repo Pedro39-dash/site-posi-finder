@@ -383,50 +383,110 @@ const filteredRankings = useMemo(() => {
     }
   };
 
+  // const handleRealtimeCheck = async () => {
+  //   if (!projectId || !activeProject || displayedActiveRankings.length === 0) {
+  //     toast({
+  //       title: "Erro",
+  //       description: "Selecione um projeto e adicione keywords primeiro",
+  //       variant: "destructive"
+  //     });
+  //     return;
+  //   }
+    
+  //   setIsRealtimeCheck(true);
+  //   try {
+  //     const keywords = displayedActiveRankings.map(r => r.keyword);
+  //     const targetDomain = activeProject.domain;
+      
+  //     console.log(`🚀 Iniciando verificação em tempo real de ${keywords.length} keywords...`);
+      
+  //     await RealtimeRankingService.checkKeywordsRealtime(
+  //       projectId,
+  //       keywords,
+  //       targetDomain,
+  //       (current, total) => {
+  //         console.log(`⏳ Progresso: ${current}/${total} keywords verificadas`);
+  //       }
+  //     );
+      
+  //     toast({
+  //       title: "Verificação concluída",
+  //       description: `${keywords.length} palavras-chave atualizadas via SerpAPI`
+  //     });
+      
+  //     // Recarregar rankings
+  //     onRankingsUpdate();
+  //   } catch (error) {
+  //     console.error('❌ Erro na verificação em tempo real:', error);
+  //     toast({
+  //       title: "Erro na verificação",
+  //       description: "Falha ao buscar posições em tempo real",
+  //       variant: "destructive"
+  //     });
+  //   } finally {
+  //     setIsRealtimeCheck(false);
+  //   }
+  // };
   const handleRealtimeCheck = async () => {
-    if (!projectId || !activeProject || displayedActiveRankings.length === 0) {
+  if (!projectId || !activeProject || displayedActiveRankings.length === 0) {
+    toast({
+      title: "Erro",
+      description: "Selecione um projeto e adicione keywords primeiro",
+      variant: "destructive"
+    });
+    return;
+  }
+  
+  setIsRealtimeCheck(true);
+  try {
+    const keywords = displayedActiveRankings.map(r => r.keyword);
+    const targetDomain = activeProject.domain;
+
+    // Checa no banco (paralelo para todas as keywords)
+    const positionsBanco = await Promise.all(
+      keywords.map(kw => RankingService.getTodayKeywordPosition(projectId, kw))
+    );
+
+    // Separa as keywords que não têm posição salva hoje
+    const keywordsSemPosicaoHoje = keywords.filter((kw, idx) => !positionsBanco[idx]);
+    
+    if (keywordsSemPosicaoHoje.length === 0) {
       toast({
-        title: "Erro",
-        description: "Selecione um projeto e adicione keywords primeiro",
-        variant: "destructive"
+        title: "Verificação não necessária",
+        description: "Todas as keywords já possuem posição registrada hoje.",
       });
+      setIsRealtimeCheck(false);
       return;
     }
-    
-    setIsRealtimeCheck(true);
-    try {
-      const keywords = displayedActiveRankings.map(r => r.keyword);
-      const targetDomain = activeProject.domain;
-      
-      console.log(`🚀 Iniciando verificação em tempo real de ${keywords.length} keywords...`);
-      
-      await RealtimeRankingService.checkKeywordsRealtime(
-        projectId,
-        keywords,
-        targetDomain,
-        (current, total) => {
-          console.log(`⏳ Progresso: ${current}/${total} keywords verificadas`);
-        }
-      );
-      
-      toast({
-        title: "Verificação concluída",
-        description: `${keywords.length} palavras-chave atualizadas via SerpAPI`
-      });
-      
-      // Recarregar rankings
-      onRankingsUpdate();
-    } catch (error) {
-      console.error('❌ Erro na verificação em tempo real:', error);
-      toast({
-        title: "Erro na verificação",
-        description: "Falha ao buscar posições em tempo real",
-        variant: "destructive"
-      });
-    } finally {
-      setIsRealtimeCheck(false);
-    }
-  };
+
+    // Só consulta SerpAPI para as que faltam
+    await RealtimeRankingService.checkKeywordsRealtime(
+      projectId,
+      keywordsSemPosicaoHoje,
+      targetDomain,
+      (current, total) => {
+        console.log(`⏳ Progresso: ${current}/${total} keywords verificadas`);
+      }
+    );
+
+    toast({
+      title: "Verificação concluída",
+      description: `${keywordsSemPosicaoHoje.length} palavras-chave atualizadas via SerpAPI`
+    });
+
+    // Recarregar rankings
+    onRankingsUpdate();
+  } catch (error) {
+    console.error('❌ Erro na verificação em tempo real:', error);
+    toast({
+      title: "Erro na verificação",
+      description: "Falha ao buscar posições em tempo real",
+      variant: "destructive"
+    });
+  } finally {
+    setIsRealtimeCheck(false);
+  }
+};
 
   const getRealtimeRankings = async () => {
   try {
