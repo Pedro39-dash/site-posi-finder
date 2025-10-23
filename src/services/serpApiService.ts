@@ -60,7 +60,8 @@ export const SerpApiService = {
           type: 'serp_check'
         }
       });
-
+      // -> Adicione aqui o console.log para inspecionar o retorno RAW do servidor!
+      console.log('[SERPAPI][RAW RESPONSE]', data);
       if (error) throw error;
 
       return {
