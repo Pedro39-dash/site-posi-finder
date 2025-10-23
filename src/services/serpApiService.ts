@@ -42,7 +42,7 @@ export const SerpApiService = {
   /**
    * Check keyword position via SerpAPI
    */
-  async checkKeywordPosition(
+async checkKeywordPosition(
     keyword: string,
     targetDomain: string,
     location: string = 'Brazil',
@@ -61,12 +61,22 @@ export const SerpApiService = {
         }
       });
 
+      // COLOQUE ESTE BLOCO AQUI:
       if (error) throw error;
+
+      // Tenta pegar a posição do primeiro resultado orgânico (se existir)
+      let positionFromResults = null;
+      if (Array.isArray(data.results) && data.results.length > 0) {
+        // Se quiser filtrar por domínio, use:
+        // const match = data.results.find(r => r.url && r.url.includes(targetDomain));
+        // positionFromResults = match ? match.position : data.results[0].position;
+        positionFromResults = data.results[0].position;
+      }
 
       return {
         keyword,
-        position: data.position || null,
-        url: data.url || null,
+        position: positionFromResults,
+        url: data.results[0]?.url || null,
         competitors: data.competitors || [],
         relatedSearches: data.relatedSearches || [],
         serpFeatures: data.serpFeatures || []
