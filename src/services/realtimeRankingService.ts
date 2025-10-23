@@ -35,6 +35,7 @@ export const RealtimeRankingService = {
           'Brazil',
           'desktop'
         );
+        console.log(`[REALTIME][${keyword}] Resposta completa do SerpApiService:`, serpResult);
 
         // 2. Buscar posição anterior do banco
         const { data: existingRanking } = await supabase
@@ -43,14 +44,16 @@ export const RealtimeRankingService = {
           .eq('project_id', projectId)
           .eq('keyword', keyword)
           .maybeSingle();
-
+        console.log(`[REALTIME][${keyword}] Ranking do banco:`, existingRanking);
         const previousPosition = existingRanking?.current_position || null;
         const newPosition = serpResult.position;
         const change = previousPosition && newPosition 
           ? previousPosition - newPosition 
           : null;
 
-        console.log(`📊 [${keyword}] Posição: ${newPosition} (anterior: ${previousPosition})`);
+        console.log(`[REALTIME][${keyword}] previousPosition:`, previousPosition, '| newPosition:', newPosition, '| change:', change);
+
+        console.log(`[REALTIME][${keyword}] Atualizando keyword_rankings...`);
 
         // 3. Atualizar keyword_rankings
         if (existingRanking) {
@@ -65,6 +68,7 @@ export const RealtimeRankingService = {
               last_seen_at: new Date().toISOString()
             })
             .eq('id', existingRanking.id);
+          console.log(`[REALTIME][${keyword}] keyword_rankings atualizado!`);
 
           // 4. Adicionar ao histórico (apenas se tiver posição)
           if (newPosition) {
@@ -107,11 +111,20 @@ export const RealtimeRankingService = {
           previousPosition: null,
           change: null,
           checkedAt: new Date().toISOString()
+          
+          console.log(`[REALTIME][${keyword}] Result final para push:`, {
+            keyword,
+            position: newPosition,
+            url: serpResult.url,
+            previousPosition,
+            change
+          });
         });
       }
     }
 
     console.log(`🎉 Verificação em tempo real concluída: ${results.length} keywords`);
     return results;
+    console.log("🎉 Verificação em tempo real concluída: resultados =>", results);
   }
 };

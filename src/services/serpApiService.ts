@@ -61,7 +61,7 @@ async checkKeywordPosition(
         }
       });
 
-      // COLOQUE ESTE BLOCO AQUI:
+      console.log('[SERPAPI][RAW RESPONSE]', data);
       if (error) throw error;
 
       // Tenta pegar a posição do primeiro resultado orgânico (se existir)
@@ -72,7 +72,7 @@ async checkKeywordPosition(
         // positionFromResults = match ? match.position : data.results[0].position;
         positionFromResults = data.results[0].position;
       }
-
+      console.log('[SERPAPI][DEDUZIDO][position]', positionFromResults, '[results]', data.results);
       return {
         keyword,
         position: positionFromResults,
