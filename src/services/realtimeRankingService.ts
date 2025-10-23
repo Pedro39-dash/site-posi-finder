@@ -115,6 +115,5 @@ export const RealtimeRankingService = {
       }
     }
     return results;
-    console.log("🎉 Verificação em tempo real concluída: resultados =>", results);
   }
 };
