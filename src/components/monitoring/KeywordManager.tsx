@@ -665,7 +665,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RealtimeRankingService } from "@/services/realtimeRankingService";
 import { useProject } from "@/hooks/useProject"; 
-import { KeywordDomainPositionChecker } from "@/monitoring/KeywordDomainPositionChecker";
+import { KeywordDomainPositionChecker } from "@/components/monitoring/KeywordDomainPositionChecker";
+
+
 
 
 interface KeywordManagerProps {
