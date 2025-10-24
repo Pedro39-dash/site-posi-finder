@@ -627,168 +627,18 @@ const filteredRankings = useMemo(() => {
           </div>
         </div>
       </CardHeader>
+     
       <CardContent>
-        {isSimulatedMode && <Alert className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
-            <FlaskConical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <AlertDescription className="text-amber-800 dark:text-amber-200">
-              <strong>Modo Teste Ativo:</strong> Os dados de posicionamento (posição, volume, tendência) são simulados. As keywords exibidas são suas keywords reais.
-            </AlertDescription>
-          </Alert>}
+      <h3 className="text-lg font-semibold mb-3">Posições atuais das Keywords Monitoradas:</h3>
+        <ul>
+          {displayedActiveRankings.map(ranking => (
+            <li key={ranking.id}>
+              <strong>{ranking.keyword}:</strong> {ranking.current_position ?? 'N/R'}
+            </li>
+          ))}
+        </ul>
+    </CardContent>
 
-
-        {filteredRankings.length === 0 ? <div className="text-center py-12">
-            <TrendingUp className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma Keyword Monitorada</h3>
-            <p className="text-muted-foreground mb-4">
-              Adicione palavras-chave para começar a monitorar suas posições nos resultados de busca
-            </p>
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Primeira Keyword
-            </Button>
-          </div> : <div className="space-y-6">
-            {/* SEÇÃO: Keywords Ativas */}
-            {activeRankings.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  Keywords Ativas
-                  <Badge variant="secondary">{activeRankings.length}</Badge>
-                </h3>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {visibleColumns.chart && <TableHead className="w-12 text-center">
-                            <TrendingUp className="h-4 w-4 mx-auto" />
-                          </TableHead>}
-                        {visibleColumns.intent && <TableHead className="w-[50px]">Int.</TableHead>}
-                        <TableHead>Palavra-chave</TableHead>
-                        {visibleColumns.previousPosition && <TableHead className="text-center">Posição Anterior</TableHead>}
-                        <TableHead className="text-center">Posição Atual</TableHead>
-                        <TableHead className="text-center">Diferença</TableHead>
-                        {visibleColumns.estimatedTraffic && <TableHead className="text-center">Tráfego Est.</TableHead>}
-                        {visibleColumns.url && <TableHead>URL</TableHead>}
-                        {visibleColumns.updated && <TableHead className="text-right">Atualizado</TableHead>}
-                        <TableHead className="text-right">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayedActiveRankings.map(ranking => {
-                        const trend = getPositionTrend(ranking);
-                        const isIrrelevant = !ranking.isRelevant;
-                        return <TableRow key={ranking.id} className={isIrrelevant ? 'opacity-50' : ''}>
-                            {visibleColumns.chart && <TableCell className="text-center">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div>
-                                      <Checkbox 
-                                        checked={selectedForChart.includes(ranking.keyword)} 
-                                        onCheckedChange={() => toggleChartSelection(ranking.keyword, ranking.isRelevant)}
-                                        disabled={isIrrelevant}
-                                      />
-                                    </div>
-                                  </TooltipTrigger>
-                                  {isIrrelevant && (
-                                    <TooltipContent>
-                                      Dados insuficientes para o período
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
-                              </TableCell>}
-                            {visibleColumns.intent && <TableCell>
-                                <KeywordIntentBadge keyword={ranking.keyword} />
-                              </TableCell>}
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                {ranking.keyword}
-                                {ranking.data_source === 'search_console' && <Badge variant="outline" className="text-xs">
-                                    GSC
-                                  </Badge>}
-                                {ranking.data_source === 'manual' && <Badge variant="outline" className="text-xs">
-                                    <Settings2 className="h-3 w-3 mr-1" />
-                                    Manual
-                                  </Badge>}
-                                {isIrrelevant && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                                        <AlertCircle className="h-3 w-3" />
-                                        Sem dados para {PERIOD_LABELS[period]}
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs">
-                                      <div className="text-xs space-y-1">
-                                        <p><strong>Total histórico:</strong> {ranking.totalDataPoints || 0} pontos</p>
-                                        <p><strong>No período atual:</strong> {ranking.dataPointsInPeriod || 0} pontos</p>
-                                        <p><strong>Última coleta:</strong> {ranking.daysSinceLastCollection || '?'} dias atrás</p>
-                                        <p className="text-muted-foreground mt-2">
-                                          Esta keyword precisa de mais dados recentes ou aguardar próxima sincronização do GSC
-                                        </p>
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
-                              </div>
-                            </TableCell>
-                            {visibleColumns.previousPosition && <TableCell className="text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Badge variant="outline">
-                                    {ranking.previous_position ? `#${ranking.previous_position}` : "N/R"}
-                                  </Badge>
-                                  {isSimulatedMode && ranking.data_source === 'simulated_overlay' && <Badge variant="outline" className="text-[10px] px-1 h-4 border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400">
-                                      SIM
-                                    </Badge>}
-                                </div>
-                              </TableCell>}
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <Badge variant={getPositionBadgeVariant(ranking.current_position)}>
-                                  {ranking.current_position ? `#${ranking.current_position}` : "N/R"}
-                                </Badge>
-                                {isSimulatedMode && ranking.data_source === 'simulated_overlay' && <Badge variant="outline" className="text-[10px] px-1 h-4 border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400">
-                                    SIM
-                                  </Badge>}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <div className={trend.color}>
-                                  {trend.icon}
-                                </div>
-                                {trend.change !== "0" && <span className={`text-xs font-medium ${trend.color}`}>
-                                    {trend.change}
-                                  </span>}
-                              </div>
-                            </TableCell>
-                            {visibleColumns.estimatedTraffic && <TableCell className="text-center font-medium">
-                                {calculateEstimatedTraffic(ranking).toLocaleString('pt-BR')}
-                              </TableCell>}
-                            {visibleColumns.url && <TableCell className="text-sm text-muted-foreground">
-                                {formatUrl(ranking.url)}
-                              </TableCell>}
-                            {visibleColumns.updated && <TableCell className="text-right text-sm text-muted-foreground">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {formatDistanceToNow(new Date(ranking.updated_at), {
-                                    addSuffix: true,
-                                    locale: ptBR
-                                  })}
-                                </div>
-                              </TableCell>}
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="sm" onClick={() => handleDeleteKeyword(ranking.id, ranking.keyword)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>;
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
-          </div>}
-      </CardContent>
     </Card>
   </TooltipProvider>;
 };
