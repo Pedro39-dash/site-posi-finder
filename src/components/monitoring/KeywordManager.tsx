@@ -665,6 +665,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RealtimeRankingService } from "@/services/realtimeRankingService";
 import { useProject } from "@/hooks/useProject"; 
+import { KeywordDomainPositionChecker } from "@/monitoring/KeywordDomainPositionChecker";
+
 
 interface KeywordManagerProps {
   rankings: KeywordRanking[];
@@ -900,6 +902,7 @@ export const KeywordManager = ({
       </CardContent>
     </Card>;
   }
+  <KeywordDomainPositionChecker />
 
   return <TooltipProvider>
     <Card className="bg-red-600">
