@@ -904,9 +904,9 @@ export const KeywordManager = ({
       </CardContent>
     </Card>;
   }
-  <KeywordDomainPositionChecker />
 
   return <TooltipProvider>
+    <KeywordDomainPositionChecker />
     <Card className="bg-red-600">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
