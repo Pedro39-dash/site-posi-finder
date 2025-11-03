@@ -23,7 +23,7 @@ import { ClientDashboard } from "@/components/dashboard/ClientDashboard";
 import { DisplayDashboard } from "@/components/dashboard/DisplayDashboard";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { 
-  getSeries,
+  getMultipleSeries,
   filterDataByPeriod, 
   calculateSummary,
   clearAllSavedData,
@@ -86,17 +86,25 @@ const Index = () => {
       const newSeries = new Map<string, SeriesData>();
       const newActive = new Set<string>();
       
-      // Gerar séries para todas as combinações
-      for (const kw of keywords) {
+      // Preparar requisições de todas as séries
+      const requests = keywords.flatMap(kw => {
         const domains = [mainDomain, ...competitors];
-        
-        for (const dom of domains) {
-          const id = getSeriesId(kw, dom);
-          const series = await getSeries(kw, dom);
-          newSeries.set(id, series);
-          newActive.add(id);
-        }
-      }
+        return domains.map((dom, idx) => ({
+          keyword: kw,
+          domain: dom,
+          isPrimary: idx === 0, // Primeiro domínio (mainDomain) é prioritário
+        }));
+      });
+      
+      // Gerar todas as séries de uma vez, garantindo posições únicas
+      const seriesArray = await getMultipleSeries(requests);
+      
+      // Armazenar no Map
+      seriesArray.forEach(series => {
+        const id = getSeriesId(series.keyword, series.domain);
+        newSeries.set(id, series);
+        newActive.add(id);
+      });
       
       setAllSeries(newSeries);
       setActiveSeries(newActive);

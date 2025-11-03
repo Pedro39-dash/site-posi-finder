@@ -164,10 +164,22 @@ export function listSavedSeries(): Array<{ keyword: string; domain: string }> {
 }
 
 /**
+ * Mapa global de posições ocupadas por data (para evitar duplicatas)
+ */
+interface OccupiedPositions {
+  [date: string]: Set<number>;
+}
+
+/**
  * Gera série completa de dados para 12 meses (365 dias)
  * Simula posições na SERP (1 = melhor, 100 = pior)
+ * Com garantia de posições únicas por data
  */
-async function generateRawData(keyword: string, domain: string): Promise<PerformanceDataPoint[]> {
+async function generateRawData(
+  keyword: string, 
+  domain: string,
+  occupiedPositions?: OccupiedPositions
+): Promise<PerformanceDataPoint[]> {
   const seed = await hashString(`${keyword}::${domain}`);
   const rng = new SeededRandom(seed);
 
@@ -185,6 +197,7 @@ async function generateRawData(keyword: string, domain: string): Promise<Perform
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
+    const dateKey = date.toISOString().split('T')[0];
     
     // Variação diária pequena (±1 a ±3 posições)
     const trendChange = trendDirection * trendStrength * (rng.next() > 0.7 ? 1 : 0);
@@ -196,10 +209,30 @@ async function generateRawData(keyword: string, domain: string): Promise<Perform
     currentPosition = Math.max(1, Math.min(100, currentPosition));
     
     // Arredondar para inteiro
-    const position = Math.round(currentPosition);
+    let position = Math.round(currentPosition);
+    
+    // Verificar se a posição já está ocupada neste dia
+    if (occupiedPositions && occupiedPositions[dateKey]) {
+      let attempts = 0;
+      const maxAttempts = 100;
+      
+      // Se a posição está ocupada, procurar a próxima livre
+      while (occupiedPositions[dateKey].has(position) && attempts < maxAttempts) {
+        // Tentar posições próximas alternadamente (±1, ±2, ±3...)
+        const offset = Math.ceil(attempts / 2) * (attempts % 2 === 0 ? 1 : -1);
+        position = Math.round(currentPosition) + offset;
+        
+        // Manter dentro dos limites
+        position = Math.max(1, Math.min(100, position));
+        attempts++;
+      }
+      
+      // Registrar a posição como ocupada
+      occupiedPositions[dateKey].add(position);
+    }
     
     data.push({
-      date: date.toISOString().split('T')[0],
+      date: dateKey,
       position: position,
       aggregationType: 'daily'
     });
@@ -213,17 +246,27 @@ async function generateRawData(keyword: string, domain: string): Promise<Perform
  */
 export async function getSeries(
   keyword: string,
-  domain: string
+  domain: string,
+  occupiedPositions?: OccupiedPositions
 ): Promise<SeriesData> {
   // Tentar carregar do cache
   const cached = loadSeriesFromStorage(keyword, domain);
   if (cached) {
+    // Se temos posições ocupadas, atualizar o registro com as posições desta série
+    if (occupiedPositions) {
+      cached.dailySeries.forEach(point => {
+        if (!occupiedPositions[point.date]) {
+          occupiedPositions[point.date] = new Set();
+        }
+        occupiedPositions[point.date].add(point.position);
+      });
+    }
     return cached;
   }
   
   // Gerar novos dados
   const seed = await hashString(`${keyword}::${domain}`);
-  const dailySeries = await generateRawData(keyword, domain);
+  const dailySeries = await generateRawData(keyword, domain, occupiedPositions);
   const color = colorFromHash(seed);
   
   const series: SeriesData = {
@@ -239,6 +282,32 @@ export async function getSeries(
   saveSeriesToStorage(series);
   
   return series;
+}
+
+/**
+ * Gera múltiplas séries com garantia de posições únicas
+ * Prioridade: domínio principal > outras palavras-chave > concorrentes
+ */
+export async function getMultipleSeries(
+  requests: Array<{ keyword: string; domain: string; isPrimary?: boolean }>
+): Promise<SeriesData[]> {
+  const occupiedPositions: OccupiedPositions = {};
+  const results: SeriesData[] = [];
+  
+  // Ordenar: primárias primeiro, depois o resto
+  const sorted = [...requests].sort((a, b) => {
+    if (a.isPrimary && !b.isPrimary) return -1;
+    if (!a.isPrimary && b.isPrimary) return 1;
+    return 0;
+  });
+  
+  // Gerar cada série sequencialmente, registrando posições ocupadas
+  for (const req of sorted) {
+    const series = await getSeries(req.keyword, req.domain, occupiedPositions);
+    results.push(series);
+  }
+  
+  return results;
 }
 
 /**
