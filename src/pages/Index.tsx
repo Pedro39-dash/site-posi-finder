@@ -1,53 +1,80 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { Search, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
 import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { ClientDashboard } from "@/components/dashboard/ClientDashboard";
 import { DisplayDashboard } from "@/components/dashboard/DisplayDashboard";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { 
-  generatePerformanceData, 
+  getSeries,
   filterDataByPeriod, 
   calculateSummary,
+  clearAllSavedData,
   PeriodFilter,
-  PerformanceDataPoint 
+  PerformanceDataPoint,
+  SeriesData
 } from "@/utils/keywordPerformanceSimulator";
 import { useToast } from "@/hooks/use-toast";
+import { KeywordManager } from "@/components/serp/KeywordManager";
+import { CompetitorManager } from "@/components/serp/CompetitorManager";
+import { SeriesLegend, SeriesItem } from "@/components/serp/SeriesLegend";
+import { SummaryCards, SeriesSummary } from "@/components/serp/SummaryCards";
 
 const Index = () => {
   const { user, isLoading, isAuthenticated } = useAuth();
   const { isAdmin, isClient, isDisplay, isLoading: roleLoading } = useRole();
   const { toast } = useToast();
   
-  // Estados para a busca de performance
-  const [keyword, setKeyword] = useState("");
-  const [domain, setDomain] = useState("");
+  // Estados principais
+  const [mainDomain, setMainDomain] = useState("");
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [competitors, setCompetitors] = useState<string[]>([]);
   const [period, setPeriod] = useState<PeriodFilter>("month");
-  const [fullData, setFullData] = useState<PerformanceDataPoint[]>([]);
-  const [filteredData, setFilteredData] = useState<PerformanceDataPoint[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  
+  // Estados de séries e visualização
+  const [allSeries, setAllSeries] = useState<Map<string, SeriesData>>(new Map());
+  const [activeSeries, setActiveSeries] = useState<Set<string>>(new Set());
+  const [selectedSummaryId, setSelectedSummaryId] = useState<string | undefined>();
 
-  // Atualizar dados filtrados quando o período mudar
-  useEffect(() => {
-    if (fullData.length > 0) {
-      const filtered = filterDataByPeriod(fullData, period);
-      setFilteredData(filtered);
-    }
-  }, [period, fullData]);
+  // Gerar ID único para série
+  const getSeriesId = (keyword: string, domain: string) => 
+    `${keyword.toLowerCase()}::${domain.toLowerCase()}`;
 
   // Função para buscar performance
   const handleSearch = async () => {
-    if (!keyword.trim() || !domain.trim()) {
+    if (keywords.length === 0 || !mainDomain.trim()) {
       toast({
         title: "Campos obrigatórios",
-        description: "Por favor, preencha palavra-chave e domínio.",
+        description: "Adicione pelo menos uma palavra-chave e informe o domínio principal.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalSeries = keywords.length * (1 + competitors.length);
+    if (totalSeries > 8) {
+      toast({
+        title: "Limite excedido",
+        description: "Máximo de 8 séries simultâneas (palavras-chave × domínios).",
         variant: "destructive",
       });
       return;
@@ -56,22 +83,28 @@ const Index = () => {
     setIsSearching(true);
     
     try {
-      // Simular delay de busca
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const newSeries = new Map<string, SeriesData>();
+      const newActive = new Set<string>();
       
-      // Gerar ou recuperar dados persistentes
-      const data = await generatePerformanceData(keyword.trim(), domain.trim());
-      setFullData(data);
+      // Gerar séries para todas as combinações
+      for (const kw of keywords) {
+        const domains = [mainDomain, ...competitors];
+        
+        for (const dom of domains) {
+          const id = getSeriesId(kw, dom);
+          const series = await getSeries(kw, dom);
+          newSeries.set(id, series);
+          newActive.add(id);
+        }
+      }
       
-      // Filtrar por período atual
-      const filtered = filterDataByPeriod(data, period);
-      setFilteredData(filtered);
-      
+      setAllSeries(newSeries);
+      setActiveSeries(newActive);
       setHasSearched(true);
       
       toast({
         title: "Dados carregados",
-        description: `Histórico de posições recuperado para "${keyword}" em ${domain}`,
+        description: `${newSeries.size} série(s) carregada(s) com sucesso`,
       });
     } catch (error) {
       toast({
@@ -86,12 +119,37 @@ const Index = () => {
 
   // Função para limpar busca
   const handleClear = () => {
-    setKeyword("");
-    setDomain("");
+    setMainDomain("");
+    setKeywords([]);
+    setCompetitors([]);
     setPeriod("month");
-    setFullData([]);
-    setFilteredData([]);
+    setAllSeries(new Map());
+    setActiveSeries(new Set());
     setHasSearched(false);
+    setSelectedSummaryId(undefined);
+  };
+
+  // Função para limpar dados salvos
+  const handleClearSavedData = () => {
+    clearAllSavedData();
+    handleClear();
+    toast({
+      title: "Dados limpos",
+      description: "Todas as simulações salvas foram removidas.",
+    });
+  };
+
+  // Toggle de série no gráfico
+  const handleToggleSeries = (id: string) => {
+    setActiveSeries(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   if (isLoading || roleLoading) {
@@ -117,8 +175,73 @@ const Index = () => {
     }
   }
 
-  // Calcular resumo
-  const summary = filteredData.length > 0 ? calculateSummary(filteredData) : null;
+  // Preparar dados do gráfico
+  const chartData = hasSearched ? (() => {
+    const activeSeriesArray = Array.from(activeSeries)
+      .map(id => allSeries.get(id))
+      .filter((s): s is SeriesData => s !== undefined);
+
+    if (activeSeriesArray.length === 0) return [];
+
+    // Filtrar e agregar cada série
+    const filtered = activeSeriesArray.map(series => ({
+      id: getSeriesId(series.keyword, series.domain),
+      data: filterDataByPeriod(series.dailySeries, period),
+      color: series.color,
+    }));
+
+    // Combinar em estrutura única por data
+    const dateMap = new Map<string, any>();
+    
+    filtered.forEach(({ id, data, color }) => {
+      data.forEach(point => {
+        if (!dateMap.has(point.date)) {
+          dateMap.set(point.date, { 
+            date: point.date, 
+            label: point.label,
+            aggregationType: point.aggregationType 
+          });
+        }
+        dateMap.get(point.date)![id] = point.position;
+      });
+    });
+
+    return Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+  })() : [];
+
+  // Preparar dados da legenda
+  const legendItems: SeriesItem[] = Array.from(allSeries.values()).map(series => {
+    const id = getSeriesId(series.keyword, series.domain);
+    return {
+      id,
+      keyword: series.keyword,
+      domain: series.domain,
+      color: series.color,
+      active: activeSeries.has(id),
+      isMain: series.domain === mainDomain,
+    };
+  });
+
+  // Preparar sumários
+  const summaries: SeriesSummary[] = Array.from(activeSeries)
+    .map(id => {
+      const series = allSeries.get(id);
+      if (!series) return null;
+      
+      const filtered = filterDataByPeriod(series.dailySeries, period);
+      const summary = calculateSummary(filtered);
+      
+      return {
+        id,
+        keyword: series.keyword,
+        domain: series.domain,
+        color: series.color,
+        current: summary.current,
+        best: summary.best,
+        positionGain: summary.percentageChange,
+      };
+    })
+    .filter((s): s is SeriesSummary => s !== null);
 
   return (
     <>
@@ -135,13 +258,37 @@ const Index = () => {
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           {/* Cabeçalho */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-2">
-              Busca de Posição na SERP
-            </h1>
-            <p className="text-muted-foreground">
-              Analise o histórico de posições no Google de qualquer palavra-chave em um domínio específico
-            </p>
+          <div className="mb-8 flex items-start justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-foreground mb-2">
+                Busca de Posição na SERP
+              </h1>
+              <p className="text-muted-foreground">
+                Analise e compare posições no Google com dados simulados persistentes
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Limpar dados salvos
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Isso apagará todas as simulações salvas. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearSavedData}>
+                    Confirmar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           {/* Formulário de Busca */}
@@ -149,36 +296,37 @@ const Index = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Search className="h-5 w-5" />
-                Buscar Performance
+                Configurar Busca
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div className="space-y-2">
-                  <Label htmlFor="keyword">Palavra-chave</Label>
-                  <Input
-                    id="keyword"
-                    placeholder="Ex: marketing digital"
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="domain">Domínio</Label>
-                  <Input
-                    id="domain"
-                    placeholder="Ex: exemplo.com.br"
-                    value={domain}
-                    onChange={(e) => setDomain(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  />
-                </div>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="main-domain">Domínio Principal</Label>
+                <Input
+                  id="main-domain"
+                  placeholder="Ex: meusite.com.br"
+                  value={mainDomain}
+                  onChange={(e) => setMainDomain(e.target.value)}
+                />
               </div>
-              <div className="flex gap-2">
+
+              <KeywordManager
+                keywords={keywords}
+                onAdd={(kw) => setKeywords([...keywords, kw.toLowerCase()])}
+                onRemove={(kw) => setKeywords(keywords.filter(k => k !== kw))}
+              />
+
+              <CompetitorManager
+                competitors={competitors}
+                onAdd={(comp) => setCompetitors([...competitors, comp.toLowerCase()])}
+                onRemove={(comp) => setCompetitors(competitors.filter(c => c !== comp))}
+                disabled={keywords.length === 0}
+              />
+
+              <div className="flex gap-2 pt-2">
                 <Button 
                   onClick={handleSearch} 
-                  disabled={isSearching}
+                  disabled={isSearching || keywords.length === 0 || !mainDomain.trim()}
                   className="flex-1 md:flex-none"
                 >
                   {isSearching ? (
@@ -198,7 +346,7 @@ const Index = () => {
                     onClick={handleClear} 
                     variant="outline"
                   >
-                    Limpar
+                    Nova Busca
                   </Button>
                 )}
               </div>
@@ -258,141 +406,102 @@ const Index = () => {
             </Card>
           )}
 
-          {/* Gráfico */}
-          {hasSearched && filteredData.length > 0 && (
+          {/* Legenda e Gráfico */}
+          {hasSearched && allSeries.size > 0 && (
             <>
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>
-                    Posição na SERP — {keyword} em {domain}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <LineChart data={filteredData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis 
-                        dataKey="date" 
-                        stroke="hsl(var(--muted-foreground))"
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        tickFormatter={(value) => {
-                          const point = filteredData.find(d => d.date === value);
-                          if (point?.label) return point.label;
-                          const date = new Date(value);
-                          return `${date.getDate()}/${date.getMonth() + 1}`;
-                        }}
-                      />
-                      <YAxis 
-                        stroke="hsl(var(--muted-foreground))"
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        domain={[1, 100]}
-                        reversed
-                        label={{ value: 'Posição (1 é melhor)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))' } }}
-                      />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--popover))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          color: 'hsl(var(--popover-foreground))',
-                        }}
-                        labelFormatter={(value) => {
-                          const point = filteredData.find(d => d.date === value);
-                          if (point?.label) {
-                            return point.label;
-                          }
-                          const date = new Date(value);
-                          const aggregationType = point?.aggregationType || 'daily';
-                          
-                          if (aggregationType === 'daily') {
-                            return date.toLocaleDateString('pt-BR');
-                          } else if (aggregationType === 'weekly') {
-                            return `Semana — ${date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`;
-                          } else {
-                            return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                          }
-                        }}
-                        formatter={(value: number, name: string, props: any) => {
-                          const aggregationType = props.payload?.aggregationType || 'daily';
-                          if (aggregationType === 'daily') {
-                            return [`${value}`, 'Posição'];
-                          }
-                          return [`${value}`, 'Posição (mediana)'];
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="position" 
-                        stroke="hsl(var(--primary))" 
-                        strokeWidth={2}
-                        dot={{ fill: 'hsl(var(--primary))', r: 3 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Resumo */}
-              {summary && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+                <div className="lg:col-span-1">
+                  <SeriesLegend
+                    series={legendItems}
+                    onToggle={handleToggleSeries}
+                  />
+                </div>
+                
+                <div className="lg:col-span-3">
                   <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Posição Atual
+                    <CardHeader>
+                      <CardTitle>
+                        Posição na SERP ao longo do tempo
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-foreground">
-                        {summary.current}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Último dia do período
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Melhor Posição
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-foreground">
-                        {summary.best}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Menor posição no período
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Ganho de Posições
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className={`text-3xl font-bold flex items-center gap-2 ${
-                        summary.percentageChange > 0 
-                          ? 'text-green-500' 
-                          : summary.percentageChange < 0 
-                            ? 'text-red-500' 
-                            : 'text-muted-foreground'
-                      }`}>
-                        {summary.percentageChange > 0 && <TrendingUp className="h-6 w-6" />}
-                        {summary.percentageChange < 0 && <TrendingDown className="h-6 w-6" />}
-                        {summary.percentageChange === 0 && <Minus className="h-6 w-6" />}
-                        {summary.percentageChange > 0 ? '+' : ''}{summary.percentageChange}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Início vs. Fim (positivo = melhora)
-                      </p>
+                      {activeSeries.size > 0 ? (
+                        <ResponsiveContainer width="100%" height={400}>
+                          <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis 
+                              dataKey="date" 
+                              stroke="hsl(var(--muted-foreground))"
+                              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                              tickFormatter={(value) => {
+                                const point = chartData.find(d => d.date === value);
+                                if (point?.label) return point.label;
+                                const date = new Date(value);
+                                return `${date.getDate()}/${date.getMonth() + 1}`;
+                              }}
+                            />
+                            <YAxis 
+                              stroke="hsl(var(--muted-foreground))"
+                              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                              domain={[1, 100]}
+                              reversed
+                              label={{ value: 'Posição (1 é melhor)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))' } }}
+                            />
+                            <Tooltip 
+                              contentStyle={{
+                                backgroundColor: 'hsl(var(--popover))',
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '8px',
+                                color: 'hsl(var(--popover-foreground))',
+                              }}
+                              labelFormatter={(value) => {
+                                const point = chartData.find(d => d.date === value);
+                                if (point?.label) return point.label;
+                                const date = new Date(value);
+                                const aggregationType = point?.aggregationType || 'daily';
+                                
+                                if (aggregationType === 'daily') {
+                                  return date.toLocaleDateString('pt-BR');
+                                } else if (aggregationType === 'weekly') {
+                                  return `Semana — ${date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`;
+                                } else {
+                                  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                                }
+                              }}
+                            />
+                            {Array.from(activeSeries).map(id => {
+                              const series = allSeries.get(id);
+                              if (!series) return null;
+                              return (
+                                <Line
+                                  key={id}
+                                  type="monotone"
+                                  dataKey={id}
+                                  stroke={series.color}
+                                  strokeWidth={2}
+                                  dot={{ fill: series.color, r: 2 }}
+                                  name={`${series.keyword} — ${series.domain}`}
+                                />
+                              );
+                            })}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                          Ative pelo menos uma série na legenda
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
-              )}
+              </div>
+
+              {/* Resumo */}
+              <SummaryCards
+                summaries={summaries}
+                selectedId={selectedSummaryId}
+                onSelectSeries={setSelectedSummaryId}
+              />
             </>
           )}
 
@@ -402,11 +511,12 @@ const Index = () => {
               <CardContent className="py-16 text-center">
                 <Search className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Faça sua primeira busca
+                  Configure sua análise
                 </h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Digite uma palavra-chave e um domínio para visualizar o histórico simulado de posições na SERP do Google.
-                  Os dados são gerados de forma determinística, garantindo consistência entre buscas.
+                  Adicione palavras-chave, defina seu domínio principal e, opcionalmente, 
+                  inclua concorrentes para comparação. Os dados são simulados de forma 
+                  determinística e persistidos localmente para consistência.
                 </p>
               </CardContent>
             </Card>

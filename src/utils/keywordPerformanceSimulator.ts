@@ -20,6 +20,17 @@ export interface PerformanceSummary {
   percentageChange: number;
 }
 
+export interface SeriesData {
+  keyword: string;
+  domain: string;
+  seedHash: number;
+  dailySeries: PerformanceDataPoint[];
+  lastGeneratedAt: string;
+  color: string;
+}
+
+const NAMESPACE = 'kwSERP::';
+
 interface StoredData {
   keyword: string;
   domain: string;
@@ -60,58 +71,95 @@ class SeededRandom {
   }
 }
 
-const STORAGE_KEY = 'serp-position-cache';
+/**
+ * Gera cor consistente a partir de um hash
+ */
+function colorFromHash(hash: number): string {
+  const hue = hash % 360;
+  const saturation = 65 + (hash % 20);
+  const lightness = 50 + (hash % 15);
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
 
 /**
- * Carrega dados do localStorage
+ * Gera chave de storage para uma série
  */
-function loadFromStorage(keyword: string, domain: string): PerformanceDataPoint[] | null {
+function seriesKey(keyword: string, domain: string): string {
+  return `${NAMESPACE}series::${keyword.toLowerCase()}::${domain.toLowerCase()}`;
+}
+
+/**
+ * Gera chave de lista de palavras por domínio
+ */
+function listKey(domain: string): string {
+  return `${NAMESPACE}list::${domain.toLowerCase()}`;
+}
+
+/**
+ * Carrega série completa do localStorage
+ */
+function loadSeriesFromStorage(keyword: string, domain: string): SeriesData | null {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const key = seriesKey(keyword, domain);
+    const stored = localStorage.getItem(key);
     if (!stored) return null;
-    
-    const cache: StoredData[] = JSON.parse(stored);
-    const found = cache.find(
-      item => item.keyword.toLowerCase() === keyword.toLowerCase() && 
-              item.domain.toLowerCase() === domain.toLowerCase()
-    );
-    
-    return found ? found.data : null;
+    return JSON.parse(stored);
   } catch {
     return null;
   }
 }
 
 /**
- * Salva dados no localStorage
+ * Salva série completa no localStorage
  */
-function saveToStorage(keyword: string, domain: string, data: PerformanceDataPoint[]): void {
+function saveSeriesToStorage(series: SeriesData): void {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    let cache: StoredData[] = stored ? JSON.parse(stored) : [];
+    const key = seriesKey(series.keyword, series.domain);
+    localStorage.setItem(key, JSON.stringify(series));
     
-    // Remove entrada antiga se existir
-    cache = cache.filter(
-      item => !(item.keyword.toLowerCase() === keyword.toLowerCase() && 
-                item.domain.toLowerCase() === domain.toLowerCase())
-    );
+    // Atualizar lista de palavras para este domínio
+    const lKey = listKey(series.domain);
+    const stored = localStorage.getItem(lKey);
+    let list: string[] = stored ? JSON.parse(stored) : [];
     
-    // Adiciona nova entrada
-    cache.push({
-      keyword,
-      domain,
-      data,
-      timestamp: Date.now()
-    });
-    
-    // Limita a 50 entradas
-    if (cache.length > 50) {
-      cache = cache.slice(-50);
+    if (!list.includes(series.keyword.toLowerCase())) {
+      list.push(series.keyword.toLowerCase());
+      localStorage.setItem(lKey, JSON.stringify(list));
     }
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
   } catch (error) {
-    console.warn('Erro ao salvar cache:', error);
+    console.warn('Erro ao salvar série:', error);
+  }
+}
+
+/**
+ * Limpa todos os dados salvos do app
+ */
+export function clearAllSavedData(): void {
+  try {
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith(NAMESPACE)) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch (error) {
+    console.warn('Erro ao limpar dados:', error);
+  }
+}
+
+/**
+ * Lista todas as séries salvas
+ */
+export function listSavedSeries(): Array<{ keyword: string; domain: string }> {
+  try {
+    const keys = Object.keys(localStorage);
+    const seriesKeys = keys.filter(key => key.startsWith(`${NAMESPACE}series::`));
+    return seriesKeys.map(key => {
+      const parts = key.replace(`${NAMESPACE}series::`, '').split('::');
+      return { keyword: parts[0], domain: parts[1] };
+    });
+  } catch {
+    return [];
   }
 }
 
@@ -161,25 +209,47 @@ async function generateRawData(keyword: string, domain: string): Promise<Perform
 }
 
 /**
- * Gera ou recupera dados persistentes
+ * Gera ou recupera série completa persistente
  */
-export async function generatePerformanceData(
+export async function getSeries(
   keyword: string,
   domain: string
-): Promise<PerformanceDataPoint[]> {
+): Promise<SeriesData> {
   // Tentar carregar do cache
-  const cached = loadFromStorage(keyword, domain);
+  const cached = loadSeriesFromStorage(keyword, domain);
   if (cached) {
     return cached;
   }
   
   // Gerar novos dados
-  const data = await generateRawData(keyword, domain);
+  const seed = await hashString(`${keyword}::${domain}`);
+  const dailySeries = await generateRawData(keyword, domain);
+  const color = colorFromHash(seed);
+  
+  const series: SeriesData = {
+    keyword,
+    domain,
+    seedHash: seed,
+    dailySeries,
+    lastGeneratedAt: new Date().toISOString(),
+    color
+  };
   
   // Salvar no cache
-  saveToStorage(keyword, domain, data);
+  saveSeriesToStorage(series);
   
-  return data;
+  return series;
+}
+
+/**
+ * Gera ou recupera dados persistentes (legacy - mantido para compatibilidade)
+ */
+export async function generatePerformanceData(
+  keyword: string,
+  domain: string
+): Promise<PerformanceDataPoint[]> {
+  const series = await getSeries(keyword, domain);
+  return series.dailySeries;
 }
 
 /**
