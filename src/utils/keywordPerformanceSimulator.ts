@@ -341,17 +341,19 @@ export function filterDataByPeriod(
   const sliced = data.slice(-days);
   
   // Agregação adaptável
-  if (period === '6months') {
+  if (days <= 30) {
+    // Dia, Semana, Mês: mostrar diário
+    return sliced.map(point => ({
+      ...point,
+      aggregationType: 'daily' as AggregationType
+    }));
+  } else if (days <= 180) {
+    // 3M e 6M: agregar por semana (mediana semanal)
     return aggregateByWeek(sliced);
-  } else if (period === '12months') {
+  } else {
+    // 12M: agregar por mês (mediana mensal)
     return aggregateByMonth(sliced);
   }
-  
-  // Períodos curtos: manter dados diários
-  return sliced.map(point => ({
-    ...point,
-    aggregationType: 'daily' as AggregationType
-  }));
 }
 
 /**

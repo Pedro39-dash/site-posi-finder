@@ -1,4 +1,4 @@
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +15,14 @@ export interface SeriesItem {
 interface SeriesLegendProps {
   series: SeriesItem[];
   onToggle: (id: string) => void;
+  onToggleAll: () => void;
 }
 
-export function SeriesLegend({ series, onToggle }: SeriesLegendProps) {
+export function SeriesLegend({ series, onToggle, onToggleAll }: SeriesLegendProps) {
   if (series.length === 0) return null;
+
+  const allActive = series.every(s => s.active);
+  const someActive = series.some(s => s.active);
 
   return (
     <Card>
@@ -27,9 +31,36 @@ export function SeriesLegend({ series, onToggle }: SeriesLegendProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
+          {/* Marcar todos */}
+          {series.length > 1 && (
+            <div className="flex items-center gap-3 pb-2 border-b border-border">
+              <Checkbox
+                id="toggle-all"
+                checked={allActive}
+                onCheckedChange={onToggleAll}
+                className={someActive && !allActive ? "opacity-50" : ""}
+              />
+              <Label 
+                htmlFor="toggle-all"
+                className="text-sm font-medium cursor-pointer"
+              >
+                {allActive ? 'Desmarcar todos' : 'Marcar todos'}
+              </Label>
+            </div>
+          )}
+
+          {/* Lista de séries */}
           {series.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div key={item.id} className="flex items-center gap-3">
+              <Checkbox
+                id={`series-${item.id}`}
+                checked={item.active}
+                onCheckedChange={() => onToggle(item.id)}
+              />
+              <Label 
+                htmlFor={`series-${item.id}`}
+                className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+              >
                 <div 
                   className="w-3 h-3 rounded-full flex-shrink-0" 
                   style={{ backgroundColor: item.color }}
@@ -47,20 +78,7 @@ export function SeriesLegend({ series, onToggle }: SeriesLegendProps) {
                     {item.domain}
                   </span>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id={`series-${item.id}`}
-                  checked={item.active}
-                  onCheckedChange={() => onToggle(item.id)}
-                />
-                <Label 
-                  htmlFor={`series-${item.id}`}
-                  className="text-xs text-muted-foreground cursor-pointer"
-                >
-                  {item.active ? 'ON' : 'OFF'}
-                </Label>
-              </div>
+              </Label>
             </div>
           ))}
         </div>

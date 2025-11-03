@@ -152,6 +152,16 @@ const Index = () => {
     });
   };
 
+  // Toggle de todas as séries
+  const handleToggleAll = () => {
+    const allActive = legendItems.every(item => activeSeries.has(item.id));
+    if (allActive) {
+      setActiveSeries(new Set());
+    } else {
+      setActiveSeries(new Set(legendItems.map(item => item.id)));
+    }
+  };
+
   if (isLoading || roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -353,6 +363,17 @@ const Index = () => {
             </CardContent>
           </Card>
 
+          {/* Bloco de Métricas */}
+          {hasSearched && summaries.length > 0 && (
+            <div className="mb-6">
+              <SummaryCards
+                summaries={summaries}
+                selectedId={selectedSummaryId}
+                onSelectSeries={setSelectedSummaryId}
+              />
+            </div>
+          )}
+
           {/* Filtro de Período */}
           {hasSearched && (
             <Card className="mb-6">
@@ -406,103 +427,92 @@ const Index = () => {
             </Card>
           )}
 
-          {/* Legenda e Gráfico */}
+          {/* Gráfico */}
           {hasSearched && allSeries.size > 0 && (
-            <>
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-                <div className="lg:col-span-1">
-                  <SeriesLegend
-                    series={legendItems}
-                    onToggle={handleToggleSeries}
-                  />
-                </div>
-                
-                <div className="lg:col-span-3">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>
-                        Posição na SERP ao longo do tempo
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {activeSeries.size > 0 ? (
-                        <ResponsiveContainer width="100%" height={400}>
-                          <LineChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                            <XAxis 
-                              dataKey="date" 
-                              stroke="hsl(var(--muted-foreground))"
-                              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                              tickFormatter={(value) => {
-                                const point = chartData.find(d => d.date === value);
-                                if (point?.label) return point.label;
-                                const date = new Date(value);
-                                return `${date.getDate()}/${date.getMonth() + 1}`;
-                              }}
-                            />
-                            <YAxis 
-                              stroke="hsl(var(--muted-foreground))"
-                              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                              domain={[1, 100]}
-                              reversed
-                              label={{ value: 'Posição (1 é melhor)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))' } }}
-                            />
-                            <Tooltip 
-                              contentStyle={{
-                                backgroundColor: 'hsl(var(--popover))',
-                                border: '1px solid hsl(var(--border))',
-                                borderRadius: '8px',
-                                color: 'hsl(var(--popover-foreground))',
-                              }}
-                              labelFormatter={(value) => {
-                                const point = chartData.find(d => d.date === value);
-                                if (point?.label) return point.label;
-                                const date = new Date(value);
-                                const aggregationType = point?.aggregationType || 'daily';
-                                
-                                if (aggregationType === 'daily') {
-                                  return date.toLocaleDateString('pt-BR');
-                                } else if (aggregationType === 'weekly') {
-                                  return `Semana — ${date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`;
-                                } else {
-                                  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                                }
-                              }}
-                            />
-                            {Array.from(activeSeries).map(id => {
-                              const series = allSeries.get(id);
-                              if (!series) return null;
-                              return (
-                                <Line
-                                  key={id}
-                                  type="monotone"
-                                  dataKey={id}
-                                  stroke={series.color}
-                                  strokeWidth={2}
-                                  dot={{ fill: series.color, r: 2 }}
-                                  name={`${series.keyword} — ${series.domain}`}
-                                />
-                              );
-                            })}
-                          </LineChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-                          Ative pelo menos uma série na legenda
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>
+                  Posição na SERP ao longo do tempo
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {activeSeries.size > 0 ? (
+                  <ResponsiveContainer width="100%" height={400}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="hsl(var(--muted-foreground))"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={(value) => {
+                          const point = chartData.find(d => d.date === value);
+                          if (point?.label) return point.label;
+                          const date = new Date(value);
+                          return `${date.getDate()}/${date.getMonth() + 1}`;
+                        }}
+                      />
+                      <YAxis 
+                        stroke="hsl(var(--muted-foreground))"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        domain={[1, 100]}
+                        reversed
+                        label={{ value: 'Posição (1 é melhor)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))' } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--popover))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          color: 'hsl(var(--popover-foreground))',
+                        }}
+                        labelFormatter={(value) => {
+                          const point = chartData.find(d => d.date === value);
+                          if (point?.label) return point.label;
+                          const date = new Date(value);
+                          const aggregationType = point?.aggregationType || 'daily';
+                          
+                          if (aggregationType === 'daily') {
+                            return date.toLocaleDateString('pt-BR');
+                          } else if (aggregationType === 'weekly') {
+                            return `Semana — ${date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`;
+                          } else {
+                            return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                          }
+                        }}
+                      />
+                      {Array.from(activeSeries).map(id => {
+                        const series = allSeries.get(id);
+                        if (!series) return null;
+                        return (
+                          <Line
+                            key={id}
+                            type="monotone"
+                            dataKey={id}
+                            stroke={series.color}
+                            strokeWidth={2}
+                            dot={{ fill: series.color, r: 2 }}
+                            name={`${series.keyword} — ${series.domain}`}
+                          />
+                        );
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                    Ative pelo menos uma série na legenda
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-              {/* Resumo */}
-              <SummaryCards
-                summaries={summaries}
-                selectedId={selectedSummaryId}
-                onSelectSeries={setSelectedSummaryId}
-              />
-            </>
+          {/* Lista de Séries */}
+          {hasSearched && allSeries.size > 0 && (
+            <SeriesLegend
+              series={legendItems}
+              onToggle={handleToggleSeries}
+              onToggleAll={handleToggleAll}
+            />
           )}
 
           {/* Estado vazio */}
