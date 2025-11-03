@@ -186,10 +186,10 @@ async function generateRawData(
   const data: PerformanceDataPoint[] = [];
   const days = 365;
   
-  // Configuração inicial baseada na semente
-  const startPosition = Math.floor(rng.range(20, 80)); // Posição inicial entre 20 e 80
+  // Configuração inicial baseada na semente - maior variação
+  const startPosition = Math.floor(rng.range(5, 95)); // Posição inicial entre 5 e 95
   const trendDirection = rng.next() > 0.5 ? -1 : 1; // -1 = melhora (diminui), 1 = piora (aumenta)
-  const trendStrength = rng.range(0.05, 0.15); // Força da tendência
+  const trendStrength = rng.range(0.05, 0.2); // Força da tendência aumentada
   
   const today = new Date();
   let currentPosition = startPosition;
@@ -199,9 +199,9 @@ async function generateRawData(
     date.setDate(date.getDate() - i);
     const dateKey = date.toISOString().split('T')[0];
     
-    // Variação diária pequena (±1 a ±3 posições)
-    const trendChange = trendDirection * trendStrength * (rng.next() > 0.7 ? 1 : 0);
-    const randomChange = Math.floor((rng.next() - 0.5) * 6); // -3 a +3
+    // Variação diária maior para mais dinamismo
+    const trendChange = trendDirection * trendStrength * (rng.next() > 0.6 ? 1 : 0);
+    const randomChange = Math.floor((rng.next() - 0.5) * 10); // -5 a +5
     
     currentPosition += trendChange + randomChange;
     
@@ -212,7 +212,11 @@ async function generateRawData(
     let position = Math.round(currentPosition);
     
     // Verificar se a posição já está ocupada neste dia
-    if (occupiedPositions && occupiedPositions[dateKey]) {
+    if (occupiedPositions) {
+      if (!occupiedPositions[dateKey]) {
+        occupiedPositions[dateKey] = new Set();
+      }
+      
       let attempts = 0;
       const maxAttempts = 100;
       
