@@ -7,7 +7,7 @@ export type PeriodFilter = 'day' | 'week' | 'month' | '3months' | '6months' | '1
 
 export interface PerformanceDataPoint {
   date: string;
-  visibility: number; // 0-100
+  position: number; // 1-100 (1 = melhor, 100 = pior)
 }
 
 export interface PerformanceSummary {
@@ -51,6 +51,7 @@ class SeededRandom {
 
 /**
  * Gera série completa de dados para 12 meses (365 dias)
+ * Simula posições na SERP (1 = melhor, 100 = pior)
  */
 export async function generatePerformanceData(
   keyword: string,
@@ -63,31 +64,33 @@ export async function generatePerformanceData(
   const days = 365;
   
   // Configuração inicial baseada na semente
-  const baseValue = rng.range(30, 70); // Valor base entre 30 e 70
-  const trendDirection = rng.next() > 0.5 ? 1 : -1; // Tendência positiva ou negativa
-  const trendStrength = rng.range(0.02, 0.08); // Força da tendência
-  const volatility = rng.range(3, 8); // Volatilidade do ruído
-
+  const startPosition = Math.floor(rng.range(20, 80)); // Posição inicial entre 20 e 80
+  const trendDirection = rng.next() > 0.5 ? -1 : 1; // -1 = melhora (diminui), 1 = piora (aumenta)
+  const trendStrength = rng.range(0.05, 0.15); // Força da tendência
+  
   const today = new Date();
+  let currentPosition = startPosition;
   
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
     
-    // Cálculo do valor com tendência + ruído
+    // Variação diária pequena (±1 a ±3 posições)
     const dayProgress = (days - i) / days;
-    const trend = trendDirection * trendStrength * dayProgress * 100;
-    const noise = (rng.next() - 0.5) * volatility * 2;
-    const seasonality = Math.sin(dayProgress * Math.PI * 4) * 3; // Variação sazonal
+    const trendChange = trendDirection * trendStrength * (rng.next() > 0.7 ? 1 : 0);
+    const randomChange = Math.floor((rng.next() - 0.5) * 6); // -3 a +3
     
-    let visibility = baseValue + trend + noise + seasonality;
+    currentPosition += trendChange + randomChange;
     
-    // Limitar entre 0 e 100
-    visibility = Math.max(0, Math.min(100, visibility));
+    // Limitar entre 1 e 100
+    currentPosition = Math.max(1, Math.min(100, currentPosition));
+    
+    // Arredondar para inteiro
+    const position = Math.round(currentPosition);
     
     data.push({
       date: date.toISOString().split('T')[0],
-      visibility: Math.round(visibility * 10) / 10, // 1 casa decimal
+      position: position,
     });
   }
 
@@ -115,7 +118,7 @@ export function filterDataByPeriod(
 }
 
 /**
- * Calcula o resumo dos dados
+ * Calcula o resumo dos dados de posição SERP
  */
 export function calculateSummary(
   data: PerformanceDataPoint[]
@@ -124,21 +127,20 @@ export function calculateSummary(
     return {
       current: 0,
       best: 0,
-      percentageChange: 0,
+      percentageChange: 0, // Agora representa "ganho de posições"
     };
   }
 
-  const current = data[data.length - 1].visibility;
-  const best = Math.max(...data.map(d => d.visibility));
-  const first = data[0].visibility;
+  const current = data[data.length - 1].position;
+  const best = Math.min(...data.map(d => d.position)); // Melhor = menor número
+  const first = data[0].position;
   
-  const percentageChange = first !== 0 
-    ? ((current - first) / first) * 100 
-    : 0;
+  // Ganho de posições: positivo = melhora (subiu posições)
+  const positionGain = first - current;
 
   return {
-    current: Math.round(current * 10) / 10,
-    best: Math.round(best * 10) / 10,
-    percentageChange: Math.round(percentageChange * 10) / 10,
+    current: current,
+    best: best,
+    percentageChange: positionGain, // Reutilizando campo para ganho de posições
   };
 }

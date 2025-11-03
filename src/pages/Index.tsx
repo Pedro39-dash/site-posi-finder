@@ -71,7 +71,7 @@ const Index = () => {
       
       toast({
         title: "Busca concluída",
-        description: `Dados carregados para "${keyword}" em ${domain}`,
+        description: `Posições SERP carregadas para "${keyword}" em ${domain}`,
       });
     } catch (error) {
       toast({
@@ -123,12 +123,12 @@ const Index = () => {
   return (
     <>
       <Helmet>
-        <title>Busca de Performance de Palavra-Chave - ITX Company</title>
+        <title>Busca de Posição na SERP - ITX Company</title>
         <meta 
           name="description" 
-          content="Analise o desempenho de palavras-chave em qualquer domínio com dados simulados determinísticos." 
+          content="Analise a posição de palavras-chave na SERP do Google para qualquer domínio com dados simulados determinísticos." 
         />
-        <meta name="keywords" content="seo, palavras-chave, performance, visibilidade, análise" />
+        <meta name="keywords" content="seo, palavras-chave, serp, posição google, ranking, análise" />
         <link rel="canonical" href="/" />
       </Helmet>
       
@@ -137,10 +137,10 @@ const Index = () => {
           {/* Cabeçalho */}
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-2">
-              Busca de Performance de Palavra-Chave
+              Busca de Posição na SERP
             </h1>
             <p className="text-muted-foreground">
-              Analise o desempenho histórico de qualquer palavra-chave em um domínio específico
+              Analise o histórico de posições no Google de qualquer palavra-chave em um domínio específico
             </p>
           </div>
 
@@ -264,18 +264,12 @@ const Index = () => {
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle>
-                    Índice de Visibilidade - {keyword} em {domain}
+                    Posição na SERP — {keyword} em {domain}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={400}>
-                    <AreaChart data={filteredData}>
-                      <defs>
-                        <linearGradient id="colorVisibility" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
+                    <LineChart data={filteredData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
                         dataKey="date" 
@@ -289,7 +283,9 @@ const Index = () => {
                       <YAxis 
                         stroke="hsl(var(--muted-foreground))"
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        domain={[0, 100]}
+                        domain={[1, 100]}
+                        reversed
+                        label={{ value: 'Posição (1 é melhor)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))' } }}
                       />
                       <Tooltip 
                         contentStyle={{
@@ -300,18 +296,18 @@ const Index = () => {
                         }}
                         labelFormatter={(value) => {
                           const date = new Date(value);
-                          return date.toLocaleDateString('pt-BR');
+                          return `Data: ${date.toLocaleDateString('pt-BR')}`;
                         }}
-                        formatter={(value: number) => [`${value.toFixed(1)}`, 'Visibilidade']}
+                        formatter={(value: number) => [`${value}`, 'Posição']}
                       />
-                      <Area 
+                      <Line 
                         type="monotone" 
-                        dataKey="visibility" 
+                        dataKey="position" 
                         stroke="hsl(var(--primary))" 
                         strokeWidth={2}
-                        fill="url(#colorVisibility)"
+                        dot={{ fill: 'hsl(var(--primary))', r: 3 }}
                       />
-                    </AreaChart>
+                    </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
@@ -322,15 +318,15 @@ const Index = () => {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Valor Atual
+                        Posição Atual
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-3xl font-bold text-foreground">
-                        {summary.current.toFixed(1)}
+                        {summary.current}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Último ponto do período
+                        Último dia do período
                       </p>
                     </CardContent>
                   </Card>
@@ -338,15 +334,15 @@ const Index = () => {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Melhor Valor
+                        Melhor Posição
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-3xl font-bold text-foreground">
-                        {summary.best.toFixed(1)}
+                        {summary.best}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Pico no período selecionado
+                        Menor posição no período
                       </p>
                     </CardContent>
                   </Card>
@@ -354,7 +350,7 @@ const Index = () => {
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Variação
+                        Ganho de Posições
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -368,10 +364,10 @@ const Index = () => {
                         {summary.percentageChange > 0 && <TrendingUp className="h-6 w-6" />}
                         {summary.percentageChange < 0 && <TrendingDown className="h-6 w-6" />}
                         {summary.percentageChange === 0 && <Minus className="h-6 w-6" />}
-                        {summary.percentageChange > 0 ? '+' : ''}{summary.percentageChange.toFixed(1)}%
+                        {summary.percentageChange > 0 ? '+' : ''}{summary.percentageChange}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Início vs. Fim do período
+                        Início vs. Fim (positivo = melhora)
                       </p>
                     </CardContent>
                   </Card>
@@ -389,7 +385,7 @@ const Index = () => {
                   Faça sua primeira busca
                 </h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Digite uma palavra-chave e um domínio para visualizar dados simulados de performance ao longo do tempo.
+                  Digite uma palavra-chave e um domínio para visualizar o histórico simulado de posições na SERP do Google.
                   Os dados são gerados de forma determinística, garantindo consistência entre buscas.
                 </p>
               </CardContent>
