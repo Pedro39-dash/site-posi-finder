@@ -1,19 +1,30 @@
 /**
  * Gerador determinístico de dados de performance de palavra-chave
  * Usa hash SHA-256 para criar uma semente baseada em "palavra-chave::domínio"
+ * Com persistência em localStorage e agregação adaptável por período
  */
 
 export type PeriodFilter = 'day' | 'week' | 'month' | '3months' | '6months' | '12months';
+export type AggregationType = 'daily' | 'weekly' | 'monthly';
 
 export interface PerformanceDataPoint {
   date: string;
   position: number; // 1-100 (1 = melhor, 100 = pior)
+  aggregationType?: AggregationType;
+  label?: string; // Label customizado para tooltip
 }
 
 export interface PerformanceSummary {
   current: number;
   best: number;
   percentageChange: number;
+}
+
+interface StoredData {
+  keyword: string;
+  domain: string;
+  data: PerformanceDataPoint[];
+  timestamp: number;
 }
 
 /**
@@ -49,14 +60,66 @@ class SeededRandom {
   }
 }
 
+const STORAGE_KEY = 'serp-position-cache';
+
+/**
+ * Carrega dados do localStorage
+ */
+function loadFromStorage(keyword: string, domain: string): PerformanceDataPoint[] | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    
+    const cache: StoredData[] = JSON.parse(stored);
+    const found = cache.find(
+      item => item.keyword.toLowerCase() === keyword.toLowerCase() && 
+              item.domain.toLowerCase() === domain.toLowerCase()
+    );
+    
+    return found ? found.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Salva dados no localStorage
+ */
+function saveToStorage(keyword: string, domain: string, data: PerformanceDataPoint[]): void {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    let cache: StoredData[] = stored ? JSON.parse(stored) : [];
+    
+    // Remove entrada antiga se existir
+    cache = cache.filter(
+      item => !(item.keyword.toLowerCase() === keyword.toLowerCase() && 
+                item.domain.toLowerCase() === domain.toLowerCase())
+    );
+    
+    // Adiciona nova entrada
+    cache.push({
+      keyword,
+      domain,
+      data,
+      timestamp: Date.now()
+    });
+    
+    // Limita a 50 entradas
+    if (cache.length > 50) {
+      cache = cache.slice(-50);
+    }
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+  } catch (error) {
+    console.warn('Erro ao salvar cache:', error);
+  }
+}
+
 /**
  * Gera série completa de dados para 12 meses (365 dias)
  * Simula posições na SERP (1 = melhor, 100 = pior)
  */
-export async function generatePerformanceData(
-  keyword: string,
-  domain: string
-): Promise<PerformanceDataPoint[]> {
+async function generateRawData(keyword: string, domain: string): Promise<PerformanceDataPoint[]> {
   const seed = await hashString(`${keyword}::${domain}`);
   const rng = new SeededRandom(seed);
 
@@ -76,7 +139,6 @@ export async function generatePerformanceData(
     date.setDate(date.getDate() - i);
     
     // Variação diária pequena (±1 a ±3 posições)
-    const dayProgress = (days - i) / days;
     const trendChange = trendDirection * trendStrength * (rng.next() > 0.7 ? 1 : 0);
     const randomChange = Math.floor((rng.next() - 0.5) * 6); // -3 a +3
     
@@ -91,6 +153,7 @@ export async function generatePerformanceData(
     data.push({
       date: date.toISOString().split('T')[0],
       position: position,
+      aggregationType: 'daily'
     });
   }
 
@@ -98,7 +161,98 @@ export async function generatePerformanceData(
 }
 
 /**
- * Filtra os dados de acordo com o período selecionado
+ * Gera ou recupera dados persistentes
+ */
+export async function generatePerformanceData(
+  keyword: string,
+  domain: string
+): Promise<PerformanceDataPoint[]> {
+  // Tentar carregar do cache
+  const cached = loadFromStorage(keyword, domain);
+  if (cached) {
+    return cached;
+  }
+  
+  // Gerar novos dados
+  const data = await generateRawData(keyword, domain);
+  
+  // Salvar no cache
+  saveToStorage(keyword, domain, data);
+  
+  return data;
+}
+
+/**
+ * Calcula mediana de um array de números
+ */
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 
+    ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+    : sorted[mid];
+}
+
+/**
+ * Agrupa dados diários em semanais (mediana)
+ */
+function aggregateByWeek(data: PerformanceDataPoint[]): PerformanceDataPoint[] {
+  const weeks: { [key: string]: number[] } = {};
+  
+  data.forEach(point => {
+    const date = new Date(point.date);
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay()); // Domingo da semana
+    const weekKey = weekStart.toISOString().split('T')[0];
+    
+    if (!weeks[weekKey]) {
+      weeks[weekKey] = [];
+    }
+    weeks[weekKey].push(point.position);
+  });
+  
+  return Object.entries(weeks).map(([date, positions]) => {
+    const weekDate = new Date(date);
+    const weekNum = Math.ceil((weekDate.getDate() + weekDate.getDay()) / 7);
+    return {
+      date,
+      position: median(positions),
+      aggregationType: 'weekly' as AggregationType,
+      label: `Semana ${weekNum} — ${weekDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`
+    };
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Agrupa dados diários em mensais (mediana)
+ */
+function aggregateByMonth(data: PerformanceDataPoint[]): PerformanceDataPoint[] {
+  const months: { [key: string]: number[] } = {};
+  
+  data.forEach(point => {
+    const date = new Date(point.date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+    
+    if (!months[monthKey]) {
+      months[monthKey] = [];
+    }
+    months[monthKey].push(point.position);
+  });
+  
+  return Object.entries(months).map(([date, positions]) => {
+    const monthDate = new Date(date);
+    return {
+      date,
+      position: median(positions),
+      aggregationType: 'monthly' as AggregationType,
+      label: monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    };
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Filtra os dados de acordo com o período selecionado e aplica agregação quando necessário
  */
 export function filterDataByPeriod(
   data: PerformanceDataPoint[],
@@ -114,7 +268,20 @@ export function filterDataByPeriod(
   };
 
   const days = periodMap[period];
-  return data.slice(-days);
+  const sliced = data.slice(-days);
+  
+  // Agregação adaptável
+  if (period === '6months') {
+    return aggregateByWeek(sliced);
+  } else if (period === '12months') {
+    return aggregateByMonth(sliced);
+  }
+  
+  // Períodos curtos: manter dados diários
+  return sliced.map(point => ({
+    ...point,
+    aggregationType: 'daily' as AggregationType
+  }));
 }
 
 /**

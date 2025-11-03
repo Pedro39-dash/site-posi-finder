@@ -57,9 +57,9 @@ const Index = () => {
     
     try {
       // Simular delay de busca
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Gerar dados determinísticos
+      // Gerar ou recuperar dados persistentes
       const data = await generatePerformanceData(keyword.trim(), domain.trim());
       setFullData(data);
       
@@ -70,13 +70,13 @@ const Index = () => {
       setHasSearched(true);
       
       toast({
-        title: "Busca concluída",
-        description: `Posições SERP carregadas para "${keyword}" em ${domain}`,
+        title: "Dados carregados",
+        description: `Histórico de posições recuperado para "${keyword}" em ${domain}`,
       });
     } catch (error) {
       toast({
         title: "Erro na busca",
-        description: "Não foi possível gerar os dados. Tente novamente.",
+        description: "Não foi possível carregar os dados. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -276,6 +276,8 @@ const Index = () => {
                         stroke="hsl(var(--muted-foreground))"
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
                         tickFormatter={(value) => {
+                          const point = filteredData.find(d => d.date === value);
+                          if (point?.label) return point.label;
                           const date = new Date(value);
                           return `${date.getDate()}/${date.getMonth() + 1}`;
                         }}
@@ -295,10 +297,28 @@ const Index = () => {
                           color: 'hsl(var(--popover-foreground))',
                         }}
                         labelFormatter={(value) => {
+                          const point = filteredData.find(d => d.date === value);
+                          if (point?.label) {
+                            return point.label;
+                          }
                           const date = new Date(value);
-                          return `Data: ${date.toLocaleDateString('pt-BR')}`;
+                          const aggregationType = point?.aggregationType || 'daily';
+                          
+                          if (aggregationType === 'daily') {
+                            return date.toLocaleDateString('pt-BR');
+                          } else if (aggregationType === 'weekly') {
+                            return `Semana — ${date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`;
+                          } else {
+                            return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                          }
                         }}
-                        formatter={(value: number) => [`${value}`, 'Posição']}
+                        formatter={(value: number, name: string, props: any) => {
+                          const aggregationType = props.payload?.aggregationType || 'daily';
+                          if (aggregationType === 'daily') {
+                            return [`${value}`, 'Posição'];
+                          }
+                          return [`${value}`, 'Posição (mediana)'];
+                        }}
                       />
                       <Line 
                         type="monotone" 
